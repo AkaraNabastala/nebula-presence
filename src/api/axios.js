@@ -9,13 +9,15 @@ const api = axios.create({
     }
 });
 
-// --- SURGICAL INTERCEPTOR (Penyaring Otomatis) ---
 api.interceptors.response.use(
-  (response) => response, // Jika sukses, lewatkan saja
+  (response) => {
+    if (response.data && response.data.hasOwnProperty('data')) {
+        response.data = response.data.data;
+    }
+    return response;
+  },
   (error) => {
-    // Jika server kirim 403 (Lisensi Mati)
     if (error.response && error.response.status === 403) {
-      // Kirim "Sinyal Rahasia" ke App.jsx tanpa perlu refresh halaman
       window.dispatchEvent(new Event("licenseExpired"));
     }
     return Promise.reject(error);

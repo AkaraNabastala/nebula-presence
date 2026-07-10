@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
+const cookieParser = require('cookie-parser'); // <-- TAMBAHAN 1: Cookie Parser
 require('dotenv').config();
 
 // --- IMPORTS ---
@@ -22,9 +23,9 @@ const strictGuard = require('./middleware/strictGuard');
 const app = express();
 const PORT = process.env.PORT || 6990;
 
-// Tentukan path frontend secara eksplisit
-// Sesuaikan '../../src/dist' dengan lokasi folder 'dist' hasil build React Anda
-const FRONTEND_BUILD_PATH = path.join(__dirname, 'dist');
+// --- PERBAIKAN PATH (PENTING UNTUK EXE STANDALONE) ---
+// Menggunakan process.cwd() agar aplikasi mencari folder dist di mana file .exe dijalankan
+const FRONTEND_BUILD_PATH = path.join(process.cwd(), 'dist');
 
 // --- 2. MIDDLEWARE KEAMANAN & OPTIMASI ---
 app.use(helmet({ 
@@ -32,6 +33,7 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false 
 }));
 app.use(compression()); 
+app.use(cookieParser()); // <-- TAMBAHAN 2: Gunakan Cookie Parser untuk baca token
 
 // --- 3. KONFIGURASI CORS ---
 const corsOptions = {
@@ -45,7 +47,6 @@ const corsOptions = {
         callback(new Error('Akses Ditolak oleh CORS Policy'));
     },
     credentials: true,
-    // TAMBAHKAN BARIS DI BAWAH INI:
     exposedHeaders: ['Content-Disposition'] 
 };
 
@@ -55,21 +56,18 @@ app.use(express.urlencoded({ limit: '70mb', extended: true }));
 
 // --- 4. ROUTING ---
 
-// A. API Routes (Harus didaftarkan pertama)
+// A. API Routes
 app.use('/api', strictGuard, apiRoutes); 
 
-// B. File Statis (CSS, JS, Gambar dari React)
+// B. File Statis
 app.use(express.static(FRONTEND_BUILD_PATH));
 
-// C. FALLBACK ROUTE (Solusi Anti-Error Path)
-// Kita gunakan middleware tanpa string path agar tidak memicu 'PathError'
+// C. FALLBACK ROUTE
 app.use((req, res, next) => {
-    // Jika request diawali /api tapi tidak ditemukan rutenya, biarkan lanjut ke error handling
     if (req.url.startsWith('/api')) {
         return next();
     }
 
-    // Untuk semua request halaman (browser), kirimkan index.html (React Router)
     const indexPath = path.join(FRONTEND_BUILD_PATH, 'index.html');
     
     if (fs.existsSync(indexPath)) {
@@ -102,13 +100,12 @@ const startServer = async () => {
     console.log(`🛠️  Starting SI-MAS Standalone Server...`);
     
     try {
-        // Inisialisasi Database (Memastikan tabel sudah ada)
         await initSystem();
         
         const server = app.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 Server Running on Port: ${PORT}`);
             console.log(`🌍 URL: http://localhost:${PORT}`);
-            console.log(`📁 Frontend: ${FRONTEND_BUILD_PATH}`);
+            console.log(`📁 Frontend Path: ${FRONTEND_BUILD_PATH}`);
             console.log(`=================================================`);
         });
 

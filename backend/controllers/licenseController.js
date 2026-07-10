@@ -2,9 +2,35 @@ const { pool } = require('../config/database');
 const fs = require('fs-extra');
 const CryptoJS = require("crypto-js");
 const { checkLicenseInternal, processActivationData, saveLicenseFile, LICENSE_PATH, SECRET_KEY } = require('../utils/licenseManager');
+const { machineIdSync } = require('node-machine-id'); // <-- TAMBAHAN 1: Import pembaca ID Hardware
 
-exports.checkStatus = (req, res) => {
+// Mengubah menjadi async karena kita perlu melakukan query HWID ke database
+exports.checkStatus = async (req, res) => {
     const status = checkLicenseInternal();
+
+    // <-- MULAI TAMBAHAN 2: Validasi Anti-Copy Paste File / Folder Lisensi
+    // Kita cek HWID hardware fisik dengan HWID yang tersimpan di database saat aktivasi
+    if (status.valid) {
+        try {
+            const hwidSaatIni = machineIdSync();
+            const dbHwid = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'hardware_id'");
+
+            if (dbHwid.rowCount > 0) {
+                const hwidTersimpan = dbHwid.rows[0].setting_value;
+                if (hwidSaatIni !== hwidTersimpan) {
+                    return res.status(403).json({
+                        valid: false,
+                        isLocked: true,
+                        message: "PELANGGARAN LISENSI: Aplikasi tidak sah! Terdeteksi pemindahan ke komputer lain."
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("Gagal memvalidasi HWID:", err.message);
+        }
+    }
+    // <-- AKHIR TAMBAHAN 2
+
     if (!status.valid) return res.status(403).json({ ...status, isLocked: true });
     res.json(status);
 };
@@ -16,6 +42,8 @@ exports.activate = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+
+        const hwidKlien = machineIdSync(); // <-- TAMBAHAN 3: Ambil ID Hardware saat proses aktivasi dimulai
 
         // 1. Hashing kode untuk pengecekan di Database
         const codeHash = CryptoJS.SHA256(code).toString();
@@ -60,7 +88,8 @@ exports.activate = async (req, res) => {
         const finalData = {
             owner: newData.owner,
             createdAt: new Date().toISOString(),
-            expired: finalExpiredDate.toISOString()
+            expired: finalExpiredDate.toISOString(),
+            hwid: hwidKlien // <-- TAMBAHAN 4: Menyisipkan HWID ke dalam file `license.key` yang akan dienkripsi
         };
 
         // 4. Simpan ke File fisik (license.key)
@@ -78,6 +107,15 @@ exports.activate = async (req, res) => {
             ON CONFLICT (setting_key) 
             DO UPDATE SET setting_value = $1
         `, [finalData.owner]);
+
+        // <-- MULAI TAMBAHAN 5: Menyimpan HWID ke database app_settings sebagai kunci pembanding
+        await client.query(`
+            INSERT INTO app_settings (setting_key, setting_value) 
+            VALUES ('hardware_id', $1) 
+            ON CONFLICT (setting_key) 
+            DO UPDATE SET setting_value = $1
+        `, [hwidKlien]);
+        // <-- AKHIR TAMBAHAN 5
 
         await client.query('COMMIT');
         res.json({ success: true, message: "Aktivasi Berhasil! Sistem Anda kini aktif." });

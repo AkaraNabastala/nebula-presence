@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 exports.login = async (req, res) => {
     const { username, password } = req.body;
@@ -10,6 +11,21 @@ exports.login = async (req, res) => {
         if (!await bcrypt.compare(password, r.rows[0].password)) return res.status(401).json({ message: "Password salah" });
         
         const user = r.rows[0]; delete user.password;
+
+       
+        const token = jwt.sign(
+            { id: user.id, username: user.username }, 
+            process.env.JWT_SECRET || 'kunci_rahasia_sementara',
+            { expiresIn: '1d' }
+        );
+
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000
+        });
+
         res.json({ success: true, user });
     } catch (e) { res.status(500).json({ message: "Internal Error" }); }
 };
