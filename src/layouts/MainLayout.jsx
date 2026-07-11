@@ -2,315 +2,284 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, ClipboardList, Settings, 
-  LogOut, Menu, X, User, ChevronDown, Key, 
-  Database, Shield, PieChart, Download, UploadCloud, 
-  Users, Building2, RefreshCcw, AlertTriangle 
+  LogOut, Menu, X, ChevronDown, 
+  Database, UploadCloud, Users, Building2, 
+  AlertTriangle, ShieldCheck
 } from 'lucide-react';
 import api from '../api/axios';
 
-// Import Default Assets
 import logoNabastala from '../assets/logo-nabastala.png'; 
 
 const MainLayout = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentLogo, setCurrentLogo] = useState(logoNabastala);
-  const [showLogoutModal, setShowLogoutModal] = useState(false); // State Modal Logout
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [openMenus, setOpenMenus] = useState({});
+  const [greeting, setGreeting] = useState('');
   
-  // --- STATE MENU DROPDOWN ---
-  // PERBAIKAN: Set default 'master' menjadi false agar tertutup saat awal
-  const [openMenus, setOpenMenus] = useState({
-    master: false, 
-    absensi: false, 
-    database: false,
-    system: false
-  });
-  
-  // --- 1. AMBIL DATA USER (Helper) ---
   const getSafeUser = () => {
     try {
       const storedUser = localStorage.getItem('user');
-      if (!storedUser || storedUser === "undefined") return null;
-      return JSON.parse(storedUser);
+      return (!storedUser || storedUser === "undefined") ? null : JSON.parse(storedUser);
     } catch (error) {
-      localStorage.removeItem('user');
       return null;
     }
   };
 
-  // State untuk data user agar reaktif terhadap perubahan profil
   const [userData, setUserData] = useState(getSafeUser());
 
-  // --- 2. EFFECT: DENGARKAN PERUBAHAN & AMBIL LOGO ---
   useEffect(() => {
-    // Fungsi update state saat profil diubah
-    const handleUserUpdate = () => {
-      setUserData(getSafeUser());
-    };
+    // Set Sapaan berdasarkan waktu
+    const hour = new Date().getHours();
+    if (hour < 11) setGreeting('Selamat Pagi 🌤️');
+    else if (hour < 15) setGreeting('Selamat Siang ☀️');
+    else if (hour < 18) setGreeting('Selamat Sore ⛅');
+    else setGreeting('Selamat Malam 🌙');
 
-    // Fungsi ambil logo instansi
+    const handleUserUpdate = () => setUserData(getSafeUser());
     const fetchSettings = async () => {
       try {
         const res = await api.get('/settings');
         const logo = res.data?.logo_sekolah || res.data?.logo_instansi;
-        if (logo && logo.trim() !== "") {
-            setCurrentLogo(logo);
-        }
-      } catch (error) {
-        console.error("Gagal memuat pengaturan layout.");
-      }
+        if (logo && logo.trim() !== "") setCurrentLogo(logo);
+      } catch (error) {}
     };
 
     fetchSettings();
     window.addEventListener("userUpdated", handleUserUpdate);
-
-    return () => {
-      window.removeEventListener("userUpdated", handleUserUpdate);
-    };
+    return () => window.removeEventListener("userUpdated", handleUserUpdate);
   }, []);
 
-  // --- 3. VARIABEL DISPLAY ---
   const userDisplay = {
     name: userData?.nama || userData?.nama_admin || 'Administrator',
-    role: 'Super Admin', 
-    photo: userData?.foto || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.nama || 'Admin')}&background=0f172a&color=fff&size=128&bold=true`
+    role: 'Sistem Admin', 
+    photo: userData?.foto || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.nama || 'Admin')}&background=c7d2fe&color=3730a3&bold=true`
   };
 
-  // --- 4. STRUKTUR MENU UNIVERSAL ---
-  const menuGroups = [
+  // --- MENU DENGAN WARNA IDENTITAS (VIBRANT) ---
+  const menuItems = [
+    { 
+        name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard, 
+        color: 'text-blue-500', activeBg: 'bg-blue-50', activeText: 'text-blue-700' 
+    },
     {
-        title: 'UTAMA',
-        items: [
-            { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard }
+        name: 'Data Master', key: 'master', icon: Database, 
+        color: 'text-violet-500', activeBg: 'bg-violet-50', activeText: 'text-violet-700',
+        subMenu: [
+            { name: 'Direktori Anggota', path: '/admin/members' },
+            { name: 'Struktur Divisi', path: '/admin/divisions' },
         ]
     },
     {
-        title: 'DATA MASTER',
-        key: 'master',
-        icon: Database, 
-        items: [
-            { name: 'Data Anggota', path: '/admin/members', icon: Users },
-            { name: 'Data Divisi', path: '/admin/divisions', icon: Building2 },
+        name: 'Presensi', key: 'absensi', icon: ClipboardList, 
+        color: 'text-emerald-500', activeBg: 'bg-emerald-50', activeText: 'text-emerald-700',
+        subMenu: [
+            { name: 'Log Kehadiran', path: '/admin/attendance-manual' },
+            { name: 'Laporan Rekap', path: '/admin/reports' },
         ]
     },
     {
-        title: 'PRESENSI', 
-        key: 'absensi',
-        icon: ClipboardList,
-        items: [
-            { name: 'Presensi Manual', path: '/admin/attendance-manual', icon: ClipboardList },
-            { name: 'Laporan Kehadiran', path: '/admin/reports', icon: PieChart },
+        name: 'Database', key: 'database', icon: UploadCloud, 
+        color: 'text-amber-500', activeBg: 'bg-amber-50', activeText: 'text-amber-700',
+        subMenu: [
+            { name: 'Backup Data', path: '/admin/backup' },
+            { name: 'Restore Data', path: '/admin/restore' },
         ]
     },
     {
-        title: 'DATABASE',
-        key: 'database',
-        icon: UploadCloud,
-        items: [
-            { name: 'Backup Data', path: '/admin/backup', icon: Download },
-            { name: 'Restore Data', path: '/admin/restore', icon: RefreshCcw }, 
-        ]
-    },
-    {
-        title: 'SISTEM',
-        key: 'system',
-        icon: Shield,
-        items: [
-            { name: 'Profil Akun', path: '/admin/profile', icon: User },
-            { name: 'Pengaturan', path: '/admin/settings', icon: Settings },
-            { name: 'Status Lisensi', path: '/admin/license', icon: Key },
+        name: 'Pengaturan', key: 'system', icon: Settings, 
+        color: 'text-slate-500', activeBg: 'bg-slate-100', activeText: 'text-slate-800',
+        subMenu: [
+            { name: 'Profil Akun', path: '/admin/profile' },
+            { name: 'Sistem Aplikasi', path: '/admin/settings' },
+            { name: 'Lisensi Resmi', path: '/admin/license' },
         ]
     }
   ];
 
-  const toggleMenu = (key) => {
-    setOpenMenus(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  const toggleMenu = (key) => setOpenMenus(prev => ({ ...prev, [key]: !prev[key] }));
+  const confirmLogout = () => { localStorage.removeItem('user'); window.location.href = '/'; };
+  const isActive = (path) => location.pathname === path;
+  const isGroupActive = (subMenu) => subMenu?.some(item => location.pathname === item.path);
 
-  // Fungsi Logout dengan Modal
-  const confirmLogout = () => {
-    localStorage.removeItem('user');
-    window.location.href = '/'; 
-  };
-
-  const isGroupActive = (items) => {
-      return items.some(item => location.pathname === item.path);
-  };
-
-  const isActiveLink = (path) => location.pathname === path;
-
-  // Auto-Open Menu jika sedang di halaman tersebut
   useEffect(() => {
-    const activeGroupKey = menuGroups.find(group => 
-        group.items && group.items.some(item => item.path === location.pathname)
-    )?.key;
-
-    if (activeGroupKey) {
-        setOpenMenus(prev => ({ ...prev, [activeGroupKey]: true }));
-    }
+    const activeMenu = menuItems.find(menu => menu.subMenu && isGroupActive(menu.subMenu));
+    if (activeMenu) setOpenMenus(prev => ({ ...prev, [activeMenu.key]: true }));
   }, [location.pathname]);
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
+    // Background Anti-Silau (Blue-Grey #eef2f6) yang optimal untuk penggunaan outdoor
+    <div className="flex h-screen bg-[#eef2f6] font-sans overflow-hidden text-slate-800">
       
       {/* OVERLAY MOBILE */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 z-30 bg-black/20 backdrop-blur-sm transition-opacity md:hidden"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity md:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* SIDEBAR */}
+      {/* --- SIDEBAR PUTIH BERSIH --- */}
       <aside 
         className={`
-          fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 text-slate-700 shadow-2xl md:shadow-none transform transition-transform duration-300 ease-in-out
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
-          md:relative md:translate-x-0 flex flex-col justify-between
+          fixed inset-y-0 left-0 z-50 w-[280px] bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)]
+          transform transition-transform duration-300 ease-in-out flex flex-col h-full
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:relative'} 
         `}
       >
-        <div className="flex flex-col h-full">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between shrink-0 h-[80px]">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 flex items-center justify-center p-1 bg-blue-50 rounded-xl">
-                        <img src={currentLogo} alt="Logo" className="w-full h-full object-contain" />
-                    </div>
-                    <div className="flex flex-col justify-center">
-                        <span className="text-xl font-black tracking-tight text-slate-800 leading-none">SI-MAS</span>
-                        <span className="text-[10px] text-blue-600 font-bold uppercase tracking-[0.2em] leading-none mt-1.5">SISTEM ABSENSI</span>
-                    </div>
-                </div>
-                <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-red-500">
-                    <X size={24} />
-                </button>
+        {/* LOGO AREA (Sangat Clean) */}
+        <div className="pt-8 pb-6 px-8 flex items-center gap-3.5 shrink-0">
+            <img src={currentLogo} alt="Logo" className="w-11 h-11 object-contain drop-shadow-sm" />
+            <div className="flex flex-col">
+                <span className="text-[22px] font-black text-slate-800 tracking-tight leading-none">SI-MAS</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">Sistem Pintar</span>
             </div>
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-auto text-slate-400 hover:text-slate-600">
+                <X size={24} />
+            </button>
+        </div>
 
-            <nav className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
-                {menuGroups.map((group, index) => (
-                    <div key={index} className="mb-2">
-                        {!group.key ? (
-                            group.items.map(item => (
-                                <Link
-                                    key={item.name}
-                                    to={item.path}
-                                    onClick={() => setIsSidebarOpen(false)}
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                                        isActiveLink(item.path)
-                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200 font-medium'
-                                        : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600'
-                                    }`}
-                                >
-                                    <item.icon size={18} />
-                                    <span className="text-sm">{item.name}</span>
-                                </Link>
-                            ))
-                        ) : (
-                            <div className="mt-1">
-                                <button 
-                                    onClick={() => toggleMenu(group.key)}
-                                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
-                                        isGroupActive(group.items)
-                                        ? 'bg-blue-50 text-blue-700 font-semibold' 
-                                        : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <group.icon size={18} className={`${isGroupActive(group.items) ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600'}`}/>
-                                        <span className="text-sm font-medium uppercase tracking-wide text-[11px]">{group.title}</span>
-                                    </div>
-                                    <ChevronDown size={14} className={`transition-transform duration-300 ${openMenus[group.key] ? 'rotate-180 text-blue-600' : 'text-gray-400'}`} />
-                                </button>
-                                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openMenus[group.key] ? 'max-h-48 opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
-                                    <div className="ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
-                                        {group.items.map(item => (
-                                            <Link
-                                                key={item.name}
-                                                to={item.path}
-                                                onClick={() => setIsSidebarOpen(false)}
-                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
-                                                    isActiveLink(item.path)
-                                                    ? 'text-blue-600 bg-blue-50 font-medium'
-                                                    : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                <div className={`w-1.5 h-1.5 rounded-full ${isActiveLink(item.path) ? 'bg-blue-600' : 'bg-slate-300'}`}></div>
-                                                <span>{item.name}</span>
-                                            </Link>
-                                        ))}
-                                    </div>
+        {/* NAVIGATION DENGAN COLOR CODING */}
+        <nav className="flex-1 overflow-y-auto custom-scrollbar px-5 space-y-1.5 pb-4">
+            {menuItems.map((menu) => {
+                const groupActive = isGroupActive(menu.subMenu);
+                
+                return (
+                <div key={menu.name}>
+                    {!menu.subMenu ? (
+                        <Link
+                            to={menu.path} onClick={() => setIsSidebarOpen(false)}
+                            className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-[14.5px] ${
+                                isActive(menu.path)
+                                ? `${menu.activeBg} ${menu.activeText}`
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                            }`}
+                        >
+                            <menu.icon size={22} className={menu.color} />
+                            {menu.name}
+                        </Link>
+                    ) : (
+                        <div className="mb-2">
+                            <button 
+                                onClick={() => toggleMenu(menu.key)}
+                                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-[14.5px] ${
+                                    groupActive
+                                    ? `${menu.activeBg} ${menu.activeText}` 
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                }`}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <menu.icon size={22} className={menu.color}/>
+                                    <span>{menu.name}</span>
+                                </div>
+                                <ChevronDown size={18} className={`transition-transform duration-300 ${openMenus[menu.key] ? 'rotate-180' : ''} ${groupActive ? menu.activeText : 'text-slate-400'}`} />
+                            </button>
+                            
+                            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openMenus[menu.key] ? 'max-h-56 opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
+                                <div className="ml-6 pl-5 border-l-2 border-slate-100 space-y-1 py-1">
+                                    {menu.subMenu.map(sub => (
+                                        <Link
+                                            key={sub.name} to={sub.path} onClick={() => setIsSidebarOpen(false)}
+                                            className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-[13.5px] font-semibold ${
+                                                isActive(sub.path)
+                                                ? `${menu.activeText} bg-white shadow-sm ring-1 ring-slate-100`
+                                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <div className={`w-2 h-2 rounded-full transition-all ${isActive(sub.path) ? `scale-110 ${menu.color.replace('text-', 'bg-')}` : 'bg-slate-200'}`}></div>
+                                            {sub.name}
+                                        </Link>
+                                    ))}
                                 </div>
                             </div>
-                        )}
-                    </div>
-                ))}
-            </nav>
+                        </div>
+                    )}
+                </div>
+            )})}
+        </nav>
 
-            <div className="p-4 border-t border-gray-100 bg-gray-50/50 shrink-0">
-                <button 
-                    onClick={() => setShowLogoutModal(true)} 
-                    className="flex items-center gap-3 px-4 py-2.5 w-full rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all group border border-transparent hover:border-red-100"
-                >
-                    <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-                    <span className="font-medium text-sm">Keluar Sistem</span>
-                </button>
+        {/* STATUS WIDGET & LOGOUT (Tampilan Baru) */}
+        <div className="px-5 pb-6 pt-4 mt-auto">
+            {/* Widget Status Sistem */}
+            <div className="mb-4 p-4 rounded-2xl bg-[#eef2f6] border border-[#e2e8f0] flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <ShieldCheck size={16} />
+                </div>
+                <div>
+                    <p className="text-[11px] font-bold text-slate-500 uppercase">Status Sistem</p>
+                    <p className="text-[13px] font-extrabold text-slate-800">Online & Aman</p>
+                </div>
             </div>
+
+            <button 
+                onClick={() => setShowLogoutModal(true)} 
+                className="flex items-center justify-center gap-2.5 px-4 py-3.5 w-full rounded-2xl bg-white border-2 border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all font-bold text-[14.5px]"
+            >
+                <LogOut size={18} />
+                Keluar Aplikasi
+            </button>
         </div>
       </aside>
 
-      {/* KONTEN UTAMA */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="bg-white px-6 py-3 shadow-sm flex justify-between items-center sticky top-0 z-20 border-b border-gray-100 h-[70px]">
-            <div className="flex items-center gap-4">
-              <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden transition-colors">
-                <Menu size={24} />
+      {/* --- KONTEN UTAMA --- */}
+      <main className="flex-1 flex flex-col h-full relative w-full overflow-hidden">
+        
+        {/* HEADER TRANSPARAN (Menyatu dengan Latar) */}
+        <header className="px-6 md:px-10 py-5 flex justify-between items-center shrink-0 h-[85px]">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-white shadow-sm text-slate-600 rounded-xl md:hidden transition-colors">
+                <Menu size={22} />
               </button>
+              
+              <div className="hidden md:block">
+                  <h1 className="text-[22px] font-extrabold text-slate-800 tracking-tight">{greeting}</h1>
+                  <p className="text-[13px] text-slate-500 font-medium mt-0.5">Pantau dan kelola data operasional Anda.</p>
+              </div>
             </div>
-            <div className="flex items-center gap-4 pl-4 cursor-default">
-                <div className="text-right hidden md:block">
-                    <p className="text-sm font-bold text-gray-800 leading-tight">{userDisplay.name}</p>
-                    <p className="text-[11px] text-gray-500 font-medium">Administrator</p>
+            
+            <div className="flex items-center gap-4 bg-white pl-4 pr-1.5 py-1.5 rounded-full shadow-sm border border-slate-200/60">
+                <div className="text-right hidden sm:block">
+                    <p className="text-[13.5px] font-extrabold text-slate-800 leading-none capitalize">{userDisplay.name}</p>
+                    <p className="text-[11px] text-blue-500 font-bold mt-1.5">{userDisplay.role}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-slate-100 shadow-sm overflow-hidden border border-gray-200">
-                    <img 
-                        src={userDisplay.photo} 
-                        alt="Profile" 
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.target.onerror = null; e.target.src = "https://ui-avatars.com/api/?name=User&background=random"; }}
-                    />
-                </div>
+                <Link to="/admin/profile" className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-100 bg-slate-100 hover:scale-105 transition-transform duration-300">
+                    <img src={userDisplay.photo} alt="Profile" className="w-full h-full object-cover" />
+                </Link>
             </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-4 md:p-8 bg-gray-50/50 scroll-smooth">
-          <div className="max-w-7xl mx-auto w-full pb-10">
+        {/* AREA KONTEN */}
+        <div className="flex-1 overflow-auto px-4 md:px-10 pb-10 scroll-smooth custom-scrollbar">
+          <div className="max-w-7xl mx-auto w-full fade-in pt-2">
             <Outlet /> 
           </div>
         </div>
       </main>
 
-      {/* MODAL KONFIRMASI LOGOUT */}
+      {/* --- MODAL LOGOUT --- */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl text-center">
-                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-in zoom-in">
-                    <AlertTriangle size={32} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl text-center transform animate-in zoom-in-95 duration-200">
+                <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
+                    <AlertTriangle size={36} />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800">Konfirmasi Keluar</h3>
-                <p className="text-sm text-slate-500 mt-2 mb-6 leading-relaxed">
-                    Apakah Anda yakin ingin mengakhiri sesi dan keluar dari sistem?
+                <h3 className="text-2xl font-black text-slate-800 tracking-tight">Keluar Sekarang?</h3>
+                <p className="text-[14px] text-slate-500 mt-3 mb-8 font-medium leading-relaxed">
+                    Pastikan pekerjaan Anda sudah tersimpan. Anda akan diarahkan ke halaman login.
                 </p>
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                     <button 
                         onClick={() => setShowLogoutModal(false)} 
-                        className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition text-sm"
+                        className="flex-1 py-3.5 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-colors"
                     >
                         Batal
                     </button>
                     <button 
                         onClick={confirmLogout} 
-                        className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-200 transition text-sm"
+                        className="flex-1 py-3.5 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-600 shadow-md shadow-rose-200 transition-all active:scale-95"
                     >
-                        Keluar
+                        Ya, Keluar
                     </button>
                 </div>
             </div>

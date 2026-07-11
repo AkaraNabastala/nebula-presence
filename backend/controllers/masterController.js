@@ -3,13 +3,14 @@ const path = require('path');
 const { exec } = require('child_process');
 
 // --- HELPER DYNAMIC LABELS ---
-// Fungsi ini mendeteksi apakah aplikasi diset untuk mode 'edukasi' atau lainnya
+// Mendeteksi mode aplikasi (Edukasi vs Korporat/Umum)
 const getDynamicLabels = (settings) => {
     const isEdukasi = settings['app_mode'] === 'edukasi'; 
     return {
-        label_unit: isEdukasi ? 'Kelas' : 'Departemen',
-        label_anggota: isEdukasi ? 'Siswa' : 'Karyawan',
-        label_wali: isEdukasi ? 'Wali Kelas' : 'Manajer/Supervisor'
+        label_unit: isEdukasi ? 'Kelas' : 'Departemen/Divisi',
+        label_anggota: isEdukasi ? 'Siswa/Guru' : 'Karyawan/Staff',
+        label_wali: isEdukasi ? 'Wali Kelas' : 'Manajer/Supervisor',
+        label_identitas: isEdukasi ? 'NISN/NIPD' : 'ID Karyawan'
     };
 };
 
@@ -31,38 +32,62 @@ exports.updateSettings = async (req, res) => {
             await pool.query(`INSERT INTO app_settings (setting_key, setting_value) VALUES ($1, $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [k, v]);
         }
         res.json({ success: true });
-    } catch (e) { res.status(500).json({ message: "Gagal menyimpan" }); }
+    } catch (e) { res.status(500).json({ message: "Gagal menyimpan pengaturan" }); }
 };
 
-// --- STUDENTS / MEMBERS ---
-exports.getAllStudents = async (req, res) => { 
+// --- MEMBERS (Siswa, Guru, Karyawan, Manajer) ---
+exports.getAllMembers = async (req, res) => { 
     try { 
         const settings = await pool.query('SELECT * FROM app_settings');
         const s = {}; settings.rows.forEach(x => s[x.setting_key] = x.setting_value);
         const labels = getDynamicLabels(s);
 
-        const r = await pool.query('SELECT * FROM students ORDER BY id DESC'); 
+        // PERBAIKAN: Menambahkan ALIAS (AS) agar frontend lama tidak crash
+        const q = `
+            SELECT m.id, m.role, m.division_id,
+                   m.identity_number, m.identity_number AS nisn, m.identity_number AS nipd,
+                   m.full_name, m.full_name AS nama_lengkap,
+                   m.rfid_code, m.rfid_code AS kode_rfid,
+                   m.photo, m.photo AS foto,
+                   d.name AS division_name, d.name AS kelas 
+            FROM members m 
+            LEFT JOIN divisions d ON m.division_id = d.id 
+            ORDER BY m.id DESC
+        `;
+        const r = await pool.query(q); 
         res.json({ data: r.rows || [], labels }); 
     } catch (e) { res.json({ data: [], labels: {} }); } 
 };
 
-exports.createStudent = async (req, res) => {
+exports.createMember = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const { nisn, nipd, nama_lengkap, kode_rfid, foto } = req.body;
-        const kelasInput = req.body.kelas ? req.body.kelas.trim() : '';
+        
+        // Kompatibilitas mundur: Menerima payload lama maupun payload baru
+        const identity_number = req.body.identity_number || req.body.nisn || req.body.nipd || '';
+        const full_name = req.body.full_name || req.body.nama_lengkap || '';
+        const role = req.body.role || 'member'; // Default role
+        const rfid_code = req.body.rfid_code || req.body.kode_rfid || '';
+        const photo = req.body.photo || req.body.foto || '';
+        const divisionInput = req.body.division_name || req.body.kelas || '';
 
-        if (kelasInput) {
-            const checkDiv = await client.query('SELECT id FROM classes WHERE nama_kelas = $1', [kelasInput]);
+        let division_id = req.body.division_id || null;
+
+        // Logika cerdas: Mencari ID divisi, jika tidak ada maka otomatis dibuatkan divisinya
+        if (!division_id && divisionInput.trim()) {
+            const checkDiv = await client.query('SELECT id FROM divisions WHERE name = $1', [divisionInput.trim()]);
             if (checkDiv.rows.length === 0) {
-                await client.query('INSERT INTO classes (nama_kelas) VALUES ($1)', [kelasInput]);
+                const newDiv = await client.query('INSERT INTO divisions (name) VALUES ($1) RETURNING id', [divisionInput.trim()]);
+                division_id = newDiv.rows[0].id;
+            } else {
+                division_id = checkDiv.rows[0].id;
             }
         }
 
         await client.query(
-            'INSERT INTO students (nisn, nipd, nama_lengkap, kelas, kode_rfid, foto) VALUES ($1, $2, $3, $4, $5, $6)',
-            [nisn?.trim(), nipd?.trim(), nama_lengkap, kelasInput, kode_rfid?.trim(), foto]
+            'INSERT INTO members (identity_number, full_name, role, division_id, rfid_code, photo) VALUES ($1, $2, $3, $4, $5, $6)',
+            [identity_number.trim(), full_name, role, division_id, rfid_code.trim(), photo]
         );
 
         await client.query('COMMIT');
@@ -71,58 +96,105 @@ exports.createStudent = async (req, res) => {
     } catch (e) {
         await client.query('ROLLBACK');
         console.error("Create Member Error:", e);
-        res.status(500).json({ message: e.message || "Gagal menyimpan data" });
+        res.status(500).json({ message: e.message || "Gagal menyimpan data anggota" });
     } finally {
         client.release();
     }
 };
 
-exports.updateStudent = async (req, res) => { 
+exports.updateMember = async (req, res) => { 
     try { 
-        await pool.query('UPDATE students SET nisn=$1, nipd=$2, nama_lengkap=$3, kelas=$4, kode_rfid=$5, foto=$6 WHERE id=$7', 
-        [req.body.nisn?.trim(), req.body.nipd?.trim(), req.body.nama_lengkap, req.body.kelas, req.body.kode_rfid?.trim(), req.body.foto, req.params.id]); 
+        const identity_number = req.body.identity_number || req.body.nisn || req.body.nipd;
+        const full_name = req.body.full_name || req.body.nama_lengkap;
+        const role = req.body.role || 'member';
+        const rfid_code = req.body.rfid_code || req.body.kode_rfid;
+        const photo = req.body.photo || req.body.foto;
+        const division_id = req.body.division_id; 
+
+        await pool.query(
+            'UPDATE members SET identity_number=$1, full_name=$2, role=$3, division_id=$4, rfid_code=$5, photo=$6 WHERE id=$7', 
+            [identity_number?.trim(), full_name, role, division_id, rfid_code?.trim(), photo, req.params.id]
+        ); 
         res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ message: "Gagal update" }); } 
+    } catch (e) { res.status(500).json({ message: "Gagal memperbarui data" }); } 
 };
 
-exports.deleteStudent = async (req, res) => { 
+exports.deleteMember = async (req, res) => { 
     try { 
         const id = req.params.id;
         if (!id) return res.status(400).json({ message: "ID tidak valid" });
-        await pool.query('DELETE FROM students WHERE id=$1', [id]); 
+        await pool.query('DELETE FROM members WHERE id=$1', [id]); 
         res.json({ success: true }); 
     } catch (e) { 
         console.error("Delete Error:", e);
-        res.status(500).json({ message: "Gagal hapus data" }); 
+        res.status(500).json({ message: "Gagal menghapus data" }); 
     } 
 };
 
-// --- CLASSES / DIVISIONS ---
-exports.getAllClasses = async (req, res) => { 
+// --- DIVISIONS (Kelas / Departemen) ---
+exports.getAllDivisions = async (req, res) => { 
     try { 
         const settings = await pool.query('SELECT * FROM app_settings');
         const s = {}; settings.rows.forEach(x => s[x.setting_key] = x.setting_value);
         const labels = getDynamicLabels(s);
 
-        const q = `SELECT c.*, (SELECT COUNT(*)::int FROM students s WHERE s.kelas = c.nama_kelas) as jumlah_siswa FROM classes c ORDER BY c.nama_kelas ASC`;
+        // PERBAIKAN: Menambahkan ALIAS nama_kelas, wali_kelas, jumlah_siswa
+        const q = `
+            SELECT d.id, 
+                   d.name, d.name AS nama_kelas, 
+                   d.manager_name, d.manager_name AS wali_kelas, 
+                   (SELECT COUNT(*)::int FROM members m WHERE m.division_id = d.id) as total_members,
+                   (SELECT COUNT(*)::int FROM members m WHERE m.division_id = d.id) as jumlah_siswa
+            FROM divisions d 
+            ORDER BY d.name ASC
+        `;
         const r = await pool.query(q);
         res.json({ data: r.rows || [], labels }); 
     } catch (e) { 
         console.error("Query Error:", e.message);
-        res.status(500).json({ message: "Gagal ambil data" }); 
+        res.status(500).json({ message: "Gagal mengambil data divisi" }); 
     } 
 };
 
-exports.createClass = async (req, res) => { try { await pool.query('INSERT INTO classes (nama_kelas, wali_kelas) VALUES ($1, $2)', [req.body.nama_kelas, req.body.wali_kelas]); res.json({ success: true }); } catch (e) { res.status(500).json({ message: "Gagal tambah" }); } };
-exports.updateClass = async (req, res) => { try { await pool.query('UPDATE classes SET nama_kelas=$1, wali_kelas=$2 WHERE id=$3', [req.body.nama_kelas, req.body.wali_kelas, req.params.id]); res.json({ success: true }); } catch (e) { res.status(500).json({ message: "Gagal update" }); } };
-exports.deleteClass = async (req, res) => { try { await pool.query('DELETE FROM classes WHERE id=$1', [req.params.id]); res.json({ success: true }); } catch (e) { res.status(500).json({ message: "Gagal hapus" }); } };
+exports.createDivision = async (req, res) => { 
+    try { 
+        const name = req.body.name || req.body.nama_kelas;
+        const manager = req.body.manager_name || req.body.wali_kelas;
+        await pool.query('INSERT INTO divisions (name, manager_name) VALUES ($1, $2)', [name, manager]); 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ message: "Gagal menambah data" }); } 
+};
 
-// --- BACKUP ---
+exports.updateDivision = async (req, res) => { 
+    try { 
+        const name = req.body.name || req.body.nama_kelas;
+        const manager = req.body.manager_name || req.body.wali_kelas;
+        await pool.query('UPDATE divisions SET name=$1, manager_name=$2 WHERE id=$3', [name, manager, req.params.id]); 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ message: "Gagal memperbarui data" }); } 
+};
+
+exports.deleteDivision = async (req, res) => { 
+    try { 
+        await pool.query('DELETE FROM divisions WHERE id=$1', [req.params.id]); 
+        res.json({ success: true }); 
+    } catch (e) { res.status(500).json({ message: "Gagal menghapus data" }); } 
+};
+
+// --- BACKUP DATABASE ---
 exports.downloadBackup = (req, res) => {
     req.setTimeout(30000); 
     const fileName = `backup_db_${new Date().toISOString().split('T')[0]}.sql`;
-    const backupCmd = `pg_dump -h 127.0.0.1 -U postgres -p 5439 db_absensimas`;
-    const env = { ...process.env, PGPASSWORD: 'darksky' }; 
+    
+    // Menarik kredensial dari environment variable agar selalu dinamis dan aman
+    const dbUser = process.env.DB_USER || 'postgres';
+    const dbPort = process.env.DB_PORT || '5432';
+    const dbName = process.env.DB_NAME || 'absensi_nabastala';
+    const dbPass = process.env.DB_PASSWORD || 'darksky';
+
+    const backupCmd = `pg_dump -h 127.0.0.1 -U ${dbUser} -p ${dbPort} ${dbName}`;
+    const env = { ...process.env, PGPASSWORD: dbPass }; 
+    
     exec(backupCmd, { env, maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
         if (error) {
             console.error("PG_DUMP ERROR:", stderr);

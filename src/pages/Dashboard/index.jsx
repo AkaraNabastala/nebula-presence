@@ -4,92 +4,61 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recha
 import api from '../../api/axios';
 
 const Dashboard = () => {
-  // State Data
+  // --- 1. STATE MANAGEMENT ---
   const [data, setData] = useState({
-    total_user: 0,
-    hadir: 0,
-    terlambat: 0,
-    sakit_izin: 0,
-    alfa: 0,
-    logs: [] 
+    total_user: 0, hadir: 0, terlambat: 0, sakit_izin: 0, alfa: 0, logs: [] 
   });
   const [loading, setLoading] = useState(true);
-  
-  // State User & Config
   const [time, setTime] = useState(new Date());
-  const [userName, setUserName] = useState('Admin'); // Default jika nama tidak ditemukan
   const [appConfig, setAppConfig] = useState({ 
       timezone: 'Asia/Jakarta',
-      nama_instansi: 'Nama Instansi' // Default text netral
+      nama_instansi: 'Sistem Kehadiran Pusat' 
   });
 
-  // --- 1. LOAD USER, CONFIG & JAM ---
+  // --- 2. LOAD INITIAL CONFIG & TIME ---
   useEffect(() => {
-    // A. Ambil Nama Admin dari LocalStorage (Hasil Login)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-        try {
-            const parsedUser = JSON.parse(storedUser);
-            // Cek berbagai kemungkinan nama field dari database
-            const realName = parsedUser.nama_admin || parsedUser.nama_lengkap || parsedUser.nama || parsedUser.username;
-            if (realName) setUserName(realName);
-        } catch (e) {
-            console.error("Gagal parse user data");
-        }
-    }
-
-    // B. Ambil Konfigurasi Instansi (Logo, Nama, Timezone)
     const fetchConfig = async () => {
         try {
             const res = await api.get('/settings');
             if (res.data) {
                 setAppConfig({
                     timezone: res.data.timezone || 'Asia/Jakarta',
-                    // Ambil 'nama_sekolah' dari DB tapi simpan sebagai 'nama_instansi' agar netral di frontend
-                    nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Nama Instansi Anda'
+                    nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Sistem Kehadiran Pusat'
                 });
             }
-        } catch (e) {
-            console.error("Gagal load config settings");
-        }
+        } catch (e) { console.error("Gagal load config"); }
     };
     fetchConfig();
 
-    // C. Jalankan Jam
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- 2. AUTO REFRESH DATA ---
+  // --- 3. AUTO FETCH DATA ---
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 5000); 
+    const interval = setInterval(fetchDashboardData, 5000); // Auto-refresh 5 detik
     return () => clearInterval(interval);
   }, [appConfig.timezone]);
 
-  // --- FUNGSI UTAMA: AMBIL DATA ---
   const fetchDashboardData = async () => {
     try {
-      // 1. Tanggal Hari Ini (Timezone Safe)
       const dateOptions = { timeZone: appConfig.timezone, year: 'numeric', month: '2-digit', day: '2-digit' };
       const parts = new Intl.DateTimeFormat('en-CA', dateOptions).formatToParts(new Date());
       const localDate = `${parts.find(p => p.type === 'year').value}-${parts.find(p => p.type === 'month').value}-${parts.find(p => p.type === 'day').value}`;
 
-      // 2. Request Data
       const [resMembers, resDaily] = await Promise.all([
         api.get('/members'), 
-        api.get('/attendance/daily', { 
-            params: { tanggal: localDate } 
-        })
+        api.get('/attendance/daily', { params: { tanggal: localDate } })
       ]);
 
-      const totalMembers = resMembers.data.length;
-      const attendanceData = resDaily.data;
+      const membersArray = Array.isArray(resMembers.data) ? resMembers.data : (resMembers.data.data || []);
+      const attendanceArray = Array.isArray(resDaily.data) ? resDaily.data : (resDaily.data.data || []);
 
-      // 3. Hitung Statistik
+      const totalMembers = membersArray.length;
       let hadir = 0, terlambat = 0, sakitIzin = 0, alfa = 0;
       
-      const presentMembers = attendanceData.filter(s => s.status);
+      const presentMembers = attendanceArray.filter(s => s.status);
 
       presentMembers.forEach(s => {
         if (s.status === 'HADIR') hadir++;
@@ -99,70 +68,29 @@ const Dashboard = () => {
       });
 
       const belumAbsen = Math.max(0, totalMembers - presentMembers.length); 
-      // Kita masukkan "Belum Absen" ke kategori Alfa/Pending untuk display grafik
       const totalAlfaDisplay = alfa + belumAbsen;
 
-      // 4. Log Aktivitas
       const logs = presentMembers
         .filter(s => s.scan_time)
-        .sort((a, b) => b.scan_time.localeCompare(a.scan_time))
+        .sort((a, b) => new Date(b.scan_time) - new Date(a.scan_time))
         .slice(0, 10);
 
-      setData({
-        total_user: totalMembers,
-        hadir: hadir,
-        terlambat: terlambat,
-        sakit_izin: sakitIzin,
-        alfa: totalAlfaDisplay,
-        logs: logs
-      });
+      setData({ total_user: totalMembers, hadir, terlambat, sakit_izin: sakitIzin, alfa: totalAlfaDisplay, logs });
       setLoading(false);
-
-    } catch (error) {
-      console.error("Gagal ambil data dashboard:", error);
-    }
+    } catch (error) { console.error("Gagal ambil data dashboard:", error); }
   };
 
-  // --- HELPER: SAPAAN ---
-  const getGreeting = () => {
-    const hourStr = time.toLocaleTimeString('en-GB', { timeZone: appConfig.timezone, hour: '2-digit', hour12: false });
-    const hour = parseInt(hourStr);
-    if (hour < 11) return 'Selamat Pagi';
-    if (hour < 15) return 'Selamat Siang';
-    if (hour < 19) return 'Selamat Sore';
-    return 'Selamat Malam';
-  };
-
-  // --- HELPER: FORMAT JAM ---
+  // --- 4. FORMATTERS & HELPERS ---
   const formatTimeLog = (timeString) => {
       if (!timeString) return '-';
-      if (timeString.includes('T') || timeString.includes('-')) {
-          return new Date(timeString).toLocaleTimeString('id-ID', { 
-            timeZone: appConfig.timezone, 
-            hour: '2-digit', minute: '2-digit', hour12: false 
-          }).replace('.', ':');
+      try {
+        return new Date(timeString).toLocaleTimeString('id-ID', { 
+            timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', hour12: false 
+        }).replace('.', ':');
+      } catch (e) {
+          return timeString.slice(0, 5);
       }
-      return timeString.slice(0, 5);
   };
-
-  // Setup Grafik & Kartu
-  const chartData = [
-    { name: 'Hadir', value: data.hadir, color: '#10b981' }, 
-    { name: 'Telat', value: data.terlambat, color: '#f59e0b' },
-    { name: 'Sakit/Izin', value: data.sakit_izin, color: '#6366f1' }, 
-    { name: 'Belum/Absen', value: Math.max(0, data.alfa), color: '#ef4444' }, 
-  ];
-  const isDataEmpty = chartData.every(item => item.value === 0);
-  const finalChartData = isDataEmpty ? [{ name: 'Belum Ada Data', value: 1, color: '#e5e7eb' }] : chartData;
-
-  // Setup Kartu Statistik (Istilah Netral)
-  const statsCards = [
-    { title: 'Total Anggota', count: data.total_user, bg: 'bg-gradient-to-br from-blue-500 to-blue-600', icon: Users, text: 'text-blue-50' },
-    { title: 'Hadir Tepat', count: data.hadir, bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', icon: UserCheck, text: 'text-emerald-50' },
-    { title: 'Terlambat', count: data.terlambat, bg: 'bg-gradient-to-br from-amber-400 to-amber-500', icon: Clock, text: 'text-amber-50' },
-    { title: 'Izin / Sakit', count: data.sakit_izin, bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', icon: AlertTriangle, text: 'text-indigo-50' },
-    { title: 'Belum Hadir', count: data.alfa, bg: 'bg-gradient-to-br from-rose-500 to-rose-600', icon: XCircle, text: 'text-rose-50' },
-  ];
 
   const getStatusBadge = (status) => {
     switch(status) {
@@ -175,167 +103,177 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-400 font-medium animate-pulse">Memuat Dashboard...</div>;
+  // --- 5. UI CONFIGURATIONS ---
+  const chartData = [
+    { name: 'Hadir', value: data.hadir, color: '#10b981' }, 
+    { name: 'Telat', value: data.terlambat, color: '#f59e0b' },
+    { name: 'Izin/Sakit', value: data.sakit_izin, color: '#6366f1' }, 
+    { name: 'Belum/Absen', value: Math.max(0, data.alfa), color: '#ef4444' }, 
+  ];
+  const isDataEmpty = chartData.every(item => item.value === 0);
+  const finalChartData = isDataEmpty ? [{ name: 'Belum Ada Data', value: 1, color: '#e2e8f0' }] : chartData;
+
+  // KEMBALI KE DESAIN GRADASI YANG LEBIH MENARIK
+  const statsCards = [
+    { title: 'Total Anggota', count: data.total_user, bg: 'bg-gradient-to-br from-slate-700 to-slate-900', icon: Users, text: 'text-slate-300' },
+    { title: 'Hadir Tepat', count: data.hadir, bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', icon: UserCheck, text: 'text-emerald-100' },
+    { title: 'Terlambat', count: data.terlambat, bg: 'bg-gradient-to-br from-amber-400 to-amber-500', icon: Clock, text: 'text-amber-100' },
+    { title: 'Izin / Sakit', count: data.sakit_izin, bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', icon: AlertTriangle, text: 'text-indigo-100' },
+    { title: 'Belum Hadir', count: data.alfa, bg: 'bg-gradient-to-br from-rose-500 to-rose-600', icon: XCircle, text: 'text-rose-100' },
+  ];
+
+  if (loading) return (
+      <div className="min-h-screen flex flex-col items-center justify-center space-y-4">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-slate-400 font-bold animate-pulse">Menyiapkan Dashboard...</span>
+      </div>
+  );
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-24 md:pb-10 font-sans">
+    <div className="space-y-6 pb-12 font-sans bg-transparent min-h-full animate-in fade-in duration-500">
       
-      {/* HEADER: SAPAAN PERSONAL & NAMA INSTANSI */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      {/* --- HEADER TANGGAL & JAM --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100">
         <div>
-            {/* SAPAAN DINAMIS SESUAI NAMA LOGIN */}
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight capitalize">
-                {getGreeting()}, <span className="text-blue-600">{userName}</span>!
+            <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+                Ringkasan Statistik Hari Ini
             </h2>
-            
-            <div className="flex flex-wrap items-center gap-3 mt-1">
-                {/* TANGGAL */}
-                <p className="text-gray-500 text-sm flex items-center gap-2">
-                    <Calendar size={14}/> 
-                    {time.toLocaleDateString('id-ID', { 
-                        timeZone: appConfig.timezone, 
-                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-                    })}
+            <div className="flex flex-wrap items-center gap-3 mt-2">
+                <p className="text-slate-500 text-[13px] flex items-center gap-2 font-medium">
+                    <Calendar size={16} className="text-slate-400"/> 
+                    {time.toLocaleDateString('id-ID', { timeZone: appConfig.timezone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
-                
-                {/* NAMA INSTANSI/PERUSAHAAN (BUKAN SEKOLAH) */}
-                <div className="hidden md:flex items-center gap-1.5 px-3 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold border border-gray-200 uppercase tracking-wide">
-                    <Building2 size={12} className="text-blue-500"/> 
+                <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200 tracking-wide">
+                    <Building2 size={14} className="text-slate-500"/> 
                     {appConfig.nama_instansi}
                 </div>
             </div>
         </div>
 
-        {/* JAM DIGITAL KANAN */}
-        <div className="text-right w-full md:w-auto flex flex-row md:flex-col justify-between md:justify-end items-center md:items-end">
-            <div className="text-3xl md:text-4xl font-black text-gray-800 font-mono tracking-tight leading-none">
-                {time.toLocaleTimeString('id-ID', { 
-                    timeZone: appConfig.timezone, 
-                    hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                }).replace(/\./g, ':')}
+        <div className="text-left md:text-right w-full md:w-auto border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+            <div className="text-3xl md:text-4xl font-black text-slate-800 font-mono tracking-tighter tabular-nums">
+                {time.toLocaleTimeString('id-ID', { timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':')}
             </div>
-            <div className="flex items-center justify-end gap-2 mt-1">
-                <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
-                    {appConfig.timezone.split('/')[1] || 'WIB'}
-                </span>
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 rounded-full text-[10px] font-bold border border-green-200 animate-pulse">
-                    <Activity size={10}/> System Live
+            <div className="flex items-center md:justify-end gap-2 mt-1">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{appConfig.timezone.split('/')[1] || 'WIB'}</span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-bold border border-emerald-100">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Live Sync
                 </span>
             </div>
         </div>
       </div>
       
-      {/* 1. KARTU STATISTIK */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+      {/* --- KARTU STATISTIK (GRADIENT & BACKGROUND ICON) --- */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {statsCards.map((item, index) => (
-          <div key={index} className={`${item.bg} p-4 rounded-2xl shadow-lg shadow-gray-200/50 relative overflow-hidden group transition-all duration-300 hover:-translate-y-1`}>
-            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 transition-opacity transform rotate-12">
-                <item.icon size={80} className="text-white" />
+          <div key={index} className={`${item.bg} p-5 rounded-[1.5rem] shadow-lg shadow-slate-200/50 relative overflow-hidden group hover:shadow-xl transition-all duration-300 hover:-translate-y-1`}>
+            {/* Siluet Ikon di Background */}
+            <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-25 transition-opacity transform group-hover:rotate-12 duration-500">
+                <item.icon size={100} className="text-white" />
             </div>
-            
             <div className="relative z-10 text-white">
-                <div className="flex items-center gap-2 mb-2 opacity-90">
-                    <item.icon size={16} className="md:w-[18px]" />
-                    <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider">{item.title}</span>
+                <div className="flex items-center gap-2 mb-3 opacity-90">
+                    <item.icon size={18} />
+                    <span className="text-xs font-bold uppercase tracking-wider">{item.title}</span>
                 </div>
-                <h3 className="text-2xl md:text-3xl font-black tracking-tight">{item.count}</h3>
-                <p className={`text-[10px] mt-1 font-medium opacity-80 ${item.text}`}>
-                    Orang
-                </p>
+                <h3 className="text-3xl md:text-4xl font-black tracking-tight tabular-nums">{item.count}</h3>
+                <p className={`text-[11px] mt-1 font-medium opacity-90 ${item.text}`}>Data Realtime</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* 2. CHART & LOGS GRID */}
+      {/* --- CHARTS & LOGS --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* GRAFIK LINGKARAN */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 col-span-1 min-w-0 flex flex-col justify-between h-[350px] md:h-[450px] lg:h-auto">
-          <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
-            <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-            Statistik Kehadiran
+        {/* CHART SECTION */}
+        <div className="bg-white p-6 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col h-[400px]">
+          <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <div className="w-2 h-6 bg-blue-500 rounded-md"></div>
+            Rasio Kehadiran
           </h3>
           
-          <div className="w-full flex-1 relative min-h-0">
+          <div className="w-full flex-1 relative min-h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie 
-                  data={finalChartData} 
-                  cx="50%" 
-                  cy="50%" 
-                  innerRadius={60} 
-                  outerRadius={80} 
-                  paddingAngle={isDataEmpty ? 0 : 4}
-                  dataKey="value"
-                  cornerRadius={4}
+                  data={finalChartData} cx="50%" cy="50%" 
+                  innerRadius={70} outerRadius={90} 
+                  paddingAngle={isDataEmpty ? 0 : 5}
+                  dataKey="value" cornerRadius={6} stroke="none"
                 >
                   {finalChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => isDataEmpty ? '' : `${value} Orang`} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                <Tooltip 
+                  formatter={(value) => isDataEmpty ? '' : `${value} Orang`} 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.08)' }} 
+                />
+                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: '600', color: '#475569' }} />
               </PieChart>
             </ResponsiveContainer>
             
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                <span className="text-2xl md:text-3xl font-bold text-gray-800">{isDataEmpty ? 0 : data.hadir + data.terlambat}</span>
-                <span className="text-xs text-gray-400 font-medium">Check-In</span>
+                <span className="text-3xl font-black text-slate-800">{isDataEmpty ? 0 : data.hadir + data.terlambat}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Check-In</span>
             </div>
           </div>
         </div>
 
-        {/* LOG AKTIVITAS TERAKHIR */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 col-span-1 lg:col-span-2 min-w-0 flex flex-col h-[450px]">
-            <div className="flex justify-between items-center mb-4 shrink-0">
-                <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
-                    <span className="w-1 h-6 bg-purple-500 rounded-full"></span>
+        {/* LOGS SECTION */}
+        <div className="bg-white p-0 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 col-span-1 lg:col-span-2 flex flex-col h-[400px] overflow-hidden">
+            <div className="p-6 pb-4 border-b border-slate-50 flex justify-between items-center bg-white z-10">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2.5">
+                    <div className="w-2 h-6 bg-purple-500 rounded-md"></div>
                     Aktivitas Terbaru
                 </h3>
             </div>
           
-            <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-1">
+            <div className="overflow-y-auto p-4 space-y-2 bg-white flex-1 custom-scrollbar">
                 {data.logs.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">
-                        <div className="p-4 bg-gray-50 rounded-full mb-3">
-                            <Clock size={32} className="opacity-20"/>
-                        </div>
-                        <p className="text-sm">Belum ada aktivitas scan hari ini.</p>
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <div className="p-4 bg-slate-50 rounded-full mb-3"><Clock size={32} className="opacity-40"/></div>
+                        <p className="text-sm font-semibold">Belum ada aktivitas scan hari ini.</p>
                     </div>
                 ) : (
-                    data.logs.map((log, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 md:p-4 bg-white hover:bg-gray-50 transition-all rounded-xl border border-gray-100 hover:border-blue-100 group shadow-sm hover:shadow-md">
-                        <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-lg shadow-sm shrink-0 transition-transform group-hover:scale-110 ${
-                                log.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' :
-                                log.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600' :
-                                log.status === 'SAKIT' ? 'bg-blue-100 text-blue-600' :
-                                log.status === 'IZIN' ? 'bg-indigo-100 text-indigo-600' :
-                                'bg-rose-100 text-rose-600'
-                            }`}>
-                                {log.nama_lengkap.charAt(0).toUpperCase()}
+                    data.logs.map((log, i) => {
+                        const nama = log.full_name || log.nama_lengkap || 'Tanpa Nama';
+                        const divisi = log.division_name || log.kelas || 'Anggota';
+                        const idNomor = log.identity_number || log.nisn || log.nip || '-';
+
+                        return (
+                        <div key={i} className="flex items-center justify-between p-3.5 bg-white hover:bg-slate-50 transition-colors rounded-2xl border border-transparent hover:border-slate-100">
+                            <div className="flex items-center gap-4 min-w-0">
+                                <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center font-black text-lg shadow-sm shrink-0 ${
+                                    log.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' :
+                                    log.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600' :
+                                    log.status === 'SAKIT' ? 'bg-blue-100 text-blue-600' :
+                                    log.status === 'IZIN' ? 'bg-indigo-100 text-indigo-600' :
+                                    'bg-rose-100 text-rose-600'
+                                }`}>
+                                    {nama.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0 truncate">
+                                    <p className="font-bold text-slate-800 text-[14.5px] truncate">{nama}</p>
+                                    <p className="text-[12px] text-slate-400 font-semibold truncate mt-0.5">
+                                        {divisi} <span className="mx-1.5 text-slate-300">•</span> {idNomor}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="min-w-0">
-                                <p className="font-bold text-gray-800 text-sm md:text-base truncate">{log.nama_lengkap}</p>
-                                <p className="text-[10px] md:text-xs text-gray-500 font-medium truncate">
-                                    {/* MENGGUNAKAN ISTILAH UMUM */}
-                                    {log.kelas || log.jabatan || log.divisi || 'Anggota'} • {log.nisn || log.nip || log.nik || 'ID'}
+                            
+                            <div className="text-right shrink-0 ml-3">
+                                <span className={`inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border mb-1.5 ${getStatusBadge(log.status)}`}>
+                                    {log.status}
+                                </span>
+                                <p className="text-[11.5px] text-slate-400 font-mono font-bold flex items-center justify-end gap-1.5">
+                                    <Clock size={12} className="text-slate-300" />
+                                    {formatTimeLog(log.scan_time)}
                                 </p>
                             </div>
                         </div>
-                        
-                        <div className="text-right shrink-0 ml-2">
-                            <span className={`inline-block px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold border mb-1 ${getStatusBadge(log.status)}`}>
-                                {log.status}
-                            </span>
-                            <p className="text-[10px] text-gray-400 font-mono flex items-center justify-end gap-1">
-                                <Clock size={10} className="md:w-3 md:h-3" />
-                                {formatTimeLog(log.scan_time)}
-                            </p>
-                        </div>
-                    </div>
-                    ))
+                    )})
                 )}
             </div>
         </div>

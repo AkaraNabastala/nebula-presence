@@ -38,19 +38,20 @@ router.get('/attendance/report', attendanceController.getReport);
 router.get('/attendance/daily', attendanceController.getDailyAttendance);
 router.post('/attendance/manual', attendanceController.manualAttendance);
 
-// --- MASTER DATA (SISWA) ---
-router.get('/members', masterController.getAllStudents);
-router.post('/members', masterController.createStudent);
-router.put('/members/:id', masterController.updateStudent);
-router.delete('/members/:id', masterController.deleteStudent);
+// --- MASTER DATA (MEMBERS / ANGGOTA) ---
+// Perbaikan: Mengubah panggilan fungsi ke nama fungsi baru (getAllMembers, createMember, dll)
+router.get('/members', masterController.getAllMembers);
+router.post('/members', masterController.createMember);
+router.put('/members/:id', masterController.updateMember);
+router.delete('/members/:id', masterController.deleteMember);
 router.post('/members/upload-photo', systemController.uploadPhotoBase64); 
-// Note: uploadPhotoBase64 lebih aman & mudah untuk LAN daripada Multipart form
 
-// --- MASTER DATA (KELAS) ---
-router.get('/divisions', masterController.getAllClasses);
-router.post('/divisions', masterController.createClass);
-router.put('/divisions/:id', masterController.updateClass);
-router.delete('/divisions/:id', masterController.deleteClass);
+// --- MASTER DATA (DIVISIONS / KELAS / DEPARTEMEN) ---
+// Perbaikan: Mengubah panggilan fungsi ke nama fungsi baru (getAllDivisions, dll)
+router.get('/divisions', masterController.getAllDivisions);
+router.post('/divisions', masterController.createDivision);
+router.put('/divisions/:id', masterController.updateDivision);
+router.delete('/divisions/:id', masterController.deleteDivision);
 
 // --- SYSTEM & SETTINGS ---
 router.post('/settings', masterController.updateSettings);

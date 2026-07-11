@@ -4,17 +4,17 @@ const { pool } = require('../config/database');
 exports.scanRFID = async (req, res) => {
     const { rfid_code, tanggal } = req.body;
     
-    // Validasi Input
     if (!rfid_code) return res.status(400).json({ message: "Kode ID Kosong" });
     const cleanCode = String(rfid_code).trim();
 
     try {
-        // A. PENCARIAN MEMBER UNIVERSAL (RFID / NISN / NIPD)
+        // A. PENCARIAN MEMBER (Menggunakan tabel members)
         const findMemberQuery = `
-            SELECT * FROM students 
-            WHERE LOWER(kode_rfid) = LOWER($1) 
-               OR LOWER(nisn) = LOWER($1) 
-               OR LOWER(nipd) = LOWER($1)
+            SELECT m.*, d.name as division_name 
+            FROM members m 
+            LEFT JOIN divisions d ON m.division_id = d.id
+            WHERE LOWER(m.rfid_code) = LOWER($1) 
+               OR LOWER(m.identity_number) = LOWER($1)
             LIMIT 1
         `;
         const memberRes = await pool.query(findMemberQuery, [cleanCode]);
@@ -24,7 +24,7 @@ exports.scanRFID = async (req, res) => {
         }
         const member = memberRes.rows[0];
 
-        // B. LOGIKA WAKTU (Timezone Aware)
+        // B. LOGIKA WAKTU
         const tzRes = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'timezone'");
         let activeTimezone = 'Asia/Jakarta';
         if (tzRes.rows.length > 0 && tzRes.rows[0].setting_value) {
@@ -58,7 +58,7 @@ exports.scanRFID = async (req, res) => {
         }
 
         // D. CEK RIWAYAT HARI INI
-        const checkLog = await pool.query('SELECT * FROM attendance_logs WHERE student_id=$1 AND date_log=$2', [member.id, localDate]);
+        const checkLog = await pool.query('SELECT * FROM attendance_logs WHERE member_id=$1 AND date_log=$2', [member.id, localDate]);
 
         // === MASUK (CHECK IN) ===
         if (checkLog.rows.length === 0) {
@@ -68,18 +68,20 @@ exports.scanRFID = async (req, res) => {
             
             let statusKehadiran = (currentTime > limitIn) ? 'TERLAMBAT' : 'HADIR';
             
+            // Logika Baru: Langsung insert status tanpa menunggu absen pulang
             await pool.query(
-                'INSERT INTO attendance_logs (student_id, status, date_log, scan_time) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)', 
+                'INSERT INTO attendance_logs (member_id, status, date_log, scan_time) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)', 
                 [member.id, statusKehadiran, localDate]
             );
 
             return res.json({
                 success: true, mode: 'MASUK',
-                nama: member.nama_lengkap, status: statusKehadiran,
-                waktu: currentTime, foto: member.foto,
-                info_id: member.nipd || member.nisn, 
-                divisi: member.kelas,
-                nisn: member.nipd || member.nisn, kelas: member.kelas 
+                nama: member.full_name, status: statusKehadiran,
+                waktu: currentTime, foto: member.photo,
+                info_id: member.identity_number, 
+                divisi: member.division_name,
+                // Fallback untuk frontend lama
+                nisn: member.identity_number, kelas: member.division_name 
             });
         } 
         
@@ -87,38 +89,28 @@ exports.scanRFID = async (req, res) => {
         else {
             const log = checkLog.rows[0];
 
-            // 1. Sudah Pulang?
-            if (log.scan_out) {
-                return res.status(400).json({ message: "Anda Sudah Absen Pulang" });
-            }
+            if (log.scan_out) return res.status(400).json({ message: "Anda Sudah Absen Pulang" });
 
-            // 2. Bounce Check (Minimal 1 menit)
             const lastScan = new Date(log.scan_time); 
             const diffMinutes = (now - lastScan) / 1000 / 60; 
-            if (diffMinutes < 1) { 
-                return res.status(400).json({ message: "Baru saja absen masuk. Tunggu sebentar." });
-            }
+            if (diffMinutes < 1) return res.status(400).json({ message: "Baru saja absen masuk. Tunggu sebentar." });
 
-            // 3. Waktu Pulang Belum Tiba?
             if (currentTime < limitOut) {
-                return res.status(400).json({ 
-                    message: `Belum Waktunya Pulang! (Jadwal: ${limitOut})` 
-                });
+                return res.status(400).json({ message: `Belum Waktunya Pulang! (Jadwal: ${limitOut})` });
             }
 
-            // Sukses Update Pulang
+            // Update waktu pulang
             await pool.query('UPDATE attendance_logs SET scan_out=$1 WHERE id=$2', [currentTime, log.id]);
 
             return res.json({
                 success: true, mode: 'PULANG',
-                nama: member.nama_lengkap, status: 'PULANG',
-                waktu: currentTime, foto: member.foto,
-                info_id: member.nipd || member.nisn,
-                divisi: member.kelas,
-                nisn: member.nipd || member.nisn, kelas: member.kelas
+                nama: member.full_name, status: 'PULANG',
+                waktu: currentTime, foto: member.photo,
+                info_id: member.identity_number,
+                divisi: member.division_name,
+                nisn: member.identity_number, kelas: member.division_name
             });
         }
-
     } catch (e) { 
         console.error("Scan Error:", e);
         res.status(500).json({ message: "Terjadi Kesalahan Sistem Database" }); 
@@ -128,12 +120,15 @@ exports.scanRFID = async (req, res) => {
 // --- 2. DASHBOARD DATA ---
 exports.getDashboardStats = async (req, res) => {
     try {
-        const tot = await pool.query('SELECT count(*) FROM students');
+        const tot = await pool.query('SELECT count(*) FROM members');
         const logs = await pool.query("SELECT status, count(*) as c FROM attendance_logs WHERE date_log=CURRENT_DATE GROUP BY status");
         
         const rec = await pool.query(`
-            SELECT a.status, TO_CHAR(a.scan_time, 'HH24:MI') as scan_time, s.nama_lengkap, s.kelas, s.nisn, s.nipd 
-            FROM attendance_logs a JOIN students s ON a.student_id=s.id 
+            SELECT a.status, TO_CHAR(a.scan_time, 'HH24:MI') as scan_time, 
+                   m.full_name as nama_lengkap, d.name as kelas, m.identity_number as nisn 
+            FROM attendance_logs a 
+            JOIN members m ON a.member_id = m.id 
+            LEFT JOIN divisions d ON m.division_id = d.id
             WHERE date_log=CURRENT_DATE ORDER BY a.scan_time DESC LIMIT 10
         `);
         
@@ -150,11 +145,22 @@ exports.getDashboardStats = async (req, res) => {
 
 // --- 3. REPORT API ---
 exports.getReport = async (req, res) => {
-    const { start_date, end_date, kelas } = req.query;
+    const { start_date, end_date, kelas } = req.query; // kelas ini merepresentasikan division name
     try {
-        let q = `SELECT s.nama_lengkap, s.kelas, s.nipd as id_anggota, TO_CHAR(a.date_log, 'YYYY-MM-DD') as tanggal, a.status, TO_CHAR(a.scan_time, 'HH24:MI:SS') as scan_in, TO_CHAR(a.scan_out, 'HH24:MI:SS') as scan_out FROM students s JOIN attendance_logs a ON s.id = a.student_id WHERE a.date_log BETWEEN $1 AND $2`;
+        let q = `
+            SELECT m.full_name as nama_lengkap, d.name as kelas, m.identity_number as id_anggota, 
+                   TO_CHAR(a.date_log, 'YYYY-MM-DD') as tanggal, a.status, 
+                   TO_CHAR(a.scan_time, 'HH24:MI:SS') as scan_in, TO_CHAR(a.scan_out, 'HH24:MI:SS') as scan_out 
+            FROM members m 
+            JOIN attendance_logs a ON m.id = a.member_id 
+            LEFT JOIN divisions d ON m.division_id = d.id
+            WHERE a.date_log BETWEEN $1 AND $2
+        `;
         const p = [start_date, end_date];
-        if (kelas) { q += ` AND s.kelas = $3`; p.push(kelas); }
+        if (kelas) { 
+            q += ` AND d.name = $3`; 
+            p.push(kelas); 
+        }
         q += ` ORDER BY a.date_log DESC, a.scan_time DESC`;
         const r = await pool.query(q, p);
         res.json(r.rows || []);
@@ -163,18 +169,19 @@ exports.getReport = async (req, res) => {
 
 // --- 4. MANUAL ATTENDANCE (ADMIN EDIT) ---
 exports.manualAttendance = async (req, res) => {
-    const { student_id, status, tanggal } = req.body;
-    // Jika status NULL (Reset)
+    const { student_id, status, tanggal } = req.body; 
+    const member_id = student_id; // Mapping dari frontend lama
+    
     if (!status) {
-        await pool.query('DELETE FROM attendance_logs WHERE student_id=$1 AND date_log=$2', [student_id, tanggal]);
+        await pool.query('DELETE FROM attendance_logs WHERE member_id=$1 AND date_log=$2', [member_id, tanggal]);
         return res.json({ success: true });
     }
-    // Cek ada data gak
-    const check = await pool.query('SELECT id FROM attendance_logs WHERE student_id=$1 AND date_log=$2', [student_id, tanggal]);
+    
+    const check = await pool.query('SELECT id FROM attendance_logs WHERE member_id=$1 AND date_log=$2', [member_id, tanggal]);
     if(check.rows.length > 0) {
         await pool.query('UPDATE attendance_logs SET status=$1 WHERE id=$2', [status, check.rows[0].id]);
     } else {
-        await pool.query('INSERT INTO attendance_logs (student_id, status, date_log, scan_time) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)', [student_id, status, tanggal]);
+        await pool.query('INSERT INTO attendance_logs (member_id, status, date_log, scan_time) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)', [member_id, status, tanggal]);
     }
     res.json({ success: true });
 };
@@ -183,14 +190,18 @@ exports.manualAttendance = async (req, res) => {
 exports.getDailyAttendance = async (req, res) => {
     const { kelas, tanggal } = req.query;
     let q = `
-        SELECT s.id, s.nama_lengkap, s.nisn, s.kelas, 
+        SELECT m.id, m.full_name as nama_lengkap, m.identity_number as nisn, d.name as kelas, 
                a.status, a.scan_time, a.scan_out 
-        FROM students s 
-        LEFT JOIN attendance_logs a ON s.id = a.student_id AND a.date_log = $1
+        FROM members m 
+        LEFT JOIN divisions d ON m.division_id = d.id
+        LEFT JOIN attendance_logs a ON m.id = a.member_id AND a.date_log = $1
     `;
     const p = [tanggal];
-    if (kelas) { q += ` WHERE s.kelas = $2`; p.push(kelas); }
-    q += ` ORDER BY s.nama_lengkap ASC`;
+    if (kelas) { 
+        q += ` WHERE d.name = $2`; 
+        p.push(kelas); 
+    }
+    q += ` ORDER BY m.full_name ASC`;
     try {
         const r = await pool.query(q, p);
         res.json(r.rows);

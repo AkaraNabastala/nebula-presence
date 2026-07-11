@@ -5,9 +5,9 @@ const os = require('os');
 require('dotenv').config();
 
 // Path Frontend (Hasil Build React)
-const frontendPath = path.join(__dirname, '../../src/dist');
+const frontendPath = path.join(__dirname, '../dist');
 
-// Folder Penyimpanan Data (Logs & Uploads) di Home Linux
+// Folder Penyimpanan Data (Logs & Uploads) di Home user
 const userDataPath = path.join(os.homedir(), '.si-mas-app');
 const logDir = path.join(userDataPath, 'logs');
 const uploadDir = path.join(userDataPath, 'uploads');
@@ -16,13 +16,24 @@ const uploadDir = path.join(userDataPath, 'uploads');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
+// Konfigurasi Pool Database
 const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || '127.0.0.1',
-    database: process.env.DB_NAME || 'db_absensimas',
-    password: process.env.DB_PASSWORD || 'darksky',
-    port: process.env.DB_PORT || 5432,
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
     connectionTimeoutMillis: 10000,
+});
+
+// Cek Koneksi Database
+pool.on('connect', () => {
+    console.log('Database connected successfully to:', process.env.DB_NAME);
+});
+
+pool.on('error', (err) => {
+    console.error('Unexpected error on idle client', err);
+    process.exit(-1);
 });
 
 module.exports = { pool, logDir, frontendPath, userDataPath, uploadDir };
