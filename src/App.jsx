@@ -17,7 +17,11 @@ import BackupPage from './pages/BackupPage';
 import RestorePage from './pages/RestorePage';
 import Laporan from './pages/Laporan';
 import Profile from './pages/Profile';
+import Database from './pages/Database';
 import License from './pages/License'; 
+import Devices from './pages/Devices';
+import AuditLogs from './pages/AuditLogs';
+import Holidays from './pages/Holidays';
 
 import backgroundSekolah from './assets/gedung.jpg'; 
 
@@ -106,7 +110,7 @@ const LockScreen = ({ onUnlock }) => {
         </form>
         
         <button onClick={() => window.open('https://wa.me/6285183382128', '_blank')} className="mt-6 text-emerald-400 text-xs font-bold flex items-center gap-2 hover:opacity-80">
-            <MessageCircle size={16}/> Chat Admin Nabastala
+            <MessageCircle size={16}/> Chat Admin Nebula Tech
         </button>
       </div>
     </div>
@@ -154,10 +158,14 @@ function App() {
           <Route path="attendance-manual" element={<ManualAttendance />} />
           <Route path="reports" element={<Laporan />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="database" element={<Database />} />
           <Route path="backup" element={<BackupPage />} />
           <Route path="restore" element={<RestorePage />} />
           <Route path="profile" element={<Profile />} />
           <Route path="license" element={<License />} /> 
+          <Route path="devices" element={<Devices />} />
+          <Route path="audit-logs" element={<AuditLogs />} />
+          <Route path="holidays" element={<Holidays />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

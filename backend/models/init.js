@@ -8,7 +8,9 @@ const initSystem = async () => {
             await client.query('BEGIN');
             
             // Tabel Master
-            await client.query(`CREATE TABLE IF NOT EXISTS admins (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, nama_admin VARCHAR(100));`);
+            await client.query(`CREATE TABLE IF NOT EXISTS admins (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, nama_admin VARCHAR(100), role VARCHAR(20) DEFAULT 'SuperAdmin');`);
+            // Tambahkan kolom role jika belum ada (untuk migrasi database yang sudah ada)
+            await client.query(`ALTER TABLE admins ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'SuperAdmin';`);
             await client.query(`CREATE TABLE IF NOT EXISTS app_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value TEXT);`);
             await client.query(`CREATE TABLE IF NOT EXISTS classes (id SERIAL PRIMARY KEY, nama_kelas VARCHAR(50) UNIQUE NOT NULL, wali_kelas VARCHAR(100));`);
             await client.query(`CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, nisn VARCHAR(50), nipd VARCHAR(50), nama_lengkap VARCHAR(100) NOT NULL, kelas VARCHAR(50), kode_rfid VARCHAR(50), foto TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(nisn));`);
@@ -16,8 +18,17 @@ const initSystem = async () => {
             // Tabel Absensi
             await client.query(`CREATE TABLE IF NOT EXISTS attendance_logs (id SERIAL PRIMARY KEY, student_id INTEGER REFERENCES students(id) ON DELETE CASCADE, scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, status VARCHAR(20) NOT NULL, date_log DATE DEFAULT CURRENT_DATE, scan_out TIME);`);
             
+            // Tabel Devices (ZKTeco)
+            await client.query(`CREATE TABLE IF NOT EXISTS devices (id SERIAL PRIMARY KEY, name VARCHAR(100), ip_address VARCHAR(50) UNIQUE, port INTEGER DEFAULT 4370, status VARCHAR(20) DEFAULT 'offline');`);
+            
             // Tabel Lisensi (POWERFULL UPDATE: license_hash)
             await client.query(`CREATE TABLE IF NOT EXISTS used_licenses (id SERIAL PRIMARY KEY, license_hash TEXT UNIQUE NOT NULL, used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
+
+            // Tabel Holidays (Hari Libur)
+            await client.query(`CREATE TABLE IF NOT EXISTS holidays (id SERIAL PRIMARY KEY, holiday_date DATE UNIQUE NOT NULL, description VARCHAR(255));`);
+
+            // Tabel Audit Logs (Log Aktivitas)
+            await client.query(`CREATE TABLE IF NOT EXISTS audit_logs (id SERIAL PRIMARY KEY, admin_name VARCHAR(100), action VARCHAR(255), target VARCHAR(255), timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
 
             await client.query('COMMIT');
             console.log("✅ Struktur Database Siap.");

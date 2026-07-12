@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    Plus, Search, Trash2, Edit, Users, Save, X, Eye, FileDown, 
+    Plus, Search, Trash2, Edit, Users, Save, X, Eye, FileDown, Printer,
     ArrowLeft, CheckCircle, AlertCircle, CheckSquare, Square, 
     UserMinus, AlertTriangle, RefreshCcw, Info, Briefcase, Building2 
 } from 'lucide-react';
 import api from '../../api/axios';
-import * as XLSX from 'xlsx'; 
+import * as XLSX from 'xlsx-js-style'; 
+import logoNabastala from '../../assets/logo-nabastala.png';
 
 const Classes = () => {
   // --- STATE ---
@@ -40,8 +41,12 @@ const Classes = () => {
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
-  // Config untuk Kop Surat Excel
-  const [appConfig, setAppConfig] = useState({ nama_instansi: 'INSTANSI' });
+  // Config untuk Kop Surat Excel & Print
+  const [appConfig, setAppConfig] = useState({ 
+    nama_instansi: 'INSTANSI',
+    labels: { label_anggota: 'Anggota', label_unit: 'Divisi' },
+    logo: logoNabastala
+  });
 
   // --- INIT ---
   useEffect(() => {
@@ -58,7 +63,11 @@ const Classes = () => {
   const fetchConfig = async () => {
       try {
           const res = await api.get('/settings');
-          if(res.data) setAppConfig({ nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'INSTANSI' });
+          if(res.data) setAppConfig({ 
+              nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'INSTANSI',
+              labels: res.data.labels || { label_anggota: 'Anggota', label_unit: 'Divisi' },
+              logo: res.data.logo_sekolah || res.data.logo_instansi || logoNabastala
+          });
       } catch(e) {}
   };
 
@@ -224,7 +233,7 @@ const Classes = () => {
       });
 
       if (rejectedCount > 0) {
-          showToast('error', `${rejectedCount} divisi dilewati karena masih ada anggotanya.`);
+          showToast('error', `${rejectedCount} data dilewati karena masih ada anggotanya.`);
       }
 
       if (idsToDelete.length === 0) return;
@@ -252,7 +261,7 @@ const Classes = () => {
   };
 
   const handleKickMember = async (member) => {
-      if(!window.confirm(`Keluarkan ${member.nama_lengkap} dari divisi ini?`)) return;
+      if(!window.confirm(`Keluarkan ${member.nama_lengkap} dari ${appConfig.labels?.label_unit || 'divisi'} ini?`)) return;
       try {
           await api.put(`/members/${member.id}`, { ...member, kelas: '' });
           showToast('success', "Anggota berhasil dikeluarkan.");
@@ -316,7 +325,7 @@ const Classes = () => {
     const excelData = [
         [appConfig.nama_instansi.toUpperCase()], // Baris 1: Nama Instansi
         [`LAPORAN ABSENSI BULAN ${namaBulan.toUpperCase()} ${filterTahun}`], // Baris 2: Judul
-        [`DIVISI: ${selectedDivision.nama_kelas}`], // Baris 3: Divisi
+        [`${(appConfig.labels?.label_unit || 'DIVISI').toUpperCase()}: ${selectedDivision.nama_kelas}`], // Baris 3: Divisi
         [], // Baris 4: Kosong
         ["NO", "ID ANGGOTA", "NAMA LENGKAP", ...dateHeaders, "H", "T", "S", "I", "A"], // Baris 5: Header Table
         ...dataRows // Data
@@ -346,6 +355,61 @@ const Classes = () => {
         { s: { r: 2, c: 0 }, e: { r: 2, c: 3 + daysInMonth + 5 } }, // Merge Nama Divisi
     ];
 
+    // STYLING DENGAN xlsx-js-style
+    const totalCols = 3 + daysInMonth + 5;
+    const totalRows = excelData.length;
+
+    for (let r = 0; r < totalRows; r++) {
+        for (let c = 0; c < totalCols; c++) {
+            const cellRef = XLSX.utils.encode_cell({ c: c, r: r });
+            if (!ws[cellRef]) continue;
+            
+            const cell = ws[cellRef];
+            if (!cell.s) cell.s = {};
+            
+            // Default Borders (Dari baris Header Tabel ke bawah)
+            if (r >= 4) {
+                cell.s.border = {
+                    top: { style: "thin", color: { auto: 1 } },
+                    bottom: { style: "thin", color: { auto: 1 } },
+                    left: { style: "thin", color: { auto: 1 } },
+                    right: { style: "thin", color: { auto: 1 } }
+                };
+            }
+            
+            // Alignment (Tengah semua, kecuali kolom Nama)
+            if (r >= 4) {
+                if (c === 2) { 
+                    cell.s.alignment = { horizontal: "left", vertical: "center" };
+                } else {
+                    cell.s.alignment = { horizontal: "center", vertical: "center" };
+                }
+            } else {
+                 cell.s.alignment = { horizontal: "center", vertical: "center" };
+            }
+            
+            // Header Row Styling (Baris 5 / index 4)
+            if (r === 4) {
+                cell.s.font = { bold: true, color: { rgb: "FFFFFF" } };
+                cell.s.fill = { fgColor: { rgb: "1E293B" } }; // Slate 800
+            }
+            
+            // Title Styling (Baris 1-3)
+            if (r >= 0 && r <= 2) {
+                cell.s.font = { bold: true, sz: (r === 0 ? 14 : 12) };
+            }
+            
+            // Legend Colors & Bold
+            if (r > 4 && c >= 3 && c < 3 + daysInMonth) {
+                if (cell.v === 'v') cell.s.font = { bold: true, color: { rgb: "10B981" } };
+                else if (cell.v === 'T') cell.s.font = { bold: true, color: { rgb: "F59E0B" } };
+                else if (cell.v === 'S') cell.s.font = { bold: true, color: { rgb: "3B82F6" } };
+                else if (cell.v === 'I') cell.s.font = { bold: true, color: { rgb: "6366F1" } };
+                else if (cell.v === 'A') cell.s.font = { bold: true, color: { rgb: "EF4444" } };
+            }
+        }
+    }
+
     XLSX.utils.book_append_sheet(wb, ws, "Laporan Absensi");
     XLSX.writeFile(wb, `Laporan_Absensi_${selectedDivision.nama_kelas}_${namaBulan}_${filterTahun}.xlsx`);
     showToast('success', "Laporan berhasil didownload!");
@@ -369,7 +433,7 @@ const Classes = () => {
 
         <div className="relative z-10">
             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                <Building2 className="text-blue-600" /> Data Divisi
+                <Building2 className="text-blue-600" /> Data {appConfig.labels?.label_unit || 'Divisi'}
             </h2>
             <p className="text-sm text-gray-500 mt-1">Kelola daftar unit kerja, kelas, atau kelompok.</p>
         </div>
@@ -382,7 +446,7 @@ const Classes = () => {
             )}
             <div className="relative flex-1 md:w-64 group">
                 <Search className="absolute left-3 top-3 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18}/>
-                <input type="text" placeholder="Cari Divisi..." className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 text-sm transition-all" onChange={(e) => setSearchTerm(e.target.value)}/>
+                <input type="text" placeholder={`Cari ${appConfig.labels?.label_unit || 'Divisi'}...`} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 text-sm transition-all" onChange={(e) => setSearchTerm(e.target.value)}/>
             </div>
             <button onClick={handleOpenAdd} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 text-sm font-bold active:scale-95">
                 <Plus size={18} /> <span>Tambah</span>
@@ -401,9 +465,9 @@ const Classes = () => {
                                 {selectedIds.length === filteredDivisions.length && filteredDivisions.length > 0 ? <CheckSquare size={20} className="text-blue-600"/> : <Square size={20}/>}
                             </button>
                         </th>
-                        <th className="p-6">Nama Unit / Divisi</th>
+                        <th className="p-6">Nama {appConfig.labels?.label_unit || 'Unit / Divisi'}</th>
                         <th className="p-6 hidden md:table-cell">Penanggung Jawab</th>
-                        <th className="p-6 text-center">Total Anggota</th>
+                        <th className="p-6 text-center">Total {appConfig.labels?.label_anggota || 'Anggota'}</th>
                         <th className="p-6 text-center">Aksi</th>
                     </tr>
                 </thead>
@@ -453,12 +517,12 @@ const Classes = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-[1.5rem] w-full max-w-md shadow-2xl relative overflow-hidden">
                 <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-                    <h3 className="font-bold text-lg text-gray-800">{isEditMode ? 'Edit Divisi' : 'Tambah Baru'}</h3>
+                    <h3 className="font-bold text-lg text-gray-800">{isEditMode ? `Edit ${appConfig.labels?.label_unit || 'Divisi'}` : 'Tambah Baru'}</h3>
                     <button onClick={() => setShowFormModal(false)} className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full"><X size={20}/></button>
                 </div>
                 <form onSubmit={handleSubmitDivision} className="p-6 space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama Divisi</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama {appConfig.labels?.label_unit || 'Divisi'}</label>
                         <input className="w-full border border-slate-200 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white transition-all font-medium text-sm" placeholder="Contoh: Staff IT / Finance" value={formData.nama_kelas} onChange={e => setFormData({...formData, nama_kelas: e.target.value})} required />
                     </div>
                     <div>
@@ -501,48 +565,51 @@ const Classes = () => {
           </div>
       )}
 
-      {/* MODAL DETAIL & LAPORAN */}
+      {/* MODAL DETAIL & LAPORAN (DIDALAM MAIN LAYOUT) */}
       {showDetailModal && selectedDivision && (
-        <div className="fixed inset-0 z-[120] bg-gray-50 flex flex-col animate-in slide-in-from-right duration-300">
+        <div className="fixed top-[85px] left-0 md:left-[280px] right-0 bottom-0 z-[50] bg-gray-50 flex flex-col animate-in fade-in slide-in-from-bottom-8 duration-300 overflow-hidden shadow-inner">
             {/* Header Modal Detail */}
-            <div className="bg-white border-b px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm z-20 shrink-0">
+            <div className="bg-slate-50/80 backdrop-blur-md border-b border-gray-200 px-6 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm z-20 shrink-0 no-print">
                 <div className="flex items-center gap-4 w-full md:w-auto">
-                    <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition text-gray-600"><ArrowLeft size={24} /></button>
+                    <button onClick={() => setShowDetailModal(false)} className="p-2 bg-white border border-gray-200 hover:bg-gray-100 rounded-xl transition-all text-gray-600 shadow-sm active:scale-95"><ArrowLeft size={20} /></button>
                     <div>
-                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Briefcase className="text-blue-600"/> {selectedDivision.nama_kelas}</h2>
-                        <p className="text-xs text-gray-500 font-medium">PJ: {selectedDivision.wali_kelas || '-'}</p>
+                        <h2 className="text-xl font-black text-gray-800 flex items-center gap-2 tracking-tight"><Briefcase className="text-blue-600" size={24}/> {selectedDivision.nama_kelas}</h2>
+                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-1">Penanggung Jawab: <span className="text-blue-600">{selectedDivision.wali_kelas || '-'}</span></p>
                     </div>
                 </div>
                 
-                {/* TABS SWITCHER */}
-                <div className="flex bg-gray-100 p-1 rounded-xl">
-                    <button onClick={() => setActiveTab('REPORT')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'REPORT' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Laporan Absensi</button>
-                    <button onClick={() => setActiveTab('MEMBERS')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'MEMBERS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Anggota ({divisionMembers.length})</button>
-                </div>
-
-                {activeTab === 'REPORT' && (
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-gray-100 p-1 rounded-lg border border-gray-200">
-                            <select value={filterBulan} onChange={(e) => setFilterBulan(e.target.value)} className="bg-transparent text-xs font-bold px-2 outline-none cursor-pointer text-gray-700">
-                                {Array.from({length: 12}, (_, i) => (<option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('id-ID', {month: 'short'})}</option>))}
-                            </select>
-                            <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)} className="bg-transparent text-xs font-bold px-2 outline-none cursor-pointer text-gray-700">
-                                <option value="2026">2026</option><option value="2025">2025</option>
-                            </select>
-                        </div>
-                        <button onClick={handleDownloadReport} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition shadow-sm font-bold text-xs"><FileDown size={16} /> Export</button>
+                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto items-end sm:items-center">
+                    {/* TABS SWITCHER */}
+                    <div className="flex bg-gray-200/60 p-1 rounded-xl w-full sm:w-auto">
+                        <button onClick={() => setActiveTab('REPORT')} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'REPORT' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Laporan</button>
+                        <button onClick={() => setActiveTab('MEMBERS')} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'MEMBERS' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Anggota ({divisionMembers.length})</button>
                     </div>
-                )}
+
+                    {activeTab === 'REPORT' && (
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+                                <select value={filterBulan} onChange={(e) => setFilterBulan(e.target.value)} className="bg-transparent text-xs font-bold px-2 py-1 outline-none cursor-pointer text-gray-700 border-r border-gray-100">
+                                    {Array.from({length: 12}, (_, i) => (<option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('id-ID', {month: 'short'})}</option>))}
+                                </select>
+                                <select value={filterTahun} onChange={(e) => setFilterTahun(e.target.value)} className="bg-transparent text-xs font-bold px-2 py-1 outline-none cursor-pointer text-gray-700">
+                                    <option value="2026">2026</option><option value="2025">2025</option>
+                                </select>
+                            </div>
+                            <button onClick={handleDownloadReport} className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 font-bold text-xs active:scale-95"><FileDown size={16} /> Export</button>
+                            <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2.5 rounded-xl hover:bg-slate-900 transition shadow-lg shadow-slate-200 font-bold text-xs active:scale-95"><Printer size={16} /> Cetak</button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 overflow-auto p-4 md:p-8">
+            <div className="flex-1 overflow-auto p-4 md:p-8 relative">
                 {loadingReport ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 animate-pulse"><RefreshCcw size={32} className="animate-spin mb-4"/><p className="text-sm">Memuat data...</p></div>
                 ) : activeTab === 'REPORT' ? (
                     // --- TAB 1: LAPORAN ABSENSI (VISUAL SCREEN) ---
-                    <div className="flex flex-col h-full">
-                        <div className="flex flex-wrap gap-4 mb-4 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-[10px] sm:text-xs">
+                    <div className="flex flex-col h-full print-area">
+                        <div className="flex flex-wrap gap-4 mb-4 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-[10px] sm:text-xs no-print">
                             <div className="flex items-center gap-2"><Info size={14} className="text-blue-500"/> <span className="font-bold text-gray-600">Ket:</span></div>
                             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-700"></div> <span className="text-gray-500">Hadir</span></div>
                             <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-yellow-400 border border-yellow-600"></div> <span className="text-gray-500">Terlambat</span></div>
@@ -551,25 +618,44 @@ const Classes = () => {
                             <div className="flex items-center gap-1.5"><span className="font-bold text-red-500">A</span> <span className="text-gray-500">Alfa</span></div>
                         </div>
 
-                        <div className="bg-white border rounded-[1.5rem] shadow-sm overflow-hidden min-w-[1000px]">
+                        {/* PRINT ONLY HEADER (KOP SURAT) */}
+                        <div className="hidden print:flex flex-col mb-6 border-b-4 border-double border-slate-800 pb-4">
+                            <div className="flex items-center gap-6 w-full">
+                                <div className="w-24 h-24 flex items-center justify-center shrink-0">
+                                    <img src={appConfig.logo} alt="Logo" className="max-w-full max-h-full object-contain grayscale" />
+                                </div>
+                                <div className="text-center flex-1 pr-24">
+                                    <h1 className="text-2xl font-black uppercase tracking-widest">{appConfig.nama_instansi || 'NAMA INSTANSI'}</h1>
+                                    <p className="text-sm font-medium mt-1">Alamat Lengkap Instansi / Perusahaan</p>
+                                    <p className="text-xs">Telp: (000) 000-0000 | Email: info@instansi.com</p>
+                                </div>
+                            </div>
+                            <div className="text-center mt-6">
+                                <h2 className="text-xl font-bold underline underline-offset-4 mb-1">LAPORAN KEHADIRAN</h2>
+                                <p className="text-sm font-bold uppercase">{appConfig.labels?.label_unit || 'DIVISI'}: {selectedDivision.nama_kelas}</p>
+                                <p className="text-xs">Periode: {new Date(0, filterBulan - 1).toLocaleString('id-ID', {month: 'long'})} {filterTahun}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden min-w-[900px] flex-1">
                             <table className="w-full text-left text-sm border-collapse">
-                                <thead className="bg-slate-50 text-slate-700 font-bold border-b sticky top-0 z-10 shadow-sm">
+                                <thead className="bg-slate-100/80 text-slate-700 font-extrabold border-b border-gray-200 sticky top-0 z-10 shadow-sm">
                                     <tr>
-                                        <th className="p-3 border-r sticky left-0 bg-slate-50 z-20 w-10 text-center text-xs">No</th>
-                                        <th className="p-3 border-r sticky left-10 bg-slate-50 z-20 w-48 shadow-md text-xs">Nama Anggota</th>
-                                        {Array.from({length: 31}, (_, i) => (<th key={i} className="p-1 border-r text-center text-[9px] w-8">{i+1}</th>))}
-                                        <th className="p-2 border-r bg-emerald-50 text-emerald-700 text-center w-8 text-[10px]">H</th>
-                                        <th className="p-2 border-r bg-amber-50 text-amber-700 text-center w-8 text-[10px]">T</th>
-                                        <th className="p-2 border-r bg-blue-50 text-blue-700 text-center w-8 text-[10px]">S</th>
-                                        <th className="p-2 border-r bg-indigo-50 text-indigo-700 text-center w-8 text-[10px]">I</th>
-                                        <th className="p-2 bg-rose-50 text-rose-700 text-center w-8 text-[10px]">A</th>
+                                        <th className="p-3 border-r border-gray-200 sticky left-0 bg-slate-100 z-20 w-10 text-center text-[11px] uppercase tracking-wider">No</th>
+                                        <th className="p-3 border-r border-gray-200 sticky left-10 bg-slate-100 z-20 w-48 shadow-[4px_0_12px_rgba(0,0,0,0.03)] text-[11px] uppercase tracking-wider">Nama Anggota</th>
+                                        {Array.from({length: 31}, (_, i) => (<th key={i} className="p-1 border-r border-gray-200 text-center text-[9px] w-7 text-gray-500">{i+1}</th>))}
+                                        <th className="p-2 border-r border-gray-200 bg-emerald-100 text-emerald-700 text-center w-8 text-[11px]">H</th>
+                                        <th className="p-2 border-r border-gray-200 bg-amber-100 text-amber-700 text-center w-8 text-[11px]">T</th>
+                                        <th className="p-2 border-r border-gray-200 bg-blue-100 text-blue-700 text-center w-8 text-[11px]">S</th>
+                                        <th className="p-2 border-r border-gray-200 bg-indigo-100 text-indigo-700 text-center w-8 text-[11px]">I</th>
+                                        <th className="p-2 bg-rose-100 text-rose-700 text-center w-8 text-[11px]">A</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {reportData.map((m, idx) => (
-                                        <tr key={m.id || idx} className="hover:bg-slate-50 transition">
-                                            <td className="p-3 border-r sticky left-0 bg-white text-center font-mono text-xs">{idx + 1}</td>
-                                            <td className="p-3 border-r sticky left-10 bg-white font-bold text-slate-800 shadow-sm text-xs truncate max-w-[150px]">{m.nama_lengkap}</td>
+                                        <tr key={m.id || idx} className="hover:bg-blue-50/40 transition group">
+                                            <td className="p-2.5 border-r border-gray-100 sticky left-0 bg-white group-hover:bg-blue-50/40 text-center font-mono text-[11px] text-gray-500">{idx + 1}</td>
+                                            <td className="p-2.5 border-r border-gray-100 sticky left-10 bg-white group-hover:bg-blue-50/40 font-bold text-slate-800 shadow-[4px_0_12px_rgba(0,0,0,0.02)] text-xs truncate max-w-[160px]">{m.nama_lengkap}</td>
                                             
                                             {/* LOOP TANGGAL */}
                                             {Array.from({length: 31}, (_, i) => {
@@ -577,33 +663,47 @@ const Classes = () => {
                                                 const s = (m.attendance || {})[day]; 
                                                 
                                                 return (
-                                                    <td key={i} className="p-1 border-r text-center border-b text-[10px] text-gray-500">
-                                                        {s === 'HADIR' ? (
-                                                            <div className="w-2.5 h-2.5 rounded-full bg-slate-900 mx-auto" title="Hadir"></div> 
-                                                        ) : s === 'TERLAMBAT' ? (
-                                                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400 mx-auto" title="Terlambat"></div>
-                                                        ) : s ? (
-                                                            <span className={`font-bold ${
-                                                                s === 'SAKIT' ? 'text-blue-500' : 
-                                                                s === 'IZIN' ? 'text-indigo-500' : 
-                                                                'text-red-500'
-                                                            }`}>
-                                                                {s.charAt(0)}
-                                                            </span>
-                                                        ) : ''}
+                                                    <td key={i} className="p-0 border-r border-gray-100 text-center border-b text-[10px] text-gray-500">
+                                                        <div className="w-full h-full min-h-[30px] flex items-center justify-center">
+                                                            {s === 'HADIR' ? (
+                                                                <div className="w-2.5 h-2.5 rounded-sm bg-emerald-400" title="Hadir"></div> 
+                                                            ) : s === 'TERLAMBAT' ? (
+                                                                <div className="w-2.5 h-2.5 rounded-sm bg-amber-400" title="Terlambat"></div>
+                                                            ) : s ? (
+                                                                <span className={`font-black text-[10px] ${
+                                                                    s === 'SAKIT' ? 'text-blue-500' : 
+                                                                    s === 'IZIN' ? 'text-indigo-500' : 
+                                                                    'text-rose-500'
+                                                                }`}>
+                                                                    {s.charAt(0)}
+                                                                </span>
+                                                            ) : ''}
+                                                        </div>
                                                     </td>
                                                 );
                                             })}
 
-                                            <td className="p-1 border-r text-center font-bold bg-emerald-50/30 text-emerald-600 text-xs">{m.stats?.H || 0}</td>
-                                            <td className="p-1 border-r text-center font-bold bg-amber-50/30 text-amber-600 text-xs">{m.stats?.T || 0}</td>
-                                            <td className="p-1 border-r text-center font-bold bg-blue-50/30 text-blue-600 text-xs">{m.stats?.S || 0}</td>
-                                            <td className="p-1 border-r text-center font-bold bg-indigo-50/30 text-indigo-600 text-xs">{m.stats?.I || 0}</td>
-                                            <td className="p-1 text-center font-bold bg-rose-50/30 text-rose-600 text-xs">{m.stats?.A || 0}</td>
+                                            <td className="p-1 border-r border-gray-100 text-center font-bold bg-emerald-50/50 text-emerald-700 text-xs">{m.stats?.H || 0}</td>
+                                            <td className="p-1 border-r border-gray-100 text-center font-bold bg-amber-50/50 text-amber-700 text-xs">{m.stats?.T || 0}</td>
+                                            <td className="p-1 border-r border-gray-100 text-center font-bold bg-blue-50/50 text-blue-700 text-xs">{m.stats?.S || 0}</td>
+                                            <td className="p-1 border-r border-gray-100 text-center font-bold bg-indigo-50/50 text-indigo-700 text-xs">{m.stats?.I || 0}</td>
+                                            <td className="p-1 text-center font-bold bg-rose-50/50 text-rose-700 text-xs">{m.stats?.A || 0}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* PRINT ONLY FOOTER (TANDA TANGAN) */}
+                        <div className="hidden print:flex justify-between mt-10 px-12 break-inside-avoid">
+                            <div className="text-center">
+                                <p className="text-sm mb-20">Mengetahui,<br/><b>Pimpinan / Kepala</b></p>
+                                <p className="text-sm font-bold underline w-48 mx-auto">_________________________</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm mb-20">Dibuat Oleh,<br/><b>Penanggung Jawab</b></p>
+                                <p className="text-sm font-bold underline w-48 mx-auto">{selectedDivision.wali_kelas || '_________________________'}</p>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -616,7 +716,7 @@ const Classes = () => {
                         {divisionMembers.length === 0 ? (
                             <div className="text-center py-10 text-gray-400">
                                 <Users size={40} className="mx-auto mb-2 opacity-20"/>
-                                <p>Divisi ini kosong.</p>
+                                <p>{appConfig.labels?.label_unit || 'Divisi'} ini kosong.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

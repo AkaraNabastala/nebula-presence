@@ -1,21 +1,26 @@
 const { pool } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { addAuditLog } = require('../utils/logger');
 
 exports.login = async (req, res) => {
     const { username, password } = req.body;
     try {
         const r = await pool.query('SELECT * FROM admins WHERE username=$1', [username]);
-        if (r.rows.length === 0) return res.status(404).json({ message: "User tidak ditemukan" });
+        if (r.rows.length === 0) return res.status(404).json({ message: "Username atau Password salah" }); // Samarkan pesan error untuk keamanan
         
-        if (!await bcrypt.compare(password, r.rows[0].password)) return res.status(401).json({ message: "Password salah" });
+        if (!await bcrypt.compare(password, r.rows[0].password)) return res.status(401).json({ message: "Username atau Password salah" });
         
-        const user = r.rows[0]; delete user.password;
+        const user = r.rows[0]; 
+        delete user.password;
 
-       
+        // Wajib mengamankan Secret Key
+        const secretKey = process.env.JWT_SECRET;
+        if(!secretKey) throw new Error("JWT_SECRET tidak ditemukan di konfigurasi server.");
+
         const token = jwt.sign(
-            { id: user.id, username: user.username }, 
-            process.env.JWT_SECRET || 'kunci_rahasia_sementara',
+            { id: user.id, username: user.username, role: user.role || 'SuperAdmin' }, 
+            secretKey,
             { expiresIn: '1d' }
         );
 
@@ -26,12 +31,27 @@ exports.login = async (req, res) => {
             maxAge: 24 * 60 * 60 * 1000
         });
 
+        await addAuditLog(user.nama_admin, 'User Login', 'Sistem Absensi');
+
         res.json({ success: true, user });
-    } catch (e) { res.status(500).json({ message: "Internal Error" }); }
+    } catch (e) { 
+        console.error(e);
+        res.status(500).json({ message: "Terjadi kesalahan internal server" }); 
+    }
+};
+
+// Fungsi Logout Baru
+exports.logout = (req, res) => {
+    res.clearCookie('auth_token');
+    res.json({ success: true, message: "Berhasil logout" });
 };
 
 exports.updateProfile = async (req, res) => {
-    const { id, nama, username, password } = req.body;
+    // PENTING: req.user.id didapat dari JWT Middleware, BUKAN dari req.body
+    // Pastikan rute ini dilindungi oleh middleware token Anda
+    const id = req.user.id; 
+    const { nama, username, password } = req.body;
+
     try {
         if (password) {
             const h = await bcrypt.hash(password, 10);
@@ -39,8 +59,46 @@ exports.updateProfile = async (req, res) => {
         } else {
             await pool.query('UPDATE admins SET nama_admin=$1, username=$2 WHERE id=$3', [nama, username, id]);
         }
-        const u = await pool.query('SELECT * FROM admins WHERE id=$1', [id]);
-        delete u.rows[0].password;
+        
+        const u = await pool.query('SELECT id, username, nama_admin, role FROM admins WHERE id=$1', [id]);
+        await addAuditLog(nama, 'Update Profil Admin', `Username: ${username}`);
         res.json({ success: true, user: u.rows[0] });
-    } catch (e) { res.status(500).json({ message: "Gagal update" }); }
+    } catch (e) { 
+        res.status(500).json({ message: "Gagal memperbarui profil" }); 
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    const { machineId, resetCode } = req.body;
+    
+    if (!machineId || !resetCode) {
+        return res.status(400).json({ message: "Data tidak lengkap." });
+    }
+
+    try {
+        const crypto = require('crypto');
+        const secretSalt = "NebulaTech_MasterReset_2026";
+        
+        // Buat hash yang sama seperti di generator
+        const hash = crypto.createHash('sha256').update(machineId + secretSalt).digest('hex');
+        const expectedCode = hash.substring(0, 6).toUpperCase();
+
+        if (resetCode.trim().toUpperCase() !== expectedCode) {
+            return res.status(401).json({ message: "Kode Reset tidak valid!" });
+        }
+
+        // Reset password ke default (misal: admin123)
+        const defaultPassword = "admin";
+        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+        
+        // Update password untuk semua admin (karena lupa) atau admin dengan username 'admin'
+        await pool.query("UPDATE admins SET password = $1 WHERE role = 'SuperAdmin'", [hashedPassword]);
+        
+        await addAuditLog('System', 'Reset Password', 'SuperAdmin password reset via System Code');
+        
+        res.json({ success: true, message: "Kata sandi berhasil di-reset menjadi 'admin'. Silakan login." });
+    } catch (error) {
+        console.error("Reset Password Error:", error);
+        res.status(500).json({ message: "Terjadi kesalahan server." });
+    }
 };

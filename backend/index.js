@@ -7,6 +7,8 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const express = require('express');
+const http = require('http'); // <-- TAMBAHAN: http module
+const { Server } = require('socket.io'); // <-- TAMBAHAN: socket.io
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
@@ -15,10 +17,14 @@ const compression = require('compression');
 const cookieParser = require('cookie-parser'); // <-- TAMBAHAN 1: Cookie Parser
 require('dotenv').config();
 
-// --- IMPORTS ---
-const apiRoutes = require('./routes/apiRoutes');
+const authGuard = require('./middleware/authGuard');
+const strictGuard = require('./middleware/strictGuard');
 const initSystem = require('./models/init');
-const strictGuard = require('./middleware/strictGuard'); 
+const initAutoAlfa = require('./cron/autoAlfa');
+const apiRoutes = require('./routes/apiRoutes');
+const cron = require('node-cron');
+const { pool } = require('./config/database');
+const ZKLib = require('node-zklib');
 
 const app = express();
 const PORT = process.env.PORT || 6990;
@@ -94,15 +100,59 @@ app.use((err, req, res, next) => {
     });
 });
 
-// --- 6. BOOTSTRAP (START SERVER) ---
+// --- 6. BACKGROUND JOBS (ZKTeco Sync) ---
+cron.schedule('*/5 * * * *', async () => {
+    try {
+        const devices = await pool.query("SELECT * FROM devices WHERE status != 'disabled'");
+        for (let dev of devices.rows) {
+            try {
+                const zkInstance = new ZKLib(dev.ip_address, dev.port, 5200, 5000);
+                await zkInstance.createSocket();
+                await zkInstance.connect();
+                const logs = await zkInstance.getAttendances();
+                
+                // Di dunia nyata, filter log berdasarkan waktu terakhir sync.
+                // Simulasi memproses data
+                if (logs && logs.data && logs.data.length > 0) {
+                    console.log(`[ZKTeco] Menarik ${logs.data.length} log dari ${dev.name}`);
+                }
+                await zkInstance.disconnect();
+            } catch (err) {
+                console.log(`[ZKTeco] Gagal sync mesin ${dev.name} (${dev.ip_address})`);
+            }
+        }
+    } catch (e) {
+        // error query
+    }
+});
+
+// --- 7. BOOTSTRAP (START SERVER) ---
 const startServer = async () => {
     console.log(`=================================================`);
     console.log(`🛠️  Starting SI-MAS Standalone Server...`);
     
     try {
+        // Setup database
         await initSystem();
+
+        // Start Cron Jobs
+        initAutoAlfa();
+
+        // BUNGKUS DENGAN HTTP SERVER UNTUK SOCKET.IO
+        const server = http.createServer(app);
         
-        const server = app.listen(PORT, '0.0.0.0', () => {
+        // SETUP SOCKET.IO
+        const io = new Server(server, { cors: corsOptions });
+        app.set('io', io); // Simpan io di express instance agar bisa diakses di controller
+
+        io.on('connection', (socket) => {
+            console.log(`📡 Socket terhubung: ${socket.id}`);
+            socket.on('disconnect', () => {
+                console.log(`🔌 Socket terputus: ${socket.id}`);
+            });
+        });
+
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 Server Running on Port: ${PORT}`);
             console.log(`🌍 URL: http://localhost:${PORT}`);
             console.log(`📁 Frontend Path: ${FRONTEND_BUILD_PATH}`);

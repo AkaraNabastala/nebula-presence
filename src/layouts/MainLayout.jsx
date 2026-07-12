@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ClipboardList, Settings, 
   LogOut, Menu, X, ChevronDown, 
   Database, UploadCloud, Users, Building2, 
-  AlertTriangle, ShieldCheck
+  AlertTriangle, ShieldCheck, Sun, CloudSun, Sunrise, Moon
 } from 'lucide-react';
 import api from '../api/axios';
 
@@ -16,7 +16,8 @@ const MainLayout = () => {
   const [currentLogo, setCurrentLogo] = useState(logoNabastala);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
-  const [greeting, setGreeting] = useState('');
+  const [greeting, setGreeting] = useState({ text: '', icon: Sun, color: 'text-amber-500' });
+  const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
   
   const getSafeUser = () => {
     try {
@@ -29,13 +30,28 @@ const MainLayout = () => {
 
   const [userData, setUserData] = useState(getSafeUser());
 
+  const [labels, setLabels] = useState({ label_anggota: 'Anggota', label_unit: 'Divisi' });
+
+  // Handle Dark Mode Class
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
   useEffect(() => {
     // Set Sapaan berdasarkan waktu
     const hour = new Date().getHours();
-    if (hour < 11) setGreeting('Selamat Pagi 🌤️');
-    else if (hour < 15) setGreeting('Selamat Siang ☀️');
-    else if (hour < 18) setGreeting('Selamat Sore ⛅');
-    else setGreeting('Selamat Malam 🌙');
+    if (hour < 11) setGreeting({ text: 'Selamat Pagi', icon: Sunrise, color: 'text-amber-500' });
+    else if (hour < 15) setGreeting({ text: 'Selamat Siang', icon: Sun, color: 'text-amber-500' });
+    else if (hour < 18) setGreeting({ text: 'Selamat Sore', icon: CloudSun, color: 'text-orange-500' });
+    else setGreeting({ text: 'Selamat Malam', icon: Moon, color: 'text-indigo-500' });
+
+  // Handle Dark Mode Class is moved outside
 
     const handleUserUpdate = () => setUserData(getSafeUser());
     const fetchSettings = async () => {
@@ -43,6 +59,7 @@ const MainLayout = () => {
         const res = await api.get('/settings');
         const logo = res.data?.logo_sekolah || res.data?.logo_instansi;
         if (logo && logo.trim() !== "") setCurrentLogo(logo);
+        if (res.data?.labels) setLabels(res.data.labels);
       } catch (error) {}
     };
 
@@ -67,8 +84,9 @@ const MainLayout = () => {
         name: 'Data Master', key: 'master', icon: Database, 
         color: 'text-violet-500', activeBg: 'bg-violet-50', activeText: 'text-violet-700',
         subMenu: [
-            { name: 'Direktori Anggota', path: '/admin/members' },
-            { name: 'Struktur Divisi', path: '/admin/divisions' },
+            { name: `Direktori ${labels.label_anggota}`, path: '/admin/members' },
+            { name: `Struktur ${labels.label_unit}`, path: '/admin/divisions' },
+            { name: `Kalender Libur`, path: '/admin/holidays' },
         ]
     },
     {
@@ -80,23 +98,19 @@ const MainLayout = () => {
         ]
     },
     {
-        name: 'Database', key: 'database', icon: UploadCloud, 
-        color: 'text-amber-500', activeBg: 'bg-amber-50', activeText: 'text-amber-700',
-        subMenu: [
-            { name: 'Backup Data', path: '/admin/backup' },
-            { name: 'Restore Data', path: '/admin/restore' },
-        ]
-    },
-    {
         name: 'Pengaturan', key: 'system', icon: Settings, 
         color: 'text-slate-500', activeBg: 'bg-slate-100', activeText: 'text-slate-800',
+        role: 'SuperAdmin',
         subMenu: [
             { name: 'Profil Akun', path: '/admin/profile' },
             { name: 'Sistem Aplikasi', path: '/admin/settings' },
-            { name: 'Lisensi Resmi', path: '/admin/license' },
+            { name: 'Manajemen Database', path: '/admin/database' },
+            { name: 'Lisensi & Aktivasi', path: '/admin/license' },
+            { name: 'Mesin Kehadiran', path: '/admin/devices' },
+            { name: 'Log Aktivitas', path: '/admin/audit-logs' },
         ]
     }
-  ];
+  ].filter(menu => !menu.role || menu.role === (userData?.role || 'SuperAdmin'));
 
   const toggleMenu = (key) => setOpenMenus(prev => ({ ...prev, [key]: !prev[key] }));
   const confirmLogout = () => { localStorage.removeItem('user'); window.location.href = '/'; };
@@ -109,8 +123,8 @@ const MainLayout = () => {
   }, [location.pathname]);
 
   return (
-    // Background Anti-Silau (Blue-Grey #eef2f6) yang optimal untuk penggunaan outdoor
-    <div className="flex h-screen bg-[#eef2f6] font-sans overflow-hidden text-slate-800">
+    // Background lebih modern dan cerah, menggunakan slate-100 agar beda dengan sidebar putih
+    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300">
       
       {/* OVERLAY MOBILE */}
       {isSidebarOpen && (
@@ -120,10 +134,10 @@ const MainLayout = () => {
         />
       )}
 
-      {/* --- SIDEBAR PUTIH BERSIH --- */}
+      {/* --- SIDEBAR PUTIH BERSIH DENGAN BORDER --- */}
       <aside 
         className={`
-          fixed inset-y-0 left-0 z-50 w-[280px] bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)]
+          fixed inset-y-0 left-0 z-50 w-[280px] bg-white border-r border-slate-200 shadow-xl shadow-slate-200/50 dark:bg-slate-800 dark:border-slate-700 dark:shadow-slate-900/50
           transform transition-transform duration-300 ease-in-out flex flex-col h-full
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:relative'} 
         `}
@@ -132,10 +146,10 @@ const MainLayout = () => {
         <div className="pt-8 pb-6 px-8 flex items-center gap-3.5 shrink-0">
             <img src={currentLogo} alt="Logo" className="w-11 h-11 object-contain drop-shadow-sm" />
             <div className="flex flex-col">
-                <span className="text-[22px] font-black text-slate-800 tracking-tight leading-none">SI-MAS</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">Sistem Pintar</span>
+                <span className="text-[22px] font-black text-slate-800 tracking-tight leading-none dark:text-white text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500">Nebula Tech</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5 dark:text-slate-500">Smart Presence</span>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-auto text-slate-400 hover:text-slate-600">
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-auto text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                 <X size={24} />
             </button>
         </div>
@@ -152,8 +166,8 @@ const MainLayout = () => {
                             to={menu.path} onClick={() => setIsSidebarOpen(false)}
                             className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-[14.5px] ${
                                 isActive(menu.path)
-                                ? `${menu.activeBg} ${menu.activeText}`
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                                ? `${menu.activeBg} ${menu.activeText} dark:bg-slate-700/50 dark:text-slate-200`
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
                             }`}
                         >
                             <menu.icon size={22} className={menu.color} />
@@ -201,16 +215,7 @@ const MainLayout = () => {
 
         {/* STATUS WIDGET & LOGOUT (Tampilan Baru) */}
         <div className="px-5 pb-6 pt-4 mt-auto">
-            {/* Widget Status Sistem */}
-            <div className="mb-4 p-4 rounded-2xl bg-[#eef2f6] border border-[#e2e8f0] flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                    <ShieldCheck size={16} />
-                </div>
-                <div>
-                    <p className="text-[11px] font-bold text-slate-500 uppercase">Status Sistem</p>
-                    <p className="text-[13px] font-extrabold text-slate-800">Online & Aman</p>
-                </div>
-            </div>
+
 
             <button 
                 onClick={() => setShowLogoutModal(true)} 
@@ -225,21 +230,35 @@ const MainLayout = () => {
       {/* --- KONTEN UTAMA --- */}
       <main className="flex-1 flex flex-col h-full relative w-full overflow-hidden">
         
-        {/* HEADER TRANSPARAN (Menyatu dengan Latar) */}
-        <header className="px-6 md:px-10 py-5 flex justify-between items-center shrink-0 h-[85px]">
+        {/* HEADER TRANSPARAN TAPI PUNYA BATAS JELAS */}
+        <header className="px-6 md:px-10 py-5 flex justify-between items-center shrink-0 h-[85px] border-b border-slate-200/50 bg-slate-100/50 backdrop-blur-md dark:bg-slate-900/50 dark:border-slate-800/50">
             <div className="flex items-center gap-3">
-              <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-white shadow-sm text-slate-600 rounded-xl md:hidden transition-colors">
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2.5 bg-white shadow-sm text-slate-600 rounded-xl md:hidden transition-colors dark:bg-slate-800 dark:text-slate-300">
                 <Menu size={22} />
               </button>
               
-              <div className="hidden md:block">
-                  <h1 className="text-[22px] font-extrabold text-slate-800 tracking-tight">{greeting}</h1>
-                  <p className="text-[13px] text-slate-500 font-medium mt-0.5">Pantau dan kelola data operasional Anda.</p>
+              <div className="hidden md:flex items-center gap-3">
+                  <div className={`p-2 rounded-xl bg-white shadow-sm border border-slate-100 ${greeting.color} dark:bg-slate-800 dark:border-slate-700`}>
+                      <greeting.icon size={24} />
+                  </div>
+                  <div>
+                      <h1 className="text-[22px] font-extrabold text-slate-800 tracking-tight leading-none dark:text-white">{greeting.text}</h1>
+                      <p className="text-[12px] text-slate-500 font-medium mt-1 dark:text-slate-400">Pantau dan kelola data operasional Anda.</p>
+                  </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-4 bg-white pl-4 pr-1.5 py-1.5 rounded-full shadow-sm border border-slate-200/60">
-                <div className="text-right hidden sm:block">
+            <div className="flex items-center gap-4 bg-white pl-4 pr-1.5 py-1.5 rounded-full shadow-sm border border-slate-200/60 dark:bg-slate-800 dark:border-slate-700">
+                
+                <button 
+                  onClick={() => setIsDarkMode(!isDarkMode)} 
+                  className="p-2 text-slate-400 hover:text-amber-500 transition-colors"
+                  title="Toggle Dark Mode"
+                >
+                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+
+                <div className="text-right hidden sm:block border-l border-slate-100 pl-4 dark:border-slate-700">
                     <p className="text-[13.5px] font-extrabold text-slate-800 leading-none capitalize">{userDisplay.name}</p>
                     <p className="text-[11px] text-blue-500 font-bold mt-1.5">{userDisplay.role}</p>
                 </div>

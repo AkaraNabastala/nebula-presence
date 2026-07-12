@@ -7,7 +7,7 @@ import {
     ChevronDown
 } from 'lucide-react';
 import api from '../../api/axios';
-import * as XLSX from 'xlsx'; 
+import * as XLSX from "xlsx-js-style"; 
 import JSZip from 'jszip'; 
 import PrintCardModal from './PrintCardModal';
 
@@ -19,7 +19,11 @@ const Students = () => {
   const [classesOption, setClassesOption] = useState([]);
   
   const [selectedIds, setSelectedIds] = useState([]);
-  const [appConfig, setAppConfig] = useState({ metode_absensi: 'RFID', nama_instansi: 'Instansi' });
+  const [appConfig, setAppConfig] = useState({ 
+      metode_absensi: 'RFID', 
+      nama_instansi: 'Instansi',
+      labels: { label_anggota: 'Anggota', label_unit: 'Divisi' }
+  });
 
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -69,7 +73,11 @@ const Students = () => {
   const fetchSettings = async () => {
     try { 
         const res = await api.get('/settings'); 
-        if (res.data) setAppConfig({ ...res.data, nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Instansi' });
+        if (res.data) setAppConfig({ 
+            ...res.data, 
+            nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Instansi',
+            labels: res.data.labels || { label_anggota: 'Anggota', label_unit: 'Divisi' }
+        });
     } catch (e) {}
   };
 
@@ -163,48 +171,25 @@ const Students = () => {
   const handleExcelUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.readAsArrayBuffer(file);
-    reader.onload = async (e) => {
-        const bufferArray = e.target.result;
-        const wb = XLSX.read(bufferArray, { type: "buffer", cellText:false, cellDates:true });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws, { raw: false, defval: "" });
-        
-        setImportProgress({ show: true, current: 0, total: data.length, success: 0, fail: 0 });
-        let s = 0, f = 0;
-        
-        for (let i = 0; i < data.length; i++) {
-            const row = data[i];
-            const getVal = (keys) => { 
-                const k = Object.keys(row).find(key => keys.some(kw => key.toLowerCase().includes(kw))); 
-                if (!k) return '';
-                let val = String(row[k]).trim();
-                return val.replace(/^'/, ''); 
-            };
-
-            const studentData = {
-                nipd: getVal(['id', 'induk', 'nip', 'nipd', 'nomor']), 
-                nisn: getVal(['nik', 'tambahan', 'lain', 'nisn']), 
-                nama_lengkap: getVal(['nama', 'lengkap', 'anggota', 'pegawai']),
-                kelas: getVal(['divisi', 'kelas', 'jabatan', 'bagian']), 
-                kode_rfid: getVal(['rfid', 'kartu', 'barcode']), 
-                foto: '' 
-            };
-
-            if (!studentData.nama_lengkap || !studentData.kelas) { f++; continue; }
-            try { 
-                await api.post('/members', studentData); 
-                s++; 
-            } catch (err) { f++; }
-            setImportProgress(prev => ({ ...prev, current: i + 1, success: s, fail: f }));
-        }
-        setTimeout(() => { 
-            showToast('success', `Import Selesai! Sukses: ${s}, Gagal: ${f}`); 
-            setImportProgress({ show: false }); setShowImportModal(false); 
-            fetchStudents(); fetchClasses(); 
-        }, 500);
-    };
+    
+    setImportProgress({ show: true, current: 0, total: 100, success: 0, fail: 0 }); // Fake progress
+    
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    
+    try {
+        const res = await api.post('/members/import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        showToast('success', res.data.message);
+    } catch (err) {
+        showToast('error', err.response?.data?.message || 'Gagal mengimport data.');
+    } finally {
+        setImportProgress({ show: false }); 
+        setShowImportModal(false); 
+        fetchStudents(); 
+        fetchClasses(); 
+    }
   };
 
   const handleZipUpload = async (event) => {
@@ -239,14 +224,14 @@ const Students = () => {
   const renderClassInput = () => {
     if (isManualClass) return (
         <div className="flex gap-2">
-            <input name="kelas" value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value})} className="w-full border-2 border-slate-200 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 focus:bg-white text-sm font-semibold" placeholder="Nama Divisi / Jabatan Baru..." required />
+            <input name="kelas" value={formData.kelas} onChange={(e) => setFormData({...formData, kelas: e.target.value})} className="w-full border-2 border-slate-200 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 focus:bg-white text-sm font-semibold" placeholder={`Nama ${appConfig.labels?.label_unit || 'Divisi'} Baru...`} required />
             <button type="button" onClick={() => { setIsManualClass(false); setFormData({...formData, kelas: ''}); }} className="px-4 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition"><RotateCcw size={18}/></button>
         </div>
     );
     return (
         <div className="relative">
             <select name="kelas" value={formData.kelas} onChange={(e) => { if (e.target.value === 'NEW') { setIsManualClass(true); setFormData({...formData, kelas: ''}); } else { setFormData({...formData, kelas: e.target.value}); } }} className={`w-full border-2 border-slate-200 p-3 pr-10 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer text-sm font-semibold ${!formData.kelas ? 'text-slate-400 bg-slate-50' : 'text-slate-800 bg-white'}`} required>
-                <option value="" disabled>-- Pilih Divisi / Jabatan --</option>
+                <option value="" disabled>-- Pilih {appConfig.labels?.label_unit || 'Divisi'} --</option>
                 {classesOption.map(c => (<option key={c.id} value={c.nama_kelas} className="text-slate-800">{c.nama_kelas}</option>))}
                 <option value="NEW" className="font-bold text-indigo-600 bg-indigo-50">+ Tambah Baru...</option>
             </select>
@@ -279,7 +264,7 @@ const Students = () => {
                 <Users size={32} />
             </div>
             <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Direktori Anggota</h2>
+                <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Direktori {appConfig.labels?.label_anggota || 'Anggota'}</h2>
                 <p className="text-slate-500 font-medium mt-1 text-sm flex items-center gap-1.5"><IdCard size={16}/> Total: <span className="font-bold text-indigo-600">{students.length} Terdaftar</span></p>
             </div>
         </div>
@@ -302,7 +287,7 @@ const Students = () => {
             </button>
 
             <button onClick={() => openModal()} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-[1.25rem] hover:shadow-lg hover:shadow-indigo-500/30 text-sm font-bold transition-all active:scale-95">
-                <Plus size={18}/> <span>Tambah Anggota</span>
+                <Plus size={18}/> <span>Tambah {appConfig.labels?.label_anggota || 'Anggota'}</span>
             </button>
         </div>
       </div>
@@ -316,7 +301,7 @@ const Students = () => {
         <div className="relative sm:w-72">
             <FolderArchive className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
             <select className="w-full pl-12 pr-10 py-3.5 bg-slate-50 border border-transparent rounded-[1rem] outline-none focus:border-indigo-200 focus:bg-white focus:ring-4 focus:ring-indigo-500/5 cursor-pointer transition-all text-sm font-bold text-slate-700 appearance-none" value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)}>
-                <option value="">Semua Divisi / Kelas</option>
+                <option value="">Semua {appConfig.labels?.label_unit || 'Divisi'}</option>
                 {classesOption.map(c => (<option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>))}
             </select>
             <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
@@ -335,7 +320,7 @@ const Students = () => {
                             </button>
                         </th>
                         <th className="py-5 px-4 w-20">Foto</th>
-                        <th className="py-5 px-4">Profil & Divisi</th>
+                        <th className="py-5 px-4">Profil & {appConfig.labels?.label_unit || 'Divisi'}</th>
                         <th className="py-5 px-4">ID Registrasi</th>
                         <th className="py-5 px-6 text-right">Tindakan</th>
                     </tr>
@@ -402,7 +387,7 @@ const Students = () => {
             <div className="bg-white rounded-[2rem] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl relative flex flex-col transform animate-in zoom-in-95 duration-200">
                 <div className="px-8 py-5 border-b border-slate-100 bg-white flex justify-between items-center shrink-0">
                     <div>
-                        <h3 className="font-extrabold text-xl text-slate-800">{isEditMode ? 'Edit Data Anggota' : 'Tambah Anggota Baru'}</h3>
+                        <h3 className="font-extrabold text-xl text-slate-800">{isEditMode ? `Edit Data ${appConfig.labels?.label_anggota || 'Anggota'}` : `Tambah ${appConfig.labels?.label_anggota || 'Anggota'} Baru`}</h3>
                         <p className="text-xs text-slate-500 mt-1 font-medium">Lengkapi form di bawah ini dengan benar.</p>
                     </div>
                     <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"><X size={24}/></button>
@@ -450,7 +435,7 @@ const Students = () => {
                             </div>
 
                             <div>
-                                <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Divisi / Jabatan <span className="text-rose-500">*</span></label>
+                                <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">{appConfig.labels?.label_unit || 'Divisi'} <span className="text-rose-500">*</span></label>
                                 {renderClassInput()}
                             </div>
 
@@ -490,7 +475,7 @@ const Students = () => {
                   </div>
                   <h3 className="text-xl font-black text-slate-800 tracking-tight">Hapus Data?</h3>
                   <p className="text-[14px] text-slate-500 mt-2 mb-8 leading-relaxed font-medium">
-                      Anda akan menghapus <b>{confirmModal.name || confirmModal.count + ' Anggota'}</b>. Data yang dihapus tidak dapat dikembalikan.
+                      Anda akan menghapus <b>{confirmModal.name || `${confirmModal.count} ${appConfig.labels?.label_anggota || 'Anggota'}`}</b>. Data yang dihapus tidak dapat dikembalikan.
                   </p>
                   <div className="flex gap-3">
                       <button onClick={() => setConfirmModal({ show: false })} className="flex-1 py-3.5 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Batal</button>
@@ -530,7 +515,7 @@ const Students = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="group bg-white border-2 border-dashed border-slate-200 p-8 flex flex-col items-center justify-center rounded-[2rem] cursor-pointer hover:bg-emerald-50/50 hover:border-emerald-400 hover:shadow-md transition-all duration-300" onClick={() => fileInputExcelRef.current.click()}>
                                 <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-[1.25rem] flex items-center justify-center mb-5 group-hover:bg-emerald-100 group-hover:text-emerald-600 group-hover:-translate-y-2 transition-all duration-300"><FileSpreadsheet size={32}/></div>
-                                <h4 className="font-extrabold text-slate-800 text-lg">Data Anggota (Excel)</h4>
+                                <h4 className="font-extrabold text-slate-800 text-lg">Data {appConfig.labels?.label_anggota || 'Anggota'} (Excel)</h4>
                                 <p className="text-xs text-slate-400 font-medium mt-1">Gunakan format .xlsx</p>
                                 <button onClick={(e)=>{e.stopPropagation();handleDownloadTemplate()}} className="mt-6 text-xs font-bold text-emerald-600 bg-white border border-emerald-200 px-5 py-2.5 rounded-xl hover:bg-emerald-50 transition-colors w-full">Download Template</button>
                             </div>

@@ -1,6 +1,8 @@
 const { pool, rootPath, logDir } = require('../config/database');
 const path = require('path');
 const { exec } = require('child_process');
+const xlsx = require('xlsx');
+const { addAuditLog } = require('../utils/logger');
 
 // --- HELPER DYNAMIC LABELS ---
 // Mendeteksi mode aplikasi (Edukasi vs Korporat/Umum)
@@ -31,6 +33,7 @@ exports.updateSettings = async (req, res) => {
         for (const [k, v] of Object.entries(req.body)) {
             await pool.query(`INSERT INTO app_settings (setting_key, setting_value) VALUES ($1, $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [k, v]);
         }
+        await addAuditLog(req.user?.nama_admin || 'Admin', 'Update Pengaturan Sistem', Object.keys(req.body).join(', '));
         res.json({ success: true });
     } catch (e) { res.status(500).json({ message: "Gagal menyimpan pengaturan" }); }
 };
@@ -124,11 +127,66 @@ exports.deleteMember = async (req, res) => {
         const id = req.params.id;
         if (!id) return res.status(400).json({ message: "ID tidak valid" });
         await pool.query('DELETE FROM members WHERE id=$1', [id]); 
+        await addAuditLog(req.user?.nama_admin || 'Admin', 'Hapus Anggota', `ID: ${id}`);
         res.json({ success: true }); 
     } catch (e) { 
         console.error("Delete Error:", e);
         res.status(500).json({ message: "Gagal menghapus data" }); 
     } 
+};
+
+exports.importMembers = async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: "File excel tidak ditemukan" });
+    const client = await pool.connect();
+    try {
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (rows.length === 0) return res.status(400).json({ message: "File excel kosong" });
+
+        await client.query('BEGIN');
+        let successCount = 0;
+
+        for (const row of rows) {
+            const identity = row['Nomor Identitas'] || row['NISN'] || row['NIPD'] || row['ID Karyawan'];
+            const name = row['Nama Lengkap'] || row['Nama'];
+            const divisionName = row['Unit'] || row['Kelas'] || row['Divisi'];
+            const rfid = row['Kode RFID'] || '';
+
+            if (!identity || !name) continue; // Skip jika data utama kosong
+
+            let division_id = null;
+            if (divisionName) {
+                const checkDiv = await client.query('SELECT id FROM divisions WHERE name = $1', [String(divisionName).trim()]);
+                if (checkDiv.rows.length === 0) {
+                    const newDiv = await client.query('INSERT INTO divisions (name) VALUES ($1) RETURNING id', [String(divisionName).trim()]);
+                    division_id = newDiv.rows[0].id;
+                } else {
+                    division_id = checkDiv.rows[0].id;
+                }
+            }
+
+            // Insert atau Update berdasarkan Identity Number
+            await client.query(`
+                INSERT INTO members (identity_number, full_name, role, division_id, rfid_code) 
+                VALUES ($1, $2, 'member', $3, $4)
+                ON CONFLICT (identity_number) DO UPDATE SET 
+                full_name = EXCLUDED.full_name, division_id = EXCLUDED.division_id, rfid_code = EXCLUDED.rfid_code
+            `, [String(identity).trim(), String(name).trim(), division_id, String(rfid).trim()]);
+            
+            successCount++;
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: `Berhasil mengimport ${successCount} data anggota.` });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error("Import Error:", e);
+        res.status(500).json({ message: "Gagal memproses file excel." });
+    } finally {
+        client.release();
+    }
 };
 
 // --- DIVISIONS (Kelas / Departemen) ---
@@ -177,6 +235,7 @@ exports.updateDivision = async (req, res) => {
 exports.deleteDivision = async (req, res) => { 
     try { 
         await pool.query('DELETE FROM divisions WHERE id=$1', [req.params.id]); 
+        await addAuditLog(req.user?.nama_admin || 'Admin', 'Hapus Divisi', `ID Divisi: ${req.params.id}`);
         res.json({ success: true }); 
     } catch (e) { res.status(500).json({ message: "Gagal menghapus data" }); } 
 };

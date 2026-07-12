@@ -2,29 +2,31 @@ const { pool, rootPath } = require('../config/database');
 const path = require('path');
 const fs = require('fs');
 const { exec } = require('child_process');
+const { addAuditLog } = require('../utils/logger');
+
+// Ambil kredensial dari environment agar aman dan dinamis
+const dbName = process.env.DB_NAME || 'absensi_nabastala'; 
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPass = process.env.DB_PASSWORD || 'darksky';
+const dbPort = process.env.DB_PORT || '5432';
 
 exports.restoreDatabase = async (req, res) => {
     try {
-        // 1. Cek apakah file benar-benar sampai di server
         if (!req.file) {
             return res.status(400).json({ success: false, message: "File backup tidak terdeteksi." });
         }
         
         const filePath = req.file.path;
-        const dbName = 'db_absensimas'; // Pastikan nama DB ini benar
         console.log("📥 Menjalankan Restore Database dari:", filePath);
 
-        // 2. Perintah Restore yang lebih "Powerfull" (Menambahkan host agar password terbaca)
-        // Kita gunakan -h 127.0.0.1 untuk memaksa koneksi TCP/IP (menghindari Peer Auth Error)
         const restoreCmd = process.platform === 'win32'
-            ? `"${path.join(process.env.rootPath || '', 'pgsql', 'bin', 'psql.exe')}" -h 127.0.0.1 -U postgres -d ${dbName} -f "${filePath}"`
-            : `psql -h 127.0.0.1 -U postgres -d ${dbName} -f "${filePath}"`;
+            ? `"${path.join(rootPath || '', 'pgsql', 'bin', 'psql.exe')}" -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName} -f "${filePath}"`
+            : `psql -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName} -f "${filePath}"`;
 
-        const env = { ...process.env, PGPASSWORD: 'darksky' }; 
+        const env = { ...process.env, PGPASSWORD: dbPass }; 
 
-        // 3. Eksekusi Perintah
         exec(restoreCmd, { env }, (error, stdout, stderr) => {
-            // Hapus file sementara setelah diproses agar tidak nyampah
+            // Hapus file sementara setelah diproses
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
             if (error) {
@@ -37,6 +39,7 @@ exports.restoreDatabase = async (req, res) => {
             }
             
             console.log("✅ Database berhasil dipulihkan!");
+            addAuditLog(req.user?.nama_admin || 'Admin', 'Restore Database', 'Sistem');
             res.json({ success: true, message: "Restore berhasil! Data telah diperbarui." });
         });
 
@@ -45,32 +48,28 @@ exports.restoreDatabase = async (req, res) => {
         res.status(500).json({ success: false, message: "Terjadi kesalahan sistem internal." });
     }
 };
-// --- BACKUP DATABASE (DITAMBAHKAN) ---
+
 exports.backupDatabase = async (req, res) => {
     try {
         console.log("📤 Menyiapkan Backup Database...");
 
-        // Mengikuti logika platform milik Anda (psql -> pg_dump)
         const backupCmd = process.platform === 'win32'
-            ? `"${path.join(rootPath, 'pgsql', 'bin', 'pg_dump.exe')}" -U postgres -p 5432 -d db_absensimas`
-            : `pg_dump -U postgres -p 5432 -d db_absensimas`;
+            ? `"${path.join(rootPath || '', 'pgsql', 'bin', 'pg_dump.exe')}" -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName}`
+            : `pg_dump -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName}`;
 
-        const { exec } = require('child_process');
-        const env = { ...process.env, PGPASSWORD: 'darksky' }; // Sesuaikan password dengan milik Anda
+        const env = { ...process.env, PGPASSWORD: dbPass };
 
-        // Kita gunakan exec (bukan execSync) agar bisa streaming data besar
         exec(backupCmd, { env, maxBuffer: 1024 * 1024 * 50 }, (error, stdout, stderr) => {
             if (error) {
-                console.error("Backup Exec Error:", error);
+                console.error("Backup Exec Error:", stderr || error.message);
                 return res.status(500).json({ message: "Gagal membuat backup" });
             }
 
-            // Set header agar browser mendownload sebagai file .sql
-            const fileName = `backup_db_absensi_${new Date().toISOString().split('T')[0]}.sql`;
+            const fileName = `backup_${dbName}_${new Date().toISOString().split('T')[0]}.sql`;
             res.setHeader('Content-Type', 'application/sql');
             res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
             
-            // Kirim isi database (stdout) ke frontend
+            addAuditLog(req.user?.nama_admin || 'Admin', 'Backup Database', fileName);
             res.send(stdout);
         });
 
@@ -79,15 +78,28 @@ exports.backupDatabase = async (req, res) => {
         res.status(500).json({ success: false, message: "Gagal Backup Database" });
     }
 };
-// --- UPLOAD FOTO (FROM ZIP) ---
+
 exports.uploadPhotoBase64 = async (req, res) => {
+    // nipd/nisn sekarang dianggap sebagai identity_number
     const { nipd, foto } = req.body; 
     if(!nipd || !foto) return res.status(400).json({message: "Data tidak lengkap"});
 
     try {
-        await pool.query('UPDATE students SET foto=$1 WHERE nipd=$2', [foto, nipd]);
+        // PERBAIKAN: Gunakan tabel members dan identity_number
+        await pool.query('UPDATE members SET photo=$1 WHERE identity_number=$2', [foto, nipd]);
+        await addAuditLog(req.user?.nama_admin || 'Admin', 'Update Foto Profil', `NIPD/NISN: ${nipd}`);
         res.json({ success: true });
     } catch (e) {
-        res.status(500).json({ message: "Gagal simpan foto" });
+        console.error("Upload Photo Error:", e);
+        res.status(500).json({ message: "Gagal menyimpan foto" });
+    }
+};
+
+exports.getAuditLogs = async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 100');
+        res.json({ success: true, data: result.rows });
+    } catch (e) {
+        res.status(500).json({ success: false, message: "Gagal memuat log aktivitas" });
     }
 };

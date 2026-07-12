@@ -131,166 +131,123 @@ const Profile = () => {
             </div>
         )}
 
-        <div className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-gray-100">
+        <div className="max-w-4xl mx-auto space-y-4">
             
-            {/* === HEADER VISUAL (IDENTITY) === */}
-            <div className="relative h-48 md:h-64 bg-slate-900 group">
-                {/* Background Instansi */}
-                <img 
-                    src={appConfig.background_absensi || defaultBg} 
-                    className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700" 
-                    alt="Cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
-                
-                {/* Info Overlay */}
-                <div className="absolute bottom-0 left-0 w-full p-6 md:p-8 flex items-end justify-between">
-                    <div className="flex items-center gap-4 md:gap-6 translate-y-12 md:translate-y-14">
-                        {/* Logo Instansi sebagai Avatar */}
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl bg-white p-2 shadow-2xl ring-4 ring-white/20 backdrop-blur-sm">
-                            <img 
-                                src={appConfig.logo_instansi || defaultLogo} 
-                                className="w-full h-full object-contain" 
-                                alt="Logo"
-                            />
-                        </div>
-                        <div className="pb-2 md:pb-0 text-white">
-                            <h1 className="text-2xl md:text-3xl font-bold tracking-tight shadow-black drop-shadow-md">{appConfig.nama_instansi}</h1>
-                            <div className="flex items-center gap-2 text-blue-200 text-xs md:text-sm font-medium uppercase tracking-widest mt-1">
-                                <BadgeCheck size={16} className="text-blue-400" />
-                                Administrator System
-                            </div>
-                        </div>
+            {/* === MODERN MINIMALIST HEADER === */}
+            <div className="flex flex-row items-center gap-4 mt-2 mb-4 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <div className="w-16 h-16 rounded-full bg-slate-50 p-1 shadow-sm border border-slate-100 relative group">
+                    <img 
+                        src={appConfig.logo_instansi || defaultLogo} 
+                        className="w-full h-full object-contain rounded-full" 
+                        alt="Logo"
+                    />
+                    <div className="absolute -bottom-1 -right-1 bg-blue-500 p-1 rounded-full text-white border-2 border-white shadow-sm">
+                        <BadgeCheck size={12} />
                     </div>
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold tracking-tight text-slate-800">{appConfig.nama_instansi}</h1>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Administrator System &bull; Pengelola Utama</p>
                 </div>
             </div>
 
             {/* === FORM SECTION === */}
-            <div className="pt-20 px-6 md:px-10 pb-10">
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                <form onSubmit={handleSubmit} className="space-y-6">
                     
-                    {/* KOLOM KIRI: DATA AKUN */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
+                    {/* DATA AKUN */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                <User size={20}/>
+                                <User size={18}/>
                             </div>
                             <div>
-                                <h4 className="font-bold text-gray-800">Profil Admin</h4>
-                                <p className="text-xs text-gray-400">Informasi akun pengelola sistem.</p>
+                                <h4 className="font-bold text-slate-800 text-sm">Informasi Dasar</h4>
+                                <p className="text-[11px] text-slate-500">Nama dan akses identitas Anda.</p>
                             </div>
                         </div>
-
-                        <div className="space-y-4">
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Nama Lengkap</label>
-                                <div className="relative">
-                                    <Building2 className="absolute left-3 top-3.5 text-gray-400" size={18}/>
-                                    <input 
-                                        name="nama" 
-                                        value={formData.nama} 
-                                        onChange={handleChange} 
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-gray-700 bg-gray-50 focus:bg-white" 
-                                        placeholder="Nama Lengkap Admin"
-                                        required 
-                                    />
-                                </div>
+                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Nama Lengkap</label>
+                                <input 
+                                    name="nama" 
+                                    value={formData.nama} 
+                                    onChange={handleChange} 
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-800" 
+                                    placeholder="Nama Lengkap Admin"
+                                    required 
+                                />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Username Login</label>
-                                <div className="relative">
-                                    <Shield className="absolute left-3 top-3.5 text-gray-400" size={18}/>
-                                    <input 
-                                        name="username" 
-                                        value={formData.username} 
-                                        onChange={handleChange} 
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-gray-700 bg-gray-50 focus:bg-white" 
-                                        placeholder="Username"
-                                        required 
-                                    />
-                                </div>
+                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Username Login</label>
+                                <input 
+                                    name="username" 
+                                    value={formData.username} 
+                                    onChange={handleChange} 
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-800" 
+                                    placeholder="Username"
+                                    required 
+                                />
                             </div>
                         </div>
                     </div>
 
-                    {/* KOLOM KANAN: KEAMANAN */}
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-                                    <Lock size={20}/>
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-800">Keamanan</h4>
-                                    <p className="text-xs text-gray-400">Ganti kata sandi akun.</p>
-                                </div>
-                            </div>
-                            <span className="text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-1 rounded border">Opsional</span>
-                        </div>
-
-                        <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 flex gap-3 items-start">
-                            <AlertCircle size={18} className="text-orange-500 mt-0.5 shrink-0"/>
-                            <p className="text-xs text-orange-700 leading-relaxed">
-                                Kosongkan kolom di bawah jika Anda <b>tidak ingin mengubah</b> password saat ini.
-                            </p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Password Baru</label>
-                                <div className="relative">
-                                    <Key className="absolute left-3 top-3.5 text-gray-400" size={18}/>
-                                    <input 
-                                        type="password" 
-                                        name="password" 
-                                        value={formData.password} 
-                                        onChange={handleChange} 
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all bg-gray-50 focus:bg-white" 
-                                        placeholder="******" 
-                                    />
-                                </div>
+                    {/* KEAMANAN */}
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+                            <div className="p-2 bg-rose-50 text-rose-500 rounded-lg">
+                                <Lock size={18}/>
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Konfirmasi Password</label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3 top-3.5 text-gray-400" size={18}/>
-                                    <input 
-                                        type="password" 
-                                        name="confirmPassword" 
-                                        value={formData.confirmPassword} 
-                                        onChange={handleChange} 
-                                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all bg-gray-50 focus:bg-white" 
-                                        placeholder="******" 
-                                    />
-                                </div>
+                                <h4 className="font-bold text-slate-800 text-sm">Keamanan Akun</h4>
+                                <p className="text-[11px] text-slate-500">Ubah kata sandi secara berkala.</p>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Password Baru</label>
+                                <input 
+                                    type="password" 
+                                    name="password" 
+                                    value={formData.password} 
+                                    onChange={handleChange} 
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all text-sm font-medium text-slate-800" 
+                                    placeholder="Kosongkan jika tidak diubah" 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Konfirmasi Password</label>
+                                <input 
+                                    type="password" 
+                                    name="confirmPassword" 
+                                    value={formData.confirmPassword} 
+                                    onChange={handleChange} 
+                                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all text-sm font-medium text-slate-800" 
+                                    placeholder="Ulangi kata sandi baru" 
+                                />
                             </div>
                         </div>
                     </div>
 
-                    {/* FOOTER ACTIONS */}
-                    <div className="lg:col-span-2 pt-6 border-t border-gray-100 flex justify-end">
+                    {/* === FOOTER BUTTON === */}
+                    <div className="pt-4 flex justify-end">
                         <button 
                             type="submit" 
                             disabled={loading}
-                            className={`
-                                flex items-center gap-2 bg-blue-600 text-white px-8 py-3.5 rounded-xl font-bold shadow-xl shadow-blue-200 
-                                transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed hover:bg-blue-700
-                            `}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-sm transition-all disabled:opacity-70"
                         >
                             {loading ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    <span>Menyimpan...</span>
-                                </>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             ) : (
                                 <>
-                                    <Save size={20} />
-                                    <span>Simpan Perubahan</span>
+                                    <Save size={16} />
+                                    Simpan Perubahan
                                 </>
                             )}
                         </button>
                     </div>
-
                 </form>
             </div>
         </div>

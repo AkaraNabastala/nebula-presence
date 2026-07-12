@@ -31,8 +31,9 @@ exports.checkStatus = async (req, res) => {
     }
     // <-- AKHIR TAMBAHAN 2
 
-    if (!status.valid) return res.status(403).json({ ...status, isLocked: true });
-    res.json(status);
+    const currentHwid = machineIdSync();
+    if (!status.valid) return res.status(403).json({ ...status, isLocked: true, machineId: currentHwid });
+    res.json({ ...status, machineId: currentHwid });
 };
 
 exports.activate = async (req, res) => {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, UserCheck, Clock, AlertTriangle, XCircle, Activity, Calendar, Building2 } from 'lucide-react';
+import { Users, UserCheck, Clock, AlertTriangle, XCircle, Activity, Calendar, Building2, ShieldCheck } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import api from '../../api/axios';
+import { io } from 'socket.io-client';
 
 const Dashboard = () => {
   // --- 1. STATE MANAGEMENT ---
@@ -12,7 +13,8 @@ const Dashboard = () => {
   const [time, setTime] = useState(new Date());
   const [appConfig, setAppConfig] = useState({ 
       timezone: 'Asia/Jakarta',
-      nama_instansi: 'Sistem Kehadiran Pusat' 
+      nama_instansi: 'Sistem Kehadiran Pusat',
+      labels: { label_anggota: 'Anggota', label_unit: 'Divisi' }
   });
 
   // --- 2. LOAD INITIAL CONFIG & TIME ---
@@ -23,7 +25,8 @@ const Dashboard = () => {
             if (res.data) {
                 setAppConfig({
                     timezone: res.data.timezone || 'Asia/Jakarta',
-                    nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Sistem Kehadiran Pusat'
+                    nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Sistem Kehadiran Pusat',
+                    labels: res.data.labels || { label_anggota: 'Anggota', label_unit: 'Divisi' }
                 });
             }
         } catch (e) { console.error("Gagal load config"); }
@@ -34,11 +37,21 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // --- 3. AUTO FETCH DATA ---
+  // --- 3. AUTO FETCH DATA (VIA WEBSOCKET) ---
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 5000); // Auto-refresh 5 detik
-    return () => clearInterval(interval);
+    
+    // Connect to backend Socket.io
+    const socket = io(import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin);
+    
+    socket.on('new_scan', (data) => {
+        // Automatically fetch fresh dashboard data when a scan occurs
+        fetchDashboardData();
+    });
+
+    return () => {
+        socket.disconnect();
+    };
   }, [appConfig.timezone]);
 
   const fetchDashboardData = async () => {
@@ -115,7 +128,7 @@ const Dashboard = () => {
 
   // KEMBALI KE DESAIN GRADASI YANG LEBIH MENARIK
   const statsCards = [
-    { title: 'Total Anggota', count: data.total_user, bg: 'bg-gradient-to-br from-slate-700 to-slate-900', icon: Users, text: 'text-slate-300' },
+    { title: `Total ${appConfig.labels.label_anggota}`, count: data.total_user, bg: 'bg-gradient-to-br from-slate-700 to-slate-900', icon: Users, text: 'text-slate-300' },
     { title: 'Hadir Tepat', count: data.hadir, bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', icon: UserCheck, text: 'text-emerald-100' },
     { title: 'Terlambat', count: data.terlambat, bg: 'bg-gradient-to-br from-amber-400 to-amber-500', icon: Clock, text: 'text-amber-100' },
     { title: 'Izin / Sakit', count: data.sakit_izin, bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', icon: AlertTriangle, text: 'text-indigo-100' },
@@ -160,6 +173,10 @@ const Dashboard = () => {
                     <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                     Live Sync
                 </span>
+                <span className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold border border-blue-100" title="Status Sistem: Online & Aman">
+                    <ShieldCheck size={12} />
+                    Sistem Aman
+                </span>
             </div>
         </div>
       </div>
@@ -195,7 +212,7 @@ const Dashboard = () => {
           </h3>
           
           <div className="w-full flex-1 relative min-h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie 
                   data={finalChartData} cx="50%" cy="50%" 

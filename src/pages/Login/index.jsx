@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
-import { Lock, User, ArrowRight, CheckCircle, AlertCircle, X, ScanLine, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, ArrowRight, CheckCircle, AlertCircle, X, ScanLine, Eye, EyeOff, Copy } from 'lucide-react';
 
 // --- IMPORT GAMBAR ---
 import backgroundSekolah from '../../assets/gedung.jpg'; 
@@ -18,7 +18,29 @@ const Login = () => {
   
   // State Tampilan
   const [schoolLogo, setSchoolLogo] = useState(logoNabastala); // Default logo
+  const [schoolName, setSchoolName] = useState('Nebula Smart Presence');
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+
+  // State Lupa Password
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [machineId, setMachineId] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // Ambil Machine ID untuk Lupa Password
+  useEffect(() => {
+    const fetchLicense = async () => {
+      try {
+        const res = await api.get('/license-status');
+        if (res.data && res.data.machineId) setMachineId(res.data.machineId);
+      } catch (error) {
+        if (error.response?.data?.machineId) {
+            setMachineId(error.response.data.machineId);
+        }
+      }
+    };
+    fetchLicense();
+  }, []);
 
   // --- 1. AMBIL LOGO SEKOLAH SAAT LOAD ---
   useEffect(() => {
@@ -28,6 +50,9 @@ const Login = () => {
         // Jika ada logo sekolah di DB, pakai itu. Jika tidak, tetap logoNabastala
         if (res.data && res.data.logo_sekolah && res.data.logo_sekolah.trim() !== "") {
             setSchoolLogo(res.data.logo_sekolah);
+        }
+        if (res.data && res.data.nama_sekolah) {
+            setSchoolName(res.data.nama_sekolah);
         }
       } catch (error) {
         // Silent error, pakai default
@@ -67,6 +92,21 @@ const Login = () => {
     }
   };
 
+  const handleReset = async (e) => {
+      e.preventDefault();
+      setResetLoading(true);
+      try {
+          const res = await api.post('/reset-password', { machineId, resetCode });
+          showToast('success', res.data.message);
+          setShowResetModal(false);
+          setResetCode('');
+      } catch (error) {
+          showToast('error', error.response?.data?.message || "Reset Gagal");
+      } finally {
+          setResetLoading(false);
+      }
+  };
+
   return (
     <div className="h-screen w-full flex items-center justify-center bg-slate-900 relative overflow-hidden font-sans">
       
@@ -82,8 +122,8 @@ const Login = () => {
           </div>
           
           <div className="flex flex-col justify-center">
-              <span className="text-white font-bold text-xl leading-none tracking-wide text-shadow-md">Nabastala</span>
-              <span className="text-blue-200 text-[10px] uppercase tracking-[0.25em] font-medium opacity-80 mt-1">Digital Solution</span>
+              <span className="text-white font-bold text-xl leading-none tracking-wide text-shadow-md pb-1">{schoolName}</span>
+              <span className="text-blue-200 text-[10px] uppercase tracking-[0.3em] font-medium opacity-80 mt-0">Administrator Panel</span>
           </div>
       </div>
 
@@ -188,6 +228,15 @@ const Login = () => {
                   </>
               )}
             </button>
+            <div className="text-center pt-3">
+                <button 
+                  type="button" 
+                  onClick={() => setShowResetModal(true)} 
+                  className="text-xs text-white/50 hover:text-white transition-colors border-b border-transparent hover:border-white/50 pb-0.5"
+                >
+                  Lupa Kata Sandi?
+                </button>
+            </div>
           </form>
 
           {/* Divider */}
@@ -200,12 +249,77 @@ const Login = () => {
                 className="w-full group flex items-center justify-center gap-3 py-3 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-all duration-300"
              >
                <ScanLine size={16} className="text-blue-400 group-hover:text-blue-300"/>
-               <span className="text-xs font-medium tracking-wide">Mode Absensi Siswa</span>
+               <span className="text-xs font-medium tracking-wide">Masuk Mode Absensi</span>
              </button>
           </div>
 
         </div>
       </div>
+      {/* --- 5. FOOTER POWERED BY --- */}
+      <div className="absolute bottom-6 left-0 right-0 flex justify-center z-10 pointer-events-none">
+          <p className="text-[10px] text-white/30 uppercase tracking-[0.3em] font-bold">
+              Powered by <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Nebula Tech</span>
+          </p>
+      </div>
+      
+      {/* --- MODAL LUPA PASSWORD --- */}
+      {showResetModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
+                  <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-white/50 hover:text-white"><X size={20}/></button>
+                  <h2 className="text-xl font-bold text-white mb-2">Pemulihan Sistem</h2>
+                  <p className="text-xs text-white/60 mb-4 leading-relaxed">
+                      Untuk alasan keamanan, kata sandi Administrator dikunci ke perangkat keras. Silakan hubungi Teknisi <strong>Nebula Tech</strong> dengan melampirkan Kode Mesin di bawah ini.
+                  </p>
+                  
+                  <div className="bg-black/50 border border-white/5 rounded-lg p-3 mb-4 relative group">
+                      <span className="text-[10px] text-white/40 uppercase mb-1 block text-center">Kode Mesin (Machine ID)</span>
+                      <code className="text-blue-400 font-mono text-xs sm:text-sm tracking-widest break-all text-center block pr-8">{machineId || 'Sedang memuat...'}</code>
+                      <button 
+                          type="button"
+                          onClick={() => {
+                              navigator.clipboard.writeText(machineId);
+                              showToast('success', 'Machine ID berhasil disalin!');
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white/5 hover:bg-white/10 rounded-md text-white/50 hover:text-white transition-colors"
+                          title="Salin Machine ID"
+                      >
+                          <Copy size={16} />
+                      </button>
+                  </div>
+                  
+                  <a 
+                      href={`https://wa.me/6282132972773?text=Halo%20Tim%20Nebula%20Tech,%20saya%20butuh%20bantuan%20reset%20password.%20Kode%20Mesin%20saya:%20${machineId}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="w-full flex justify-center items-center gap-2 bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white transition-colors py-2.5 rounded-lg text-sm font-bold mb-6"
+                  >
+                      Hubungi Teknisi (WhatsApp)
+                  </a>
+                  
+                  <hr className="border-white/5 mb-4"/>
+                  
+                  <form onSubmit={handleReset} className="space-y-3">
+                      <label className="text-xs text-white/60">Masukkan Kode Reset dari Teknisi</label>
+                      <input 
+                          type="text" 
+                          value={resetCode}
+                          onChange={(e) => setResetCode(e.target.value)}
+                          placeholder="Contoh: A1B2C3" 
+                          className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 text-center font-mono uppercase tracking-widest"
+                          required
+                      />
+                      <button 
+                          type="submit" 
+                          disabled={resetLoading}
+                          className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-500 transition-colors disabled:opacity-50 text-sm"
+                      >
+                          {resetLoading ? 'Memproses...' : 'Pulihkan Akun'}
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

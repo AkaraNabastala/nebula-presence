@@ -45,7 +45,7 @@ const LoadingScreen = ({ message = "MENYIAPKAN DATABASE" }) => {
       {/* --- Credit Footer (Responsive Position & Text) --- */}
       <div className="absolute bottom-6 md:bottom-10 flex flex-col items-center gap-2 w-full text-center">
         <p className="text-white/20 text-[8px] md:text-[9px] font-bold tracking-[0.3em] md:tracking-[0.5em] uppercase px-4">
-          Mahakarya Nabastala Digital Solution
+          Mahakarya Nebula Tech Digital Solution
         </p>
       </div>
 

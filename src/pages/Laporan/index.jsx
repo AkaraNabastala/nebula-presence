@@ -16,12 +16,12 @@ const Laporan = () => {
   const [endDate, setEndDate] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   
-  // Config
   const [appConfig, setAppConfig] = useState({ 
       timezone: 'Asia/Jakarta',
       nama_instansi: 'Instansi',
       alamat_instansi: 'Alamat Belum Diatur',
-      logo_instansi: ''
+      logo_instansi: '',
+      labels: { label_anggota: 'Anggota', label_unit: 'Divisi' }
   });
 
   useEffect(() => {
@@ -34,7 +34,8 @@ const Laporan = () => {
                 timezone: tz,
                 nama_instansi: resSet.data.nama_sekolah || resSet.data.nama_instansi || 'Instansi',
                 alamat_instansi: resSet.data.alamat_sekolah || resSet.data.alamat_instansi || 'Alamat Instansi',
-                logo_instansi: resSet.data.logo_sekolah || resSet.data.logo_instansi || ''
+                logo_instansi: resSet.data.logo_sekolah || resSet.data.logo_instansi || '',
+                labels: resSet.data.labels || { label_anggota: 'Anggota', label_unit: 'Divisi' }
             });
 
             // Set Default Date
@@ -130,11 +131,11 @@ const Laporan = () => {
             </div>
             <div className="w-full md:w-64">
                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1.5 block flex items-center gap-1">
-                    <Building2 size={12}/> Divisi / Kelas
+                    <Building2 size={12}/> {appConfig.labels?.label_unit || 'Divisi / Kelas'}
                 </label>
                 <div className="relative">
                     <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-white appearance-none cursor-pointer hover:border-blue-300 transition-all">
-                        <option value="">Semua Divisi / Kelas</option>
+                        <option value="">Semua {appConfig.labels?.label_unit || 'Divisi / Kelas'}</option>
                         {classes.map(c => <option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>)}
                     </select>
                     <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16}/>
@@ -153,8 +154,8 @@ const Laporan = () => {
                         <tr>
                             <th className="p-5 text-center w-16">No</th>
                             <th className="p-5">Tanggal</th>
-                            <th className="p-5">Nama Anggota</th>
-                            <th className="p-5">Divisi / Kelas</th>
+                            <th className="p-5">Nama {appConfig.labels?.label_anggota || 'Anggota'}</th>
+                            <th className="p-5">{appConfig.labels?.label_unit || 'Divisi / Kelas'}</th>
                             <th className="p-5 text-center">Masuk</th>
                             <th className="p-5 text-center">Pulang</th>
                             <th className="p-5 text-center">Status</th>
@@ -209,7 +210,7 @@ const Laporan = () => {
           <div className="text-center mb-6">
               <h2 className="text-xl font-bold underline decoration-2 underline-offset-4 uppercase">LAPORAN KEHADIRAN</h2>
               <div className="flex justify-center gap-8 mt-2 text-sm">
-                  <p><strong>Divisi/Kelas:</strong> {selectedClass || 'Semua Divisi'}</p>
+                  <p><strong>{appConfig.labels?.label_unit || 'Divisi/Kelas'}:</strong> {selectedClass || 'Semua'}</p>
                   <p><strong>Periode:</strong> {new Date(startDate).toLocaleDateString('id-ID')} s.d. {new Date(endDate).toLocaleDateString('id-ID')}</p>
               </div>
           </div>
@@ -221,7 +222,7 @@ const Laporan = () => {
                       <tr>
                           <th className="p-2 border-r border-black text-center w-10">No</th>
                           <th className="p-2 border-r border-black w-32">Tanggal</th>
-                          <th className="p-2 border-r border-black">Nama Anggota</th>
+                          <th className="p-2 border-r border-black">Nama {appConfig.labels?.label_anggota || 'Anggota'}</th>
                           <th className="p-2 border-r border-black w-32">ID/NIP</th>
                           <th className="p-2 border-r border-black text-center w-24">Masuk</th>
                           <th className="p-2 border-r border-black text-center w-24">Pulang</th>

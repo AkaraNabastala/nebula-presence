@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { 
   ShieldCheck, Clock, Building2, KeyRound, 
-  RefreshCcw, AlertCircle, CheckCircle, Info, X, Crown 
+  RefreshCcw, AlertCircle, CheckCircle, Info, X, Crown, Timer, Award
 } from 'lucide-react';
 
 const License = () => {
@@ -10,6 +10,7 @@ const License = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [machineId, setMachineId] = useState('');
   
   // Deteksi Unlimited (> 5 Tahun)
   const isUnlimited = timeLeft > 157788000;
@@ -23,6 +24,9 @@ const License = () => {
       const res = await api.get('/license-status');
       setData(res.data);
       setTimeLeft(res.data.remainingSeconds);
+      if (res.data.machineId) {
+          setMachineId(res.data.machineId);
+      }
     } catch (err) { 
       console.error("Gagal memuat status lisensi"); 
     }
@@ -95,15 +99,16 @@ const License = () => {
       )}
 
       {/* 1. HEADER SIMPLE */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">Status Lisensi</h2>
-          <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
-            <ShieldCheck size={14} className="text-blue-500"/> Kelola aktivasi sistem dan masa berlaku aplikasi
+          <h2 className="text-xl font-bold text-slate-800 tracking-tight">Lisensi & Keamanan</h2>
+          <p className="text-slate-500 text-xs mt-1 flex items-center gap-2 font-medium">
+            <ShieldCheck size={14} className="text-blue-500"/> Sistem enkripsi aktif melindungi data perusahaan Anda
           </p>
         </div>
-        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-200">
-            <Info size={14}/> Sistem Terlindungi
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold border border-emerald-100 shadow-sm">
+            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+            Sistem Terlindungi
         </div>
       </div>
 
@@ -111,74 +116,125 @@ const License = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Card Pemilik */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-6 rounded-[2rem] shadow-xl relative overflow-hidden group transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:opacity-20 transition-opacity transform rotate-12">
-              <Building2 size={100} className="text-white" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden group">
+          <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity">
+              <Building2 size={120} className="text-slate-800" />
           </div>
-          <div className="relative z-10 text-white">
-            <div className="flex items-center gap-2 mb-4 opacity-80 text-[10px] font-bold uppercase tracking-widest">
-              <Building2 size={16} /> Terdaftar Untuk
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-600 rounded-md mb-4 text-[10px] font-bold uppercase tracking-widest border border-slate-200">
+              <Building2 size={12} /> Terdaftar Untuk
             </div>
-            <h3 className="text-2xl font-black tracking-tight mb-1 truncate">
+            <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-1 truncate">
               {data?.owner || 'Belum Terdeteksi'}
             </h3>
-            <p className="text-xs text-blue-300 font-medium">Identitas Terverifikasi</p>
+            <p className="text-xs text-slate-500 font-medium">Identitas Perusahaan Terverifikasi</p>
+            
+            {machineId && (
+              <div className="mt-5 pt-4 border-t border-slate-100">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">ID Perangkat Keras</p>
+                <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg flex justify-between items-center group/copy gap-2">
+                  <code className="text-xs font-mono text-slate-700 font-medium break-all line-clamp-2">{machineId}</code>
+                  <button 
+                    onClick={() => {
+                        navigator.clipboard.writeText(machineId);
+                        showToast('success', 'Machine ID disalin!');
+                    }}
+                    className="text-blue-600 hover:text-blue-700 font-bold text-xs bg-blue-50 px-2.5 py-1 rounded-md opacity-0 group-hover/copy:opacity-100 transition-opacity flex-shrink-0"
+                  >
+                    Salin
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Card Timer (Smart Countdown) */}
-        {/* LOGIKA WARNA: Jika Unlimited = GOLD, Jika tidak = Warna Indikator Waktu */}
-        <div className={`p-6 rounded-[2rem] shadow-xl relative overflow-hidden group transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br 
+        <div className={`p-6 rounded-xl shadow-sm relative overflow-hidden group bg-gradient-to-br border 
             ${isUnlimited 
-                ? 'from-amber-500 via-yellow-500 to-amber-600 shadow-amber-500/40 text-white' // GOLD PREMIUM
+                ? 'from-amber-50 to-orange-50 border-amber-200 text-amber-900' // GOLD PREMIUM Terang
                 : timeLeft > 86400 
-                    ? 'from-emerald-500 to-emerald-600 shadow-emerald-200/50 text-white' // HIJAU
+                    ? 'from-emerald-50 to-teal-50 border-emerald-200 text-emerald-900' // HIJAU
                     : timeLeft > 3600 
-                        ? 'from-amber-500 to-amber-600 shadow-amber-200/50 text-white' // KUNING
-                        : 'from-rose-500 to-rose-600 shadow-rose-200/50 text-white' // MERAH
-            }`}>
+                        ? 'from-amber-50 to-orange-50 border-amber-200 text-amber-900' // KUNING
+                        : 'from-rose-50 to-red-50 border-rose-200 text-rose-900' // MERAH
+            }
+        `}>
             
             {/* Background Icon */}
-            <div className="absolute -right-4 -bottom-4 opacity-20 group-hover:opacity-30 transition-opacity transform rotate-12">
-                {/* Gunakan Crown/Mahkota jika Unlimited */}
-                {isUnlimited ? <Crown size={110} className="text-white mix-blend-overlay" /> : <Clock size={100} className="text-white" />}
+            <div className="absolute -right-6 -bottom-6 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                {isUnlimited ? <Award size={120}/> : <Timer size={120} />}
             </div>
 
             <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-4 opacity-90 text-[10px] font-bold uppercase tracking-widest">
-                    {isUnlimited ? <Crown size={16} /> : <Clock size={16} />} 
-                    {isUnlimited ? "Status Lisensi" : "Masa Aktif Tersisa"}
-                </div>
-                
-                {/* TULISAN BESAR */}
-                <h3 className={`font-mono font-black tracking-tighter drop-shadow-sm ${isUnlimited ? 'text-4xl' : 'text-4xl'}`}>
-                    {formatSmartTime(timeLeft)}
-                </h3>
+              <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md mb-4 text-[10px] font-bold uppercase tracking-widest border ${
+                  isUnlimited ? 'bg-amber-100 text-amber-700 border-amber-200' : 
+                  timeLeft > 86400 ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                  timeLeft > 3600 ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                  'bg-rose-100 text-rose-700 border-rose-200'
+              }`}>
+                <Clock size={12} /> {isUnlimited ? "Status Lisensi" : "Masa Aktif Tersisa"}
+              </div>
 
-                <p className={`text-xs mt-2 font-bold ${isUnlimited ? 'text-yellow-100' : 'text-white/80'}`}>
-                    {timeLeft <= 0 ? 'Masa Berlaku Habis' : 
-                    isUnlimited ? 'Lisensi Permanen (Lifetime)' : 'Sistem Beroperasi Normal'}
-                </p>
+              <h3 className="text-2xl font-bold tracking-tight mb-1 truncate">
+                {isUnlimited ? "LIFETIME (PERMANEN)" : data?.valid_until ? (
+                  new Date(data.valid_until).toLocaleDateString('id-ID', { 
+                    day: 'numeric', month: 'long', year: 'numeric' 
+                  })
+                ) : 'Tidak Diketahui'}
+              </h3>
+              <p className={`text-xs font-medium ${isUnlimited ? 'text-amber-700' : 'text-slate-600'}`}>
+                {isUnlimited 
+                  ? "Sistem diaktifkan secara permanen tanpa batas waktu." 
+                  : "Setelah masa aktif habis, sistem akan terkunci."}
+              </p>
+
+              {!isUnlimited && (
+                  <div className="mt-5">
+                      <div className="flex gap-3 items-end">
+                          <div>
+                              <div className="text-xl font-bold bg-white/60 px-3 py-1.5 rounded-lg text-center backdrop-blur-sm border border-black/5 shadow-sm">
+                                  {Math.floor(timeLeft / 86400).toString().padStart(2, '0')}
+                              </div>
+                              <div className="text-[10px] text-center mt-1 font-bold opacity-70 uppercase tracking-widest">Hari</div>
+                          </div>
+                          <div className="text-xl font-bold pb-4 opacity-50">:</div>
+                          <div>
+                              <div className="text-xl font-bold bg-white/60 px-3 py-1.5 rounded-lg text-center backdrop-blur-sm border border-black/5 shadow-sm">
+                                  {Math.floor((timeLeft % 86400) / 3600).toString().padStart(2, '0')}
+                              </div>
+                              <div className="text-[10px] text-center mt-1 font-bold opacity-70 uppercase tracking-widest">Jam</div>
+                          </div>
+                          <div className="text-xl font-bold pb-4 opacity-50">:</div>
+                          <div>
+                              <div className="text-xl font-bold bg-white/60 px-3 py-1.5 rounded-lg text-center backdrop-blur-sm border border-black/5 shadow-sm">
+                                  {Math.floor((timeLeft % 3600) / 60).toString().padStart(2, '0')}
+                              </div>
+                              <div className="text-[10px] text-center mt-1 font-bold opacity-70 uppercase tracking-widest">Mnt</div>
+                          </div>
+                      </div>
+                  </div>
+              )}
             </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 3. FORM AKTIVASI (KIRI) */}
-        <div className="lg:col-span-2 bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-          <h3 className="font-bold text-lg text-gray-800 mb-6 flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <h3 className="font-bold text-base text-slate-800 mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-5 bg-blue-500 rounded-full"></span>
             Aktivasi Lisensi Baru
           </h3>
           
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="relative group">
-              <div className="absolute top-4 left-4 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                <KeyRound size={20} />
+              <div className="absolute top-3.5 left-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                <KeyRound size={18} />
               </div>
               <textarea 
-                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 pl-12 text-sm font-mono h-44 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 transition-all resize-none placeholder:text-gray-300 shadow-inner" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 pl-10 text-xs font-mono h-32 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none placeholder:text-slate-400" 
                 placeholder="Tempelkan kode lisensi panjang yang Anda terima dari pengembang di sini..."
                 value={code} 
                 onChange={(e) => setCode(e.target.value)}
@@ -188,12 +244,12 @@ const License = () => {
             <button 
               onClick={handleUpdate}
               disabled={loading || !code}
-              className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 ${loading || !code ? 'bg-gray-200 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 hover:shadow-blue-300'}`}
+              className={`w-full py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-95 flex items-center justify-center gap-2 ${loading || !code ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20'}`}
             >
               {loading ? (
-                <RefreshCcw size={20} className="animate-spin" />
+                <RefreshCcw size={16} className="animate-spin" />
               ) : (
-                <ShieldCheck size={20} />
+                <ShieldCheck size={16} />
               )}
               {loading ? "Memproses Verifikasi..." : "Aktifkan Sistem Sekarang"}
             </button>
@@ -201,17 +257,17 @@ const License = () => {
         </div>
 
         {/* 4. INFORMASI BANTUAN (KANAN) */}
-        <div className="bg-slate-50 p-8 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col justify-center text-center">
-            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 text-blue-500">
-                <AlertCircle size={32} />
+        <div className="bg-slate-50 p-6 rounded-xl border border-dashed border-slate-300 flex flex-col justify-center text-center">
+            <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mx-auto mb-3 text-blue-500 border border-slate-200">
+                <AlertCircle size={24} />
             </div>
-            <h4 className="font-bold text-slate-800 mb-2">Butuh Bantuan?</h4>
-            <p className="text-xs text-slate-500 leading-relaxed mb-6">
-                Jika lisensi Anda bermasalah atau ingin melakukan perpanjangan masa aktif, silakan hubungi tim teknis pengembang Nabastala Digital Solution.
+            <h4 className="font-bold text-sm text-slate-800 mb-1.5">Butuh Bantuan?</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+                Jika lisensi Anda bermasalah atau ingin melakukan perpanjangan masa aktif, silakan hubungi tim teknis pengembang Nebula Tech Digital Solution.
             </p>
             <button 
-              onClick={() => window.open('https://wa.me/6285183382128', '_blank')}
-              className="bg-white text-slate-700 text-xs font-bold py-3 px-6 rounded-xl border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm"
+              onClick={() => window.open('https://wa.me/6282132972773', '_blank')}
+              className="bg-white text-slate-700 text-xs font-bold py-2 px-4 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors shadow-sm"
             >
                 Hubungi Pengembang
             </button>
