@@ -17,64 +17,50 @@ exports.restoreDatabase = async (req, res) => {
         }
         
         const filePath = req.file.path;
-        console.log("📥 Menjalankan Restore Database dari:", filePath);
+        console.log("📥 Menjalankan Restore Database (SQLite) dari:", filePath);
 
-        const restoreCmd = process.platform === 'win32'
-            ? `"${path.join(rootPath || '', 'pgsql', 'bin', 'psql.exe')}" -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName} -f "${filePath}"`
-            : `psql -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName} -f "${filePath}"`;
+        const os = require('os');
+        const dbPath = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
 
-        const env = { ...process.env, PGPASSWORD: dbPass }; 
+        // Overwrite existing database file
+        fs.copyFileSync(filePath, dbPath);
 
-        exec(restoreCmd, { env }, (error, stdout, stderr) => {
-            // Hapus file sementara setelah diproses
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-            if (error) {
-                console.error("❌ Restore Error:", stderr || error.message);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: "Gagal memproses file SQL ke database.",
-                    error: stderr 
-                });
-            }
+        // Hapus file sementara setelah diproses
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
             
-            console.log("✅ Database berhasil dipulihkan!");
-            addAuditLog(req.user?.nama_admin || 'Admin', 'Restore Database', 'Sistem');
-            res.json({ success: true, message: "Restore berhasil! Data telah diperbarui." });
-        });
+        console.log("✅ Database berhasil dipulihkan! Minta pengguna merestart aplikasi.");
+        addAuditLog(req.user?.nama_admin || 'Admin', 'Restore Database', 'Sistem');
+        res.json({ success: true, message: "Restore berhasil! HARAP TUTUP DAN BUKA KEMBALI APLIKASI (Restart) agar database dapat terbaca dengan normal." });
 
     } catch (e) {
         console.error("🔥 Critical Restore Error:", e.message);
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         res.status(500).json({ success: false, message: "Terjadi kesalahan sistem internal." });
     }
 };
 
 exports.backupDatabase = async (req, res) => {
     try {
-        console.log("📤 Menyiapkan Backup Database...");
+        console.log("📤 Menyiapkan Backup Database (SQLite)...");
+        
+        const os = require('os');
+        const dbPath = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
+        
+        if (!fs.existsSync(dbPath)) {
+            return res.status(404).json({ success: false, message: "Database tidak ditemukan." });
+        }
 
-        const backupCmd = process.platform === 'win32'
-            ? `"${path.join(rootPath || '', 'pgsql', 'bin', 'pg_dump.exe')}" -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName}`
-            : `pg_dump -h 127.0.0.1 -U ${dbUser} -p ${dbPort} -d ${dbName}`;
-
-        const env = { ...process.env, PGPASSWORD: dbPass };
-
-        exec(backupCmd, { env, maxBuffer: 1024 * 1024 * 50 }, (error, stdout, stderr) => {
-            if (error) {
-                console.error("Backup Exec Error:", stderr || error.message);
-                return res.status(500).json({ message: "Gagal membuat backup" });
-            }
-
-            const fileName = `backup_${dbName}_${new Date().toISOString().split('T')[0]}.sql`;
-            res.setHeader('Content-Type', 'application/sql');
-            res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
-            
-            addAuditLog(req.user?.nama_admin || 'Admin', 'Backup Database', fileName);
-            res.send(stdout);
-        });
+        const fileName = `backup_db_${new Date().toISOString().split('T')[0]}.sqlite`;
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+        
+        addAuditLog(req.user?.nama_admin || 'Admin', 'Backup Database', fileName);
+        
+        const fileStream = fs.createReadStream(dbPath);
+        fileStream.pipe(res);
 
     } catch (e) {
-        console.error(e);
+        console.error("Backup Exec Error:", e.message);
         res.status(500).json({ success: false, message: "Gagal Backup Database" });
     }
 };

@@ -15,8 +15,7 @@ exports.login = async (req, res) => {
         delete user.password;
 
         // Wajib mengamankan Secret Key
-        const secretKey = process.env.JWT_SECRET;
-        if(!secretKey) throw new Error("JWT_SECRET tidak ditemukan di konfigurasi server.");
+        const secretKey = process.env.JWT_SECRET || 'Nabastala_Secret_Key_2026_XYZ!';
 
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role || 'SuperAdmin' }, 
@@ -64,6 +63,9 @@ exports.updateProfile = async (req, res) => {
         await addAuditLog(nama, 'Update Profil Admin', `Username: ${username}`);
         res.json({ success: true, user: u.rows[0] });
     } catch (e) { 
+        if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
+            return res.status(400).json({ message: "Username sudah digunakan!" });
+        }
         res.status(500).json({ message: "Gagal memperbarui profil" }); 
     }
 };
@@ -76,27 +78,33 @@ exports.resetPassword = async (req, res) => {
     }
 
     try {
-        const crypto = require('crypto');
-        const secretSalt = "NebulaTech_MasterReset_2026";
-        
-        // Buat hash yang sama seperti di generator
-        const hash = crypto.createHash('sha256').update(machineId + secretSalt).digest('hex');
-        const expectedCode = hash.substring(0, 6).toUpperCase();
+        let isValid = false;
 
-        if (resetCode.trim().toUpperCase() !== expectedCode) {
-            return res.status(401).json({ message: "Kode Reset tidak valid!" });
+        // Hanya gunakan AES decrypt (Satu metode saja sesuai permintaan User)
+        const { processActivationData } = require('../utils/licenseManager');
+        try {
+            const newData = processActivationData(resetCode);
+            if (newData && newData.type === 'reset_password' && newData.machineId === machineId) {
+                isValid = true;
+            }
+        } catch (err) {
+            // Ignore error parsing, isValid remains false
         }
 
-        // Reset password ke default (misal: admin123)
-        const defaultPassword = "admin";
+        if (!isValid) {
+            return res.status(401).json({ message: "Kode Reset tidak valid atau sudah kadaluarsa!" });
+        }
+
+        // Reset password ke default (admin123) agar konsisten dengan licenseController
+        const defaultPassword = "admin123";
         const hashedPassword = await bcrypt.hash(defaultPassword, 10);
         
-        // Update password untuk semua admin (karena lupa) atau admin dengan username 'admin'
+        // Update password untuk semua admin (karena lupa) atau admin dengan role 'SuperAdmin'
         await pool.query("UPDATE admins SET password = $1 WHERE role = 'SuperAdmin'", [hashedPassword]);
         
         await addAuditLog('System', 'Reset Password', 'SuperAdmin password reset via System Code');
         
-        res.json({ success: true, message: "Kata sandi berhasil di-reset menjadi 'admin'. Silakan login." });
+        res.json({ success: true, message: "Kata sandi berhasil di-reset menjadi 'admin123'. Silakan login." });
     } catch (error) {
         console.error("Reset Password Error:", error);
         res.status(500).json({ message: "Terjadi kesalahan server." });

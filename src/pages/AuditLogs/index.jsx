@@ -10,7 +10,7 @@ const AuditLogs = () => {
         const fetchLogs = async () => {
             try {
                 const res = await api.get('/audit-logs');
-                setLogs(res.data.data || []);
+                setLogs(res.data || []);
             } catch (error) {
                 console.error("Gagal memuat audit log", error);
             } finally {

@@ -3,7 +3,13 @@ const { pool } = require('../config/database');
 const { addAuditLog } = require('../utils/logger');
 
 // Berjalan setiap jam 23:55 setiap hari
-const initAutoAlfa = () => {
+const initAutoAlfa = async () => {
+    let tz = 'Asia/Jakarta';
+    try {
+        const tzRes = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'timezone'");
+        if (tzRes.rows.length > 0 && tzRes.rows[0].setting_value) tz = tzRes.rows[0].setting_value;
+    } catch (e) {}
+
     cron.schedule('55 23 * * *', async () => {
         console.log("⏰ Menjalankan Cron Job Auto-ALFA...");
         try {
@@ -76,10 +82,10 @@ const initAutoAlfa = () => {
             }
 
             if (alfaCount > 0) {
-                console.log(`✅ Berhasil merekap ${alfaCount} anggota sebagai ALFA untuk tanggal ${localDate}.`);
-                await addAuditLog('Sistem Cron', 'Auto-ALFA Rekap', `Jumlah: ${alfaCount} Anggota`);
+                console.log(`✅ Berhasil merekap ${alfaCount} pengguna sebagai ALFA untuk tanggal ${localDate}.`);
+                await addAuditLog('Sistem Cron', 'Auto-ALFA Rekap', `Jumlah: ${alfaCount} Pengguna`);
             } else {
-                console.log("✅ Semua anggota sudah absen hari ini.");
+                console.log("✅ Semua pengguna sudah absen hari ini.");
             }
 
         } catch (error) {
@@ -87,7 +93,7 @@ const initAutoAlfa = () => {
         }
     }, {
         scheduled: true,
-        timezone: "Asia/Jakarta" 
+        timezone: tz 
     });
 };
 

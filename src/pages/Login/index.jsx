@@ -54,7 +54,7 @@ const Login = () => {
         if (res.data && res.data.nama_sekolah) {
             setSchoolName(res.data.nama_sekolah);
         }
-      } catch (error) {
+      } catch {
         // Silent error, pakai default
       }
     };
@@ -305,7 +305,7 @@ const Login = () => {
                           type="text" 
                           value={resetCode}
                           onChange={(e) => setResetCode(e.target.value)}
-                          placeholder="Contoh: A1B2C3" 
+                          placeholder="Contoh: A1B2C3 atau Paste Kode Enkripsi Panjang" 
                           className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 px-3 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500 text-center font-mono uppercase tracking-widest"
                           required
                       />

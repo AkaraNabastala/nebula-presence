@@ -51,7 +51,7 @@ const BackupPage = () => {
       
       {/* NOTIFIKASI TOAST */}
       {notification.show && (
-        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border bg-white ${notification.type === 'success' ? 'border-green-200 text-green-700' : 'border-red-200 text-red-700'}`}>
+        <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl border bg-white dark:bg-slate-800 ${notification.type === 'success' ? 'border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'}`}>
             {notification.type === 'success' ? <CheckCircle size={22}/> : <AlertCircle size={22}/>}
             <div><p className="text-sm font-bold">{notification.message}</p></div>
             <button onClick={() => setNotification({ show: false })}><X size={18} className="opacity-50 hover:opacity-100"/></button>
@@ -60,29 +60,29 @@ const BackupPage = () => {
 
       {/* HEADER */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
             <Database className="text-blue-600" /> Backup Database
         </h1>
-        <p className="text-gray-500 mt-1">Unduh salinan lengkap data sistem untuk keamanan.</p>
+        <p className="text-gray-500 dark:text-slate-400 mt-1">Unduh salinan lengkap data sistem untuk keamanan.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* KARTU UTAMA (DOWNLOAD) */}
         <div className="lg:col-span-2">
-            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-bl-full -mr-16 -mt-16 z-0"></div>
+            <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-sm border border-gray-100 dark:border-slate-700 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 dark:bg-slate-700/50 rounded-bl-full -mr-16 -mt-16 z-0"></div>
                 
                 <div className="relative z-10">
-                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+                    <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                         <Download size={32} />
                     </div>
 
-                    <h2 className="text-xl font-bold text-gray-800 mb-3">Unduh Data Terkini</h2>
-                    <p className="text-gray-500 leading-relaxed mb-8 max-w-lg">
-                        Sistem akan meng-generate file SQL yang berisi seluruh data <b>anggota, divisi, absensi,</b> dan <b>pengaturan</b>.
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-3">Unduh Data Terkini</h2>
+                    <p className="text-gray-500 dark:text-slate-400 leading-relaxed mb-8 max-w-lg">
+                        Sistem akan meng-generate file SQL yang berisi seluruh data <b>pengguna, kelompok, absensi,</b> dan <b>pengaturan</b>.
                         <br/><br/>
-                        <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-bold uppercase tracking-wider">Format File: .SQL</span>
+                        <span className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded font-bold uppercase tracking-wider">Format File: .SQL</span>
                     </p>
 
                     <button 
@@ -98,20 +98,20 @@ const BackupPage = () => {
 
         {/* KARTU INFO (KANAN) */}
         <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4">
                     <ShieldCheck size={18} className="text-emerald-500"/> Keamanan Data
                 </h3>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                    Pastikan file backup disimpan di lokasi yang aman (Google Drive atau Hardisk Eksternal). File ini berisi data sensitif anggota/karyawan.
+                <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed">
+                    Pastikan file backup disimpan di lokasi yang aman (Google Drive atau Hardisk Eksternal). File ini berisi data sensitif pengguna/karyawan.
                 </p>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700">
+                <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2 mb-4">
                     <HardDrive size={18} className="text-purple-500"/> Ukuran File
                 </h3>
-                <p className="text-sm text-gray-500 leading-relaxed">
+                <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed">
                     Ukuran file backup biasanya sangat kecil (kurang dari 5MB) untuk data instansi skala menengah, sehingga mudah disimpan.
                 </p>
             </div>

@@ -27,7 +27,7 @@ const License = () => {
       if (res.data.machineId) {
           setMachineId(res.data.machineId);
       }
-    } catch (err) { 
+    } catch { 
       console.error("Gagal memuat status lisensi"); 
     }
   };
@@ -50,25 +50,6 @@ const License = () => {
     setTimeout(() => setNotification({ show: false, type: '', message: '' }), 4000);
   };
 
-  // --- LOGIKA SMART COUNTDOWN ---
-  const formatSmartTime = (totalSeconds) => {
-    if (!totalSeconds || totalSeconds <= 0) return "Habis";
-    
-    // Jika lebih dari 5 tahun (157.788.000 detik), return teks Unlimited
-    if (totalSeconds > 157788000) { 
-        return "UNLIMITED"; 
-    }
-
-    const days = Math.floor(totalSeconds / (3600 * 24));
-    const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (days > 0) return `${days} Hari ${hours} Jam`;
-    if (hours > 0) return `${hours} Jam ${minutes} Menit`;
-    return `${minutes} Menit ${seconds} Detik`;
-  };
-
   // Handle Aktivasi
   const handleUpdate = async () => {
     if (!code) return;
@@ -82,7 +63,8 @@ const License = () => {
           showToast('error', res.data.message || "Gagal mengaktifkan lisensi.");
       }
     } catch (e) {
-      showToast('error', "Terjadi kesalahan koneksi atau kode tidak valid!");
+      const errorMsg = e.response?.data?.message || "Terjadi kesalahan koneksi atau kode tidak valid!";
+      showToast('error', errorMsg);
     } finally { setLoading(false); }
   };
 
@@ -132,14 +114,16 @@ const License = () => {
             {machineId && (
               <div className="mt-5 pt-4 border-t border-slate-100">
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">ID Perangkat Keras</p>
-                <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg flex justify-between items-center group/copy gap-2">
-                  <code className="text-xs font-mono text-slate-700 font-medium break-all line-clamp-2">{machineId}</code>
+                <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg flex flex-col sm:flex-row justify-between sm:items-center group/copy gap-2 w-full overflow-hidden">
+                  <div className="flex-1 min-w-0">
+                    <code className="text-[11px] md:text-xs font-mono text-slate-700 font-medium break-all whitespace-normal block">{machineId}</code>
+                  </div>
                   <button 
                     onClick={() => {
                         navigator.clipboard.writeText(machineId);
                         showToast('success', 'Machine ID disalin!');
                     }}
-                    className="text-blue-600 hover:text-blue-700 font-bold text-xs bg-blue-50 px-2.5 py-1 rounded-md opacity-0 group-hover/copy:opacity-100 transition-opacity flex-shrink-0"
+                    className="text-blue-600 hover:text-blue-700 font-bold text-xs bg-blue-50 px-2.5 py-1.5 rounded-md opacity-0 group-hover/copy:opacity-100 transition-opacity flex-shrink-0"
                   >
                     Salin
                   </button>
@@ -219,10 +203,10 @@ const License = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* 3. FORM AKTIVASI (KIRI) */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="font-bold text-base text-slate-800 mb-4 flex items-center gap-2">
             <span className="w-1.5 h-5 bg-blue-500 rounded-full"></span>
             Aktivasi Lisensi Baru

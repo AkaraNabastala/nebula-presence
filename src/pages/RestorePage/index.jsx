@@ -174,7 +174,7 @@ const RestorePage = () => {
 
                     {/* DROPZONE */}
                     <div className="relative mb-8">
-                        <input type="file" accept=".sql" onChange={handleFileChange} disabled={loading} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
+                        <input type="file" accept=".sql,.sqlite" onChange={handleFileChange} disabled={loading} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
                         <div className={`border-2 border-dashed rounded-[2rem] py-12 flex flex-col items-center justify-center transition-all duration-500 ${
                             file ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50 group-hover:border-amber-400 group-hover:bg-amber-50/30'
                         }`}>
@@ -191,8 +191,8 @@ const RestorePage = () => {
                                     <div className="bg-white p-4 rounded-3xl shadow-md border border-slate-100 mb-4 inline-block text-slate-400 group-hover:text-amber-500 transition-colors">
                                         <UploadCloud size={32} />
                                     </div>
-                                    <p className="font-bold text-slate-600">Klik atau Tarik file SQL</p>
-                                    <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">Format: .sql (Max 50MB)</p>
+                                    <p className="font-bold text-slate-600">Tarik & Lepas file .sql / .sqlite ke sini</p>
+                                    <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">Format: .sql / .sqlite (Max 50MB)</p>
                                 </div>
                             )}
                         </div>

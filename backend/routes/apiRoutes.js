@@ -73,5 +73,6 @@ router.get('/devices', roleGuard(['SuperAdmin']), (req, res) => deviceController
 router.post('/devices', roleGuard(['SuperAdmin']), (req, res) => deviceController.addDevice(req, res));
 router.delete('/devices/:id', roleGuard(['SuperAdmin']), (req, res) => deviceController.deleteDevice(req, res));
 router.post('/devices/test', roleGuard(['SuperAdmin']), (req, res) => deviceController.testConnection(req, res));
+router.post('/devices/sync', roleGuard(['SuperAdmin']), (req, res) => deviceController.syncDeviceLogs(req, res));
 
 module.exports = router;

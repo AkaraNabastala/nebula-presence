@@ -1,7 +1,7 @@
 import React from 'react';
 import { Building2, GraduationCap } from 'lucide-react';
 
-const IndustryModal = ({ show, onClose, onSelect, currentMode }) => {
+const IndustryModal = ({ show, onSelect, currentMode }) => {
     if (!show) return null;
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">

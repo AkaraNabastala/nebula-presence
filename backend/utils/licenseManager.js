@@ -1,9 +1,12 @@
 const fs = require('fs-extra');
 const path = require('path');
+const os = require('os');
 const CryptoJS = require("crypto-js");
 const { machineIdSync } = require('node-machine-id');
 
-const LICENSE_PATH = path.join(process.cwd(), 'license.key');
+const userDataPath = path.join(os.homedir(), '.nebula-presence-app');
+fs.ensureDirSync(userDataPath);
+const LICENSE_PATH = path.join(userDataPath, 'license.key');
 // Pastikan tidak ada spasi di sekitar kunci ini
 const SECRET_KEY = process.env.LICENSE_KEY || "Nabastala_2026_Digital_Solution@16092001";
 
@@ -31,8 +34,9 @@ const checkLicenseInternal = () => {
             return { valid: false, message: "Lisensi terkunci pada perangkat lain!" };
         }
 
-        // 2. ANTI TIME TRAVEL
-        if (now < createdDate) {
+        // 2. ANTI TIME TRAVEL (Dengan toleransi 24 jam untuk mengatasi bug perbedaan waktu server/klien/WSL)
+        const driftTolerance = 24 * 60 * 60 * 1000; 
+        if (now.getTime() < (createdDate.getTime() - driftTolerance)) {
             return { valid: false, message: "Manipulasi waktu terdeteksi! Perbaiki jam sistem." };
         }
 
@@ -41,7 +45,14 @@ const checkLicenseInternal = () => {
             return { valid: false, expired: true, owner: data.owner, remainingSeconds: 0 };
         }
 
-        return { valid: true, owner: data.owner, remainingSeconds };
+        return {
+            valid: true,
+            owner: data.owner,
+            machineId: data.machineId,
+            type: data.type || 'perdana', // Default to perdana for backward compatibility
+            expired: data.expired,
+            remainingSeconds
+        };
     } catch (error) {
         return { valid: false, message: "Gagal verifikasi lisensi." };
     }

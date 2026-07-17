@@ -8,15 +8,16 @@ exports.getHolidays = async (req, res) => {
         let params = [];
         
         if (year && month) {
-            query = 'SELECT * FROM holidays WHERE EXTRACT(YEAR FROM holiday_date) = $1 AND EXTRACT(MONTH FROM holiday_date) = $2 ORDER BY holiday_date ASC';
-            params = [year, month];
+            const formattedMonth = month.padStart(2, '0');
+            query = 'SELECT * FROM holidays WHERE strftime("%Y", holiday_date) = $1 AND strftime("%m", holiday_date) = $2 ORDER BY holiday_date ASC';
+            params = [String(year), String(formattedMonth)];
         }
 
         const r = await pool.query(query, params);
         res.json({ success: true, data: r.rows });
     } catch (e) {
-        console.error("Error getHolidays:", e);
-        res.status(500).json({ success: false, message: "Gagal memuat hari libur" });
+        console.error("Error getHolidays:", e.message);
+        res.status(500).json({ success: false, message: "Gagal memuat hari libur", error: e.message });
     }
 };
 
@@ -29,7 +30,7 @@ exports.addHoliday = async (req, res) => {
         await addAuditLog(req.user?.nama_admin || 'Admin', 'Tambah Hari Libur', `${date} - ${description}`);
         res.json({ success: true, message: "Hari libur ditambahkan" });
     } catch (e) {
-        if (e.code === '23505') {
+        if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
             return res.status(400).json({ success: false, message: "Tanggal ini sudah ditandai sebagai hari libur" });
         }
         res.status(500).json({ success: false, message: "Gagal menambahkan hari libur" });

@@ -15,7 +15,7 @@ const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
 const cookieParser = require('cookie-parser'); // <-- TAMBAHAN 1: Cookie Parser
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const authGuard = require('./middleware/authGuard');
 const strictGuard = require('./middleware/strictGuard');
@@ -47,7 +47,9 @@ const corsOptions = {
         if (!origin || 
             origin.startsWith('http://localhost') || 
             origin.startsWith('http://127.0.0.1') || 
-            origin.startsWith('http://192.168.')) {
+            origin.startsWith('http://192.168.') || 
+            origin.startsWith('http://10.') || 
+            origin.startsWith('http://172.')) {
             return callback(null, true);
         }
         callback(new Error('Akses Ditolak oleh CORS Policy'));
@@ -100,31 +102,41 @@ app.use((err, req, res, next) => {
     });
 });
 
-// --- 6. BACKGROUND JOBS (ZKTeco Sync) ---
-cron.schedule('*/5 * * * *', async () => {
+// --- 6. ZKTECO REAL-TIME LISTENER ---
+const { processScanCore } = require('./controllers/attendanceController');
+
+const startZKTecoRealtime = async (io) => {
     try {
         const devices = await pool.query("SELECT * FROM devices WHERE status != 'disabled'");
         for (let dev of devices.rows) {
-            try {
+            const connectAndListen = async () => {
                 const zkInstance = new ZKLib(dev.ip_address, dev.port, 5200, 5000);
-                await zkInstance.createSocket();
-                await zkInstance.connect();
-                const logs = await zkInstance.getAttendances();
-                
-                // Di dunia nyata, filter log berdasarkan waktu terakhir sync.
-                // Simulasi memproses data
-                if (logs && logs.data && logs.data.length > 0) {
-                    console.log(`[ZKTeco] Menarik ${logs.data.length} log dari ${dev.name}`);
+                try {
+                    await zkInstance.createSocket();
+                    console.log(`[Mesin Kehadiran] Siaga Real-Time di mesin: ${dev.name} (${dev.ip_address})`);
+                    
+                    zkInstance.getRealTimeLogs(async (log) => {
+                        // log.userId adalah ID Karyawan/Siswa (identity_number) dari mesin ZKTeco
+                        if (log && log.userId) {
+                            console.log(`[Mesin Kehadiran] Sidik jari terdeteksi: UID ${log.userId}`);
+                            const res = await processScanCore(log.userId, null, io);
+                            if (!res.success) {
+                                console.log(`[Mesin Kehadiran] Gagal diproses: ${res.message}`);
+                                if (io) io.emit('scan_error', { message: res.message });
+                            }
+                        }
+                    });
+                } catch (err) {
+                    console.log(`[Mesin Kehadiran] Gagal/Terputus dari ${dev.name}, mencoba lagi dalam 10 detik...`);
+                    setTimeout(connectAndListen, 10000);
                 }
-                await zkInstance.disconnect();
-            } catch (err) {
-                console.log(`[ZKTeco] Gagal sync mesin ${dev.name} (${dev.ip_address})`);
-            }
+            };
+            connectAndListen();
         }
     } catch (e) {
-        // error query
+        console.error("Gagal memulai listener Mesin Kehadiran", e);
     }
-});
+};
 
 // --- 7. BOOTSTRAP (START SERVER) ---
 const startServer = async () => {
@@ -145,6 +157,9 @@ const startServer = async () => {
         const io = new Server(server, { cors: corsOptions });
         app.set('io', io); // Simpan io di express instance agar bisa diakses di controller
 
+        // START ZKTECO REAL-TIME
+        startZKTecoRealtime(io);
+
         io.on('connection', (socket) => {
             console.log(`📡 Socket terhubung: ${socket.id}`);
             socket.on('disconnect', () => {
@@ -152,11 +167,20 @@ const startServer = async () => {
             });
         });
 
+        // Menggunakan PORT tetap (6990) agar sinkron dengan Vite proxy di frontend
+        // Menggunakan 0.0.0.0 agar dapat diakses oleh komputer lain di jaringan LAN
         server.listen(PORT, '0.0.0.0', () => {
-            console.log(`🚀 Server Running on Port: ${PORT}`);
-            console.log(`🌍 URL: http://localhost:${PORT}`);
+            const assignedPort = server.address().port;
+            console.log(`🚀 Server Running on Port: ${assignedPort}`);
+            console.log(`🌍 URL: http://localhost:${assignedPort}`);
             console.log(`📁 Frontend Path: ${FRONTEND_BUILD_PATH}`);
             console.log(`=================================================`);
+            
+            // Buka browser otomatis di Windows dengan sedikit delay agar Socket.io siap sepenuhnya (Permasalahan 1)
+            const { exec } = require('child_process');
+            setTimeout(() => {
+                exec(`start http://localhost:${assignedPort}`);
+            }, 1500);
         });
 
         server.keepAliveTimeout = 60000;
@@ -166,4 +190,9 @@ const startServer = async () => {
     }
 };
 
-startServer();
+
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
+
+module.exports = app;

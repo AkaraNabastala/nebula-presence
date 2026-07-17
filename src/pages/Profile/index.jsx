@@ -3,7 +3,6 @@ import { User, Lock, Save, Shield, Key, AlertCircle, CheckCircle, X, Building2, 
 import api from '../../api/axios';
 
 // Default Assets
-import defaultBg from '../../assets/gedung.jpg'; 
 import defaultLogo from '../../assets/logo-nabastala.png';
 
 const Profile = () => {
@@ -42,7 +41,7 @@ const Profile = () => {
                 password: '', 
                 confirmPassword: ''
             });
-        } catch (e) { console.error("Gagal load user"); }
+        } catch { console.error("Gagal load user"); }
     }
 
     // Load Data Instansi (Visual Header)
@@ -56,7 +55,7 @@ const Profile = () => {
                     background_absensi: res.data.background_absensi || ''
                 });
             }
-        } catch (e) {
+        } catch {
             console.error("Gagal load settings");
         }
     };

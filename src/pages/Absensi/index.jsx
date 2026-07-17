@@ -8,6 +8,7 @@ import {
   ScanLine, QrCode, UserCircle,
   AlertTriangle, CheckCircle, Info
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 // Aset Default
 import logoDefault from '../../assets/logo-nabastala.png';
@@ -27,6 +28,8 @@ const Absensi = () => {
   const rfidBuffer = useRef("");
   const lastKeyTime = useRef(Date.now());
   const inputRef = useRef(null);
+  const queueRef = useRef([]);
+  const processingRef = useRef(false);
 
   // STATE CONFIG
   const [appConfig, setAppConfig] = useState({
@@ -68,7 +71,9 @@ const Absensi = () => {
               if (licRes.data && licRes.data.owner) {
                 fallbackName = licRes.data.owner;
               }
-            } catch (e) { }
+            } catch {
+                // ignore
+            }
           }
 
           setAppConfig(prev => ({
@@ -102,6 +107,99 @@ const Absensi = () => {
       setTimeout(() => inputRef.current.focus(), 150);
     }
   }, [showManualInput]);
+
+  // --- 4. ZKTECO REAL-TIME LISTENER (SOCKET.IO) ---
+  useEffect(() => {
+    const SOCKET_URL = import.meta.env.VITE_API_URL || window.location.origin;
+    const socket = io(SOCKET_URL);
+
+    const getNotificationDuration = () => {
+        try {
+            const localTimeStr = new Date().toLocaleTimeString('en-GB', {
+                timeZone: appConfig.timezone || 'Asia/Jakarta', hour12: false
+            });
+            const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
+            
+            const [masukHour, masukMinute] = (appConfig.jam_masuk || '07:00').split(':').map(Number);
+            const [pulangHour, pulangMinute] = (appConfig.jam_pulang || '16:00').split(':').map(Number);
+
+            const currentMinutes = currentHour * 60 + currentMinute;
+            const masukMinutes = masukHour * 60 + masukMinute;
+            const pulangMinutes = pulangHour * 60 + pulangMinute;
+
+            // Jam sibuk masuk: 1 jam sebelum sampai 1 jam sesudah jam masuk
+            const isJamMasukSibuk = currentMinutes >= (masukMinutes - 60) && currentMinutes <= (masukMinutes + 60);
+            
+            // Jam sibuk pulang: 1 jam sebelum sampai 1 jam sesudah jam pulang
+            const isJamPulangSibuk = currentMinutes >= (pulangMinutes - 60) && currentMinutes <= (pulangMinutes + 60);
+
+            if (isJamMasukSibuk || isJamPulangSibuk) {
+                return 1000; // 1 detik jika jam sibuk (Permasalahan 8)
+            }
+        } catch (e) {
+            console.warn("Gagal menghitung jam sibuk:", e);
+        }
+        return 3000; // 3 detik normal
+    };
+
+    const processQueue = () => {
+        if (processingRef.current || queueRef.current.length === 0) return;
+        processingRef.current = true;
+
+        const nextNotif = queueRef.current.shift();
+        setNotification(nextNotif);
+
+        const duration = getNotificationDuration();
+
+        setTimeout(() => {
+            setNotification(null);
+            processingRef.current = false;
+            processQueue(); // Lanjutkan antrean berikutnya
+        }, duration);
+    };
+
+    socket.on('new_scan', (data) => {
+        let pesanBawah = "TERIMA KASIH";
+        let statusText = data.status;
+        
+        if (data.mode === 'PULANG') { 
+            pesanBawah = "HATI-HATI DI JALAN"; 
+            statusText = data.status || "PULANG"; 
+        } else if (data.status === 'TERLAMBAT') { 
+            pesanBawah = "JANGAN TERLAMBAT LAGI"; 
+        } else if (data.status === 'HADIR') { 
+            pesanBawah = "SELAMAT BERAKTIVITAS"; 
+        }
+
+        const notifPayload = {
+            nama: data.nama,
+            status: statusText,
+            pesan: pesanBawah,
+            waktu: data.waktu || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            id_user: data.info_id,
+            info: data.divisi || "Pengguna Aktif",
+            foto: data.foto,
+            type: 'SUCCESS'
+        };
+
+        queueRef.current.push(notifPayload);
+        processQueue();
+    });
+
+    socket.on('scan_error', (data) => {
+        const notifPayload = {
+            nama: "Gagal Absensi",
+            status: "ERROR",
+            pesan: data.message || "ID Tidak Terdaftar",
+            type: 'ERROR'
+        };
+
+        queueRef.current.push(notifPayload);
+        processQueue();
+    });
+
+    return () => socket.disconnect();
+  }, [appConfig]);
 
   const getStatusDisplay = () => {
     const localTimeStr = time.toLocaleTimeString('en-GB', {
@@ -138,7 +236,7 @@ const Absensi = () => {
           foto: null,
           type: 'WARNING'
         });
-      } catch (e) {
+      } catch {
         setNotification({ nama: "Gagal", status: "ERROR", pesan: "Penyimpanan Offline Gagal", type: 'ERROR' });
       }
       setIsLoading(false);
@@ -162,7 +260,7 @@ const Absensi = () => {
         pesan: pesanBawah,
         waktu: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
         id_user: data.info_id || data.nisn || identifier.trim(),
-        info: data.divisi || data.kelas || "Anggota Aktif",
+        info: data.divisi || data.kelas || "Pengguna Aktif",
         foto: data.foto,
         type: 'SUCCESS'
       });
@@ -191,7 +289,7 @@ const Absensi = () => {
             try {
               await api.post('/scan', { rfid_code: scan.rfid_code });
               await removeOfflineScan(scan.id);
-            } catch (e) {
+            } catch {
               console.error("Gagal sync scan:", scan.rfid_code);
             }
           }
@@ -203,8 +301,8 @@ const Absensi = () => {
           });
           setTimeout(() => setNotification(null), 3000);
         }
-      } catch (e) {
-        console.error(e);
+      } catch {
+        // ignore
       }
     };
 

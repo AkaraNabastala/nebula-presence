@@ -7,10 +7,10 @@ export const ModeProvider = ({ children }) => {
   const [modeConfig, setModeConfig] = useState({
     app_mode: 'korporat',
     labels: {
-      label_unit: 'Departemen/Divisi',
-      label_anggota: 'Karyawan/Staff',
+      label_kelompok: 'Kelompok',
+      label_pengguna: 'Pengguna',
       label_wali: 'Manajer/Supervisor',
-      label_identitas: 'ID Karyawan'
+      label_identitas: 'ID Pengguna'
     },
     loading: true
   });
@@ -22,10 +22,10 @@ export const ModeProvider = ({ children }) => {
         setModeConfig({
           app_mode: res.data.app_mode || 'korporat',
           labels: res.data.labels || {
-            label_unit: 'Departemen/Divisi',
-            label_anggota: 'Karyawan/Staff',
+            label_kelompok: 'Kelompok',
+            label_pengguna: 'Pengguna',
             label_wali: 'Manajer/Supervisor',
-            label_identitas: 'ID Karyawan'
+            label_identitas: 'ID Pengguna'
           },
           loading: false
         });
@@ -37,6 +37,7 @@ export const ModeProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSettings();
   }, []);
 
@@ -47,4 +48,5 @@ export const ModeProvider = ({ children }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useMode = () => useContext(ModeContext);

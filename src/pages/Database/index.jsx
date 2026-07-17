@@ -17,12 +17,12 @@ const Database = () => {
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement('a');
           link.href = url;
-          link.setAttribute('download', `backup_database_${new Date().toISOString().slice(0,10)}.sql`);
+          link.setAttribute('download', `backup_database_${new Date().toISOString().slice(0,10)}.sqlite`);
           document.body.appendChild(link);
           link.click();
           link.parentNode.removeChild(link);
           showToast('success', "Backup berhasil diunduh!");
-      } catch (error) {
+      } catch {
           showToast('error', "Gagal mengunduh backup database.");
       }
   };
@@ -43,7 +43,7 @@ const Database = () => {
           setTimeout(() => {
               window.location.reload();
           }, 1500);
-      } catch (error) {
+      } catch {
           showToast('error', "Gagal melakukan restore database.");
       }
       setLoading(false);
@@ -100,10 +100,10 @@ const Database = () => {
                     )}
                     <UploadCloud size={32} className="text-orange-500 mb-3" />
                     <h3 className="font-bold text-gray-800 mb-1">Restore Data</h3>
-                    <p className="text-xs text-gray-500 mb-4">Pulihkan dari file .sql</p>
+                    <p className="text-xs text-gray-500 mb-4">Pulihkan dari file .sql / .sqlite</p>
                     <label className="px-6 py-2 bg-orange-50 text-orange-600 font-bold rounded-xl hover:bg-orange-100 transition-colors w-full cursor-pointer relative z-0">
                         Upload & Restore
-                        <input type="file" accept=".sql" onChange={handleRestore} disabled={loading} className="hidden" />
+                        <input type="file" accept=".sql,.sqlite" onChange={handleRestore} disabled={loading} className="hidden" />
                     </label>
                 </div>
                 

@@ -1,9 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.DEV 
-    ? `${import.meta.env.VITE_API_URL || 'http://localhost:6990'}/api` 
-    : `${window.location.origin}/api`;
+const getBaseUrl = () => {
+    // Jika sedang development (npm run dev)
+    if (import.meta.env.DEV) {
+        if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+        return 'http://localhost:6990';
+    }
+    // Jika production (hasil build), SELALU ikuti IP address di browser
+    return window.location.origin;
+};
 
+const API_BASE_URL = `${getBaseUrl()}/api`;
 const api = axios.create({
     baseURL: API_BASE_URL,
     withCredentials: true,
@@ -14,7 +21,7 @@ const api = axios.create({
 
 api.interceptors.response.use(
   (response) => {
-    if (response.data && response.data.hasOwnProperty('data')) {
+    if (response.data && Object.prototype.hasOwnProperty.call(response.data, 'data')) {
         response.data = response.data.data;
     }
     return response;

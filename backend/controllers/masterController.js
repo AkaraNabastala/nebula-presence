@@ -4,15 +4,12 @@ const { exec } = require('child_process');
 const xlsx = require('xlsx');
 const { addAuditLog } = require('../utils/logger');
 
-// --- HELPER DYNAMIC LABELS ---
-// Mendeteksi mode aplikasi (Edukasi vs Korporat/Umum)
 const getDynamicLabels = (settings) => {
-    const isEdukasi = settings['app_mode'] === 'edukasi'; 
     return {
-        label_unit: isEdukasi ? 'Kelas' : 'Departemen/Divisi',
-        label_anggota: isEdukasi ? 'Siswa/Guru' : 'Karyawan/Staff',
-        label_wali: isEdukasi ? 'Wali Kelas' : 'Manajer/Supervisor',
-        label_identitas: isEdukasi ? 'NISN/NIPD' : 'ID Karyawan'
+        label_kelompok: 'Kelompok',
+        label_pengguna: 'Pengguna',
+        label_wali: 'Penanggung Jawab',
+        label_identitas: 'ID Pengguna'
     };
 };
 
@@ -48,7 +45,7 @@ exports.getAllMembers = async (req, res) => {
         // PERBAIKAN: Menambahkan ALIAS (AS) agar frontend lama tidak crash
         const q = `
             SELECT m.id, m.role, m.division_id,
-                   m.identity_number, m.identity_number AS nisn, m.identity_number AS nipd,
+                   m.identity_number, m.identity_reference AS nisn, m.identity_number AS nipd,
                    m.full_name, m.full_name AS nama_lengkap,
                    m.rfid_code, m.rfid_code AS kode_rfid,
                    m.photo, m.photo AS foto,
@@ -67,8 +64,9 @@ exports.createMember = async (req, res) => {
     try {
         await client.query('BEGIN');
         
-        // Kompatibilitas mundur: Menerima payload lama maupun payload baru
-        const identity_number = req.body.identity_number || req.body.nisn || req.body.nipd || '';
+        // Kompatibilitas mundur: Memisahkan nipd dan nisn
+        const identity_number = req.body.identity_number || req.body.nipd || '';
+        const identity_reference = req.body.identity_reference || req.body.nisn || '';
         const full_name = req.body.full_name || req.body.nama_lengkap || '';
         const role = req.body.role || 'member'; // Default role
         const rfid_code = req.body.rfid_code || req.body.kode_rfid || '';
@@ -89,8 +87,8 @@ exports.createMember = async (req, res) => {
         }
 
         await client.query(
-            'INSERT INTO members (identity_number, full_name, role, division_id, rfid_code, photo) VALUES ($1, $2, $3, $4, $5, $6)',
-            [identity_number.trim(), full_name, role, division_id, rfid_code.trim(), photo]
+            'INSERT INTO members (identity_number, identity_reference, full_name, role, division_id, rfid_code, photo) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''), role, division_id, String(rfid_code || '').trim(), photo]
         );
 
         await client.query('COMMIT');
@@ -99,7 +97,10 @@ exports.createMember = async (req, res) => {
     } catch (e) {
         await client.query('ROLLBACK');
         console.error("Create Member Error:", e);
-        res.status(500).json({ message: e.message || "Gagal menyimpan data anggota" });
+        if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
+            return res.status(400).json({ message: "Nomor Identitas atau Kode RFID tersebut sudah digunakan!" });
+        }
+        res.status(500).json({ message: e.message || "Gagal menyimpan data pengguna" });
     } finally {
         client.release();
     }
@@ -107,19 +108,38 @@ exports.createMember = async (req, res) => {
 
 exports.updateMember = async (req, res) => { 
     try { 
-        const identity_number = req.body.identity_number || req.body.nisn || req.body.nipd;
+        const identity_number = req.body.identity_number || req.body.nipd;
+        const identity_reference = req.body.identity_reference || req.body.nisn;
         const full_name = req.body.full_name || req.body.nama_lengkap;
         const role = req.body.role || 'member';
         const rfid_code = req.body.rfid_code || req.body.kode_rfid;
         const photo = req.body.photo || req.body.foto;
-        const division_id = req.body.division_id; 
+        
+        let division_id = req.body.division_id || null;
+        const divisionInput = req.body.division_name || req.body.kelas || '';
+
+        // Logika cerdas: Mencari ID divisi, jika tidak ada maka otomatis dibuatkan divisinya
+        if (!division_id && divisionInput.trim()) {
+            const checkDiv = await pool.query('SELECT id FROM divisions WHERE name = $1', [divisionInput.trim()]);
+            if (checkDiv.rows.length === 0) {
+                const newDiv = await pool.query('INSERT INTO divisions (name) VALUES ($1) RETURNING id', [divisionInput.trim()]);
+                division_id = newDiv.rows[0].id;
+            } else {
+                division_id = checkDiv.rows[0].id;
+            }
+        }
 
         await pool.query(
-            'UPDATE members SET identity_number=$1, full_name=$2, role=$3, division_id=$4, rfid_code=$5, photo=$6 WHERE id=$7', 
-            [identity_number?.trim(), full_name, role, division_id, rfid_code?.trim(), photo, req.params.id]
+            'UPDATE members SET identity_number=$1, identity_reference=$2, full_name=$3, role=$4, division_id=$5, rfid_code=$6, photo=$7 WHERE id=$8', 
+            [String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''), role, division_id, String(rfid_code || '').trim(), photo, req.params.id]
         ); 
         res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ message: "Gagal memperbarui data" }); } 
+    } catch (e) { 
+        if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
+            return res.status(400).json({ message: "Nomor Identitas atau Kode RFID tersebut sudah digunakan!" });
+        }
+        res.status(500).json({ message: "Gagal memperbarui data" }); 
+    } 
 };
 
 exports.deleteMember = async (req, res) => { 
@@ -127,7 +147,7 @@ exports.deleteMember = async (req, res) => {
         const id = req.params.id;
         if (!id) return res.status(400).json({ message: "ID tidak valid" });
         await pool.query('DELETE FROM members WHERE id=$1', [id]); 
-        await addAuditLog(req.user?.nama_admin || 'Admin', 'Hapus Anggota', `ID: ${id}`);
+        await addAuditLog(req.user?.nama_admin || 'Admin', 'Hapus Pengguna', `ID: ${id}`);
         res.json({ success: true }); 
     } catch (e) { 
         console.error("Delete Error:", e);
@@ -139,7 +159,9 @@ exports.importMembers = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: "File excel tidak ditemukan" });
     const client = await pool.connect();
     try {
-        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const fs = require('fs');
+        const fileBuffer = fs.readFileSync(req.file.path);
+        const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const rows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
@@ -149,41 +171,68 @@ exports.importMembers = async (req, res) => {
         let successCount = 0;
 
         for (const row of rows) {
-            const identity = row['Nomor Identitas'] || row['NISN'] || row['NIPD'] || row['ID Karyawan'];
+            let identity = row['ID Wajib'] || row['ID Pengguna (Wajib)'] || row['Nomor Identitas'] || row['NIPD'] || row['ID Karyawan'] || row['ID Pengguna'];
+            let identity_ref = row['ID Opsional'] || row['NIK / ID Lain'] || row['NIK / ID Lainnya'] || row['NISN'] || '';
             const name = row['Nama Lengkap'] || row['Nama'];
-            const divisionName = row['Unit'] || row['Kelas'] || row['Divisi'];
-            const rfid = row['Kode RFID'] || '';
+            const divisionName = row['Kelompok'] || row['Kelompok/Jabatan'] || row['Unit'] || row['Kelas'] || row['Divisi'] || row['Divisi/Jabatan'];
+            const rfid = row['Kode Kartu (Opsional)'] || row['Kode RFID'] || row['Kode Kartu'] || '';
+
+            if (!identity && identity_ref) {
+                identity = identity_ref;
+                identity_ref = '';
+            }
 
             if (!identity || !name) continue; // Skip jika data utama kosong
 
             let division_id = null;
             if (divisionName) {
-                const checkDiv = await client.query('SELECT id FROM divisions WHERE name = $1', [String(divisionName).trim()]);
+                const cleanDiv = String(divisionName).trim();
+                const checkDiv = await client.query('SELECT id FROM divisions WHERE name = $1', [cleanDiv]);
                 if (checkDiv.rows.length === 0) {
-                    const newDiv = await client.query('INSERT INTO divisions (name) VALUES ($1) RETURNING id', [String(divisionName).trim()]);
-                    division_id = newDiv.rows[0].id;
+                    const newDiv = await client.query('INSERT INTO divisions (name) VALUES ($1) RETURNING id', [cleanDiv]);
+                    if (newDiv.rows.length > 0) {
+                        division_id = newDiv.rows[0].id;
+                    }
                 } else {
                     division_id = checkDiv.rows[0].id;
                 }
             }
 
-            // Insert atau Update berdasarkan Identity Number
-            await client.query(`
-                INSERT INTO members (identity_number, full_name, role, division_id, rfid_code) 
-                VALUES ($1, $2, 'member', $3, $4)
-                ON CONFLICT (identity_number) DO UPDATE SET 
-                full_name = EXCLUDED.full_name, division_id = EXCLUDED.division_id, rfid_code = EXCLUDED.rfid_code
-            `, [String(identity).trim(), String(name).trim(), division_id, String(rfid).trim()]);
+            // Insert atau Update berdasarkan Identity Number secara manual untuk menghindari error UNIQUE constraint
+            const cleanId = String(identity).trim();
+            const cleanIdRef = String(identity_ref).trim();
+            const cleanName = String(name).trim();
+            const cleanRfid = String(rfid).trim();
+
+            const checkMember = await client.query('SELECT id FROM members WHERE identity_number = $1', [cleanId]);
+            if (checkMember.rows.length > 0) {
+                await client.query(`
+                    UPDATE members SET full_name = $1, division_id = $2, rfid_code = $3, identity_reference = $4 WHERE identity_number = $5
+                `, [cleanName, division_id, cleanRfid, cleanIdRef, cleanId]);
+            } else {
+                await client.query(`
+                    INSERT INTO members (identity_number, full_name, role, division_id, rfid_code, identity_reference) 
+                    VALUES ($1, $2, 'member', $3, $4, $5)
+                `, [cleanId, cleanName, division_id, cleanRfid, cleanIdRef]);
+            }
             
             successCount++;
         }
 
         await client.query('COMMIT');
-        res.json({ success: true, message: `Berhasil mengimport ${successCount} data anggota.` });
+        res.json({ success: true, message: `Berhasil mengimport ${successCount} data pengguna.` });
     } catch (e) {
-        await client.query('ROLLBACK');
+        try { await client.query('ROLLBACK'); } catch (err) {}
         console.error("Import Error:", e);
-        res.status(500).json({ message: "Gagal memproses file excel." });
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const os = require('os');
+            const logDir = path.join(os.homedir(), '.nebula-presence-app', 'logs');
+            if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+            fs.appendFileSync(path.join(logDir, 'debug.log'), `\n[IMPORT ERROR]: ${e.message}\n${e.stack}\n`);
+        } catch(logErr) {}
+        res.status(500).json({ message: "DEBUG ERROR: " + (e.message || "Unknown error") + " STACK: " + String(e.stack).substring(0, 500) });
     } finally {
         client.release();
     }
@@ -200,9 +249,9 @@ exports.getAllDivisions = async (req, res) => {
         const q = `
             SELECT d.id, 
                    d.name, d.name AS nama_kelas, 
-                   d.manager_name, d.manager_name AS wali_kelas, 
-                   (SELECT COUNT(*)::int FROM members m WHERE m.division_id = d.id) as total_members,
-                   (SELECT COUNT(*)::int FROM members m WHERE m.division_id = d.id) as jumlah_siswa
+                   d.supervisor_name AS manager_name, d.supervisor_name AS wali_kelas, 
+                   CAST((SELECT COUNT(*) FROM members m WHERE m.division_id = d.id) AS INTEGER) as total_members,
+                   CAST((SELECT COUNT(*) FROM members m WHERE m.division_id = d.id) AS INTEGER) as jumlah_siswa
             FROM divisions d 
             ORDER BY d.name ASC
         `;
@@ -210,7 +259,7 @@ exports.getAllDivisions = async (req, res) => {
         res.json({ data: r.rows || [], labels }); 
     } catch (e) { 
         console.error("Query Error:", e.message);
-        res.status(500).json({ message: "Gagal mengambil data divisi" }); 
+        res.status(500).json({ message: "Gagal mengambil data kelompok" }); 
     } 
 };
 
@@ -218,49 +267,54 @@ exports.createDivision = async (req, res) => {
     try { 
         const name = req.body.name || req.body.nama_kelas;
         const manager = req.body.manager_name || req.body.wali_kelas;
-        await pool.query('INSERT INTO divisions (name, manager_name) VALUES ($1, $2)', [name, manager]); 
+        await pool.query('INSERT INTO divisions (name, supervisor_name) VALUES ($1, $2)', [name, manager]); 
         res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ message: "Gagal menambah data" }); } 
+    } catch (e) { 
+        if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
+            return res.status(400).json({ message: "Kelompok/Kelas dengan nama tersebut sudah ada!" });
+        }
+        res.status(500).json({ message: "Gagal menambah data" }); 
+    } 
 };
 
 exports.updateDivision = async (req, res) => { 
     try { 
         const name = req.body.name || req.body.nama_kelas;
         const manager = req.body.manager_name || req.body.wali_kelas;
-        await pool.query('UPDATE divisions SET name=$1, manager_name=$2 WHERE id=$3', [name, manager, req.params.id]); 
+        await pool.query('UPDATE divisions SET name=$1, supervisor_name=$2 WHERE id=$3', [name, manager, req.params.id]); 
         res.json({ success: true }); 
-    } catch (e) { res.status(500).json({ message: "Gagal memperbarui data" }); } 
+    } catch (e) { 
+        if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
+            return res.status(400).json({ message: "Kelompok/Kelas dengan nama tersebut sudah ada!" });
+        }
+        res.status(500).json({ message: "Gagal memperbarui data" }); 
+    } 
 };
 
 exports.deleteDivision = async (req, res) => { 
     try { 
         await pool.query('DELETE FROM divisions WHERE id=$1', [req.params.id]); 
-        await addAuditLog(req.user?.nama_admin || 'Admin', 'Hapus Divisi', `ID Divisi: ${req.params.id}`);
+        await addAuditLog(req.user?.nama_admin || 'Admin', 'Hapus Kelompok', `ID Kelompok: ${req.params.id}`);
         res.json({ success: true }); 
     } catch (e) { res.status(500).json({ message: "Gagal menghapus data" }); } 
 };
 
 // --- BACKUP DATABASE ---
 exports.downloadBackup = (req, res) => {
-    req.setTimeout(30000); 
-    const fileName = `backup_db_${new Date().toISOString().split('T')[0]}.sql`;
-    
-    // Menarik kredensial dari environment variable agar selalu dinamis dan aman
-    const dbUser = process.env.DB_USER || 'postgres';
-    const dbPort = process.env.DB_PORT || '5432';
-    const dbName = process.env.DB_NAME || 'absensi_nabastala';
-    const dbPass = process.env.DB_PASSWORD || 'darksky';
-
-    const backupCmd = `pg_dump -h 127.0.0.1 -U ${dbUser} -p ${dbPort} ${dbName}`;
-    const env = { ...process.env, PGPASSWORD: dbPass }; 
-    
-    exec(backupCmd, { env, maxBuffer: 1024 * 1024 * 100 }, (error, stdout, stderr) => {
-        if (error) {
-            console.error("PG_DUMP ERROR:", stderr);
-            return res.status(500).send("Gagal membuat backup: " + stderr);
+    try {
+        const os = require('os');
+        const fs = require('fs');
+        const path = require('path');
+        const fileName = `backup_db_${new Date().toISOString().split('T')[0]}.sqlite`;
+        const dbPath = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
+        
+        if (!fs.existsSync(dbPath)) {
+            return res.status(404).json({ message: "Database tidak ditemukan" });
         }
-        res.setHeader('Content-Type', 'application/sql');
-        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
-        res.status(200).send(stdout);
-    });
+        
+        res.download(dbPath, fileName);
+    } catch (e) {
+        console.error("Backup Error:", e);
+        res.status(500).json({ message: "Gagal mengunduh backup" });
+    }
 };

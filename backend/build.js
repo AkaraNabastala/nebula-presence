@@ -10,13 +10,19 @@ async function build() {
     await fs.ensureDir('build');
     
     // Bundle everything starting from index.js
+    // PENTING: Modul native (C++) HARUS di-external karena tidak bisa dibundel
     await esbuild.build({
         entryPoints: ['index.js'],
         bundle: true,
         platform: 'node',
         target: 'node18',
-        outfile: 'build/bundle.js'
-        // External removed to bundle everything
+        outfile: 'build/bundle.js',
+        external: [
+            'sqlite3',           // Database SQLite (native C++)
+            'node-machine-id',   // Pembaca ID Hardware (native C++)
+            'bcryptjs',          // Enkripsi password
+            'better-sqlite3',    // Alternatif SQLite
+        ]
     });
 
     console.log('2. Obfuscating bundled code...');
@@ -28,14 +34,17 @@ async function build() {
         controlFlowFlatteningThreshold: 0.75,
         deadCodeInjection: true,
         deadCodeInjectionThreshold: 0.4,
-        debugProtection: true,
-        debugProtectionInterval: 2000,
-        disableConsoleOutput: true,
+        // PENTING: debugProtection & selfDefending dimatikan karena 
+        // fitur ini dirancang untuk browser, bukan Node.js server.
+        // Jika diaktifkan, server akan nge-hang/macet.
+        debugProtection: false,
+        debugProtectionInterval: 0,
+        disableConsoleOutput: false,
         identifierNamesGenerator: 'hexadecimal',
         log: false,
         numbersToExpressions: true,
         renameGlobals: false,
-        selfDefending: true,
+        selfDefending: false,
         simplify: true,
         ignoreRequireImports: true,
         splitStrings: true,
@@ -61,7 +70,7 @@ async function build() {
     // Cleanup temporary bundle.js
     await fs.remove('build/bundle.js');
     
-    console.log('3. Build and obfuscation complete! Ready for pkg packaging.');
+    console.log('3. Build and obfuscation complete! Ready for deployment.');
 }
 
 build().catch(err => {

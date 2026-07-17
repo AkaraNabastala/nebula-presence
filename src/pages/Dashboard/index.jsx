@@ -14,7 +14,7 @@ const Dashboard = () => {
   const [appConfig, setAppConfig] = useState({ 
       timezone: 'Asia/Jakarta',
       nama_instansi: 'Sistem Kehadiran Pusat',
-      labels: { label_anggota: 'Anggota', label_unit: 'Divisi' }
+      labels: { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' }
   });
 
   // --- 2. LOAD INITIAL CONFIG & TIME ---
@@ -26,10 +26,10 @@ const Dashboard = () => {
                 setAppConfig({
                     timezone: res.data.timezone || 'Asia/Jakarta',
                     nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'Sistem Kehadiran Pusat',
-                    labels: res.data.labels || { label_anggota: 'Anggota', label_unit: 'Divisi' }
+                    labels: res.data.labels || { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' }
                 });
             }
-        } catch (e) { console.error("Gagal load config"); }
+        } catch { console.error("Gagal load config"); }
     };
     fetchConfig();
 
@@ -44,7 +44,7 @@ const Dashboard = () => {
     // Connect to backend Socket.io
     const socket = io(import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin);
     
-    socket.on('new_scan', (data) => {
+    socket.on('new_scan', () => {
         // Automatically fetch fresh dashboard data when a scan occurs
         fetchDashboardData();
     });
@@ -52,6 +52,7 @@ const Dashboard = () => {
     return () => {
         socket.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appConfig.timezone]);
 
   const fetchDashboardData = async () => {
@@ -86,7 +87,14 @@ const Dashboard = () => {
       const logs = presentMembers
         .filter(s => s.scan_time)
         .sort((a, b) => new Date(b.scan_time) - new Date(a.scan_time))
-        .slice(0, 10);
+        .slice(0, 10)
+        .map(log => {
+          const m = membersArray.find(item => item.id === log.id);
+          return {
+            ...log,
+            foto: m ? (m.photo || m.foto) : log.foto
+          };
+        });
 
       setData({ total_user: totalMembers, hadir, terlambat, sakit_izin: sakitIzin, alfa: totalAlfaDisplay, logs });
       setLoading(false);
@@ -100,7 +108,7 @@ const Dashboard = () => {
         return new Date(timeString).toLocaleTimeString('id-ID', { 
             timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', hour12: false 
         }).replace('.', ':');
-      } catch (e) {
+      } catch {
           return timeString.slice(0, 5);
       }
   };
@@ -128,7 +136,7 @@ const Dashboard = () => {
 
   // KEMBALI KE DESAIN GRADASI YANG LEBIH MENARIK
   const statsCards = [
-    { title: `Total ${appConfig.labels.label_anggota}`, count: data.total_user, bg: 'bg-gradient-to-br from-slate-700 to-slate-900', icon: Users, text: 'text-slate-300' },
+    { title: `Total ${appConfig.labels.label_pengguna}`, count: data.total_user, bg: 'bg-gradient-to-br from-slate-700 to-slate-900', icon: Users, text: 'text-slate-300' },
     { title: 'Hadir Tepat', count: data.hadir, bg: 'bg-gradient-to-br from-emerald-500 to-emerald-600', icon: UserCheck, text: 'text-emerald-100' },
     { title: 'Terlambat', count: data.terlambat, bg: 'bg-gradient-to-br from-amber-400 to-amber-500', icon: Clock, text: 'text-amber-100' },
     { title: 'Izin / Sakit', count: data.sakit_izin, bg: 'bg-gradient-to-br from-indigo-500 to-indigo-600', icon: AlertTriangle, text: 'text-indigo-100' },
@@ -142,13 +150,16 @@ const Dashboard = () => {
       </div>
   );
 
+  const totalCheckIn = data.hadir + data.terlambat;
+  const presencePercentage = data.total_user > 0 ? Math.round((totalCheckIn / data.total_user) * 100) : 0;
+
   return (
     <div className="space-y-6 pb-12 font-sans bg-transparent min-h-full animate-in fade-in duration-500">
       
       {/* --- HEADER TANGGAL & JAM --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white dark:bg-slate-800 p-6 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
         <div>
-            <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
+            <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tight">
                 Ringkasan Statistik Hari Ini
             </h2>
             <div className="flex flex-wrap items-center gap-3 mt-2">
@@ -156,7 +167,7 @@ const Dashboard = () => {
                     <Calendar size={16} className="text-slate-400"/> 
                     {time.toLocaleDateString('id-ID', { timeZone: appConfig.timezone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
-                <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-200 tracking-wide">
+                <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 tracking-wide">
                     <Building2 size={14} className="text-slate-500"/> 
                     {appConfig.nama_instansi}
                 </div>
@@ -164,7 +175,7 @@ const Dashboard = () => {
         </div>
 
         <div className="text-left md:text-right w-full md:w-auto border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
-            <div className="text-3xl md:text-4xl font-black text-slate-800 font-mono tracking-tighter tabular-nums">
+            <div className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white font-mono tracking-tighter tabular-nums">
                 {time.toLocaleTimeString('id-ID', { timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':')}
             </div>
             <div className="flex items-center md:justify-end gap-2 mt-1">
@@ -205,8 +216,8 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* CHART SECTION */}
-        <div className="bg-white p-6 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col h-[400px]">
-          <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700 flex flex-col h-[400px]">
+          <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
             <div className="w-2 h-6 bg-blue-500 rounded-md"></div>
             Rasio Kehadiran
           </h3>
@@ -233,49 +244,55 @@ const Dashboard = () => {
             </ResponsiveContainer>
             
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                <span className="text-3xl font-black text-slate-800">{isDataEmpty ? 0 : data.hadir + data.terlambat}</span>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Check-In</span>
+                <span className="text-3xl font-black text-slate-800 dark:text-white">{isDataEmpty ? '0%' : `${presencePercentage}%`}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Kehadiran</span>
             </div>
           </div>
         </div>
 
         {/* LOGS SECTION */}
-        <div className="bg-white p-0 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 col-span-1 lg:col-span-2 flex flex-col h-[400px] overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 p-0 rounded-[1.5rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700 col-span-1 lg:col-span-2 flex flex-col h-[400px] overflow-hidden">
             <div className="p-6 pb-4 border-b border-slate-50 flex justify-between items-center bg-white z-10">
-                <h3 className="font-bold text-slate-800 flex items-center gap-2.5">
+                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2.5">
                     <div className="w-2 h-6 bg-purple-500 rounded-md"></div>
                     Aktivitas Terbaru
                 </h3>
             </div>
           
-            <div className="overflow-y-auto p-4 space-y-2 bg-white flex-1 custom-scrollbar">
+            <div className="overflow-y-auto p-4 space-y-2 bg-white dark:bg-slate-800 flex-1 custom-scrollbar">
                 {data.logs.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                        <div className="p-4 bg-slate-50 rounded-full mb-3"><Clock size={32} className="opacity-40"/></div>
+                        <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-full mb-3"><Clock size={32} className="opacity-40"/></div>
                         <p className="text-sm font-semibold">Belum ada aktivitas scan hari ini.</p>
                     </div>
                 ) : (
                     data.logs.map((log, i) => {
                         const nama = log.full_name || log.nama_lengkap || 'Tanpa Nama';
-                        const divisi = log.division_name || log.kelas || 'Anggota';
+                        const divisi = log.division_name || log.kelas || 'Pengguna';
                         const idNomor = log.identity_number || log.nisn || log.nip || '-';
 
                         return (
-                        <div key={i} className="flex items-center justify-between p-3.5 bg-white hover:bg-slate-50 transition-colors rounded-2xl border border-transparent hover:border-slate-100">
+                        <div key={i} className="flex items-center justify-between p-3.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors rounded-2xl border border-transparent hover:border-slate-100 dark:hover:border-slate-700">
                             <div className="flex items-center gap-4 min-w-0">
-                                <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center font-black text-lg shadow-sm shrink-0 ${
-                                    log.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600' :
-                                    log.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600' :
-                                    log.status === 'SAKIT' ? 'bg-blue-100 text-blue-600' :
-                                    log.status === 'IZIN' ? 'bg-indigo-100 text-indigo-600' :
-                                    'bg-rose-100 text-rose-600'
-                                }`}>
-                                    {nama.charAt(0).toUpperCase()}
-                                </div>
+                                {log.foto ? (
+                                    <div className="w-11 h-11 rounded-[12px] overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm shrink-0">
+                                        <img src={log.foto} className="w-full h-full object-cover" alt="Profile" />
+                                    </div>
+                                ) : (
+                                    <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center font-black text-lg shadow-sm shrink-0 ${
+                                        log.status === 'HADIR' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                                        log.status === 'TERLAMBAT' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
+                                        log.status === 'SAKIT' ? 'bg-blue-50 text-blue-600 border border-blue-200/50' :
+                                        log.status === 'IZIN' ? 'bg-indigo-50 text-indigo-600 border border-indigo-200/50' :
+                                        'bg-rose-50 text-rose-600 border border-rose-200/50'
+                                    }`}>
+                                        {nama.charAt(0).toUpperCase()}
+                                    </div>
+                                )/* Permasalahan tambahan 3 */}
                                 <div className="min-w-0 truncate">
-                                    <p className="font-bold text-slate-800 text-[14.5px] truncate">{nama}</p>
+                                    <p className="font-bold text-slate-800 dark:text-slate-200 text-[14.5px] truncate">{nama}</p>
                                     <p className="text-[12px] text-slate-400 font-semibold truncate mt-0.5">
-                                        {divisi} <span className="mx-1.5 text-slate-300">•</span> {idNomor}
+                                        {divisi} <span className="mx-1.5 text-slate-300 dark:text-slate-600">•</span> {idNomor}
                                     </p>
                                 </div>
                             </div>

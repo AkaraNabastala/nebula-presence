@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Fingerprint, Plus, Trash2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { Fingerprint, Plus, Trash2, RefreshCw, DownloadCloud } from 'lucide-react';
 import api from '../../api/axios';
 import Swal from 'sweetalert2';
 
@@ -33,7 +33,7 @@ const Devices = () => {
             Swal.fire('Berhasil', 'Perangkat ditambahkan', 'success');
             setShowModal(false);
             fetchDevices();
-        } catch (err) {
+        } catch {
             Swal.fire('Error', 'Gagal menambah perangkat', 'error');
         }
     };
@@ -43,7 +43,7 @@ const Devices = () => {
         try {
             await api.delete(`/devices/${id}`);
             fetchDevices();
-        } catch (err) {
+        } catch {
             Swal.fire('Error', 'Gagal menghapus perangkat', 'error');
         }
     };
@@ -64,6 +64,26 @@ const Devices = () => {
         }
     };
 
+    const handleSync = async (device) => {
+        Swal.fire({
+            title: 'Menarik Data...',
+            text: `Menyalin riwayat absen hari ini dari ${device.name}`,
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        try {
+            const res = await api.post('/devices/sync', { ip_address: device.ip_address, port: device.port });
+            if (res.data.success) {
+                Swal.fire('Selesai', res.data.message, 'success');
+            } else {
+                Swal.fire('Perhatian', res.data.message, 'info');
+            }
+        } catch (err) {
+            Swal.fire('Gagal', err.response?.data?.message || 'Gagal menarik data', 'error');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
@@ -72,8 +92,8 @@ const Devices = () => {
                         <Fingerprint size={24} />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800">Manajemen Perangkat</h2>
-                        <p className="text-slate-500 text-sm">Kelola mesin absensi ZKTeco / Sidik Jari</p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Manajemen Mesin</h1>
+                        <p className="text-slate-500 text-sm">Kelola mesin absensi / Sidik Jari</p>
                     </div>
                 </div>
                 <button onClick={() => setShowModal(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-blue-500/30">
@@ -93,9 +113,14 @@ const Devices = () => {
                         </div>
                         
                         <div className="flex items-center justify-between mt-auto">
-                            <button onClick={() => handleTest(dev)} className="flex items-center gap-2 text-blue-500 hover:text-blue-600 font-bold text-sm bg-blue-50 px-4 py-2 rounded-xl">
-                                <RefreshCw size={16} /> Test Koneksi
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => handleTest(dev)} className="flex items-center gap-2 text-blue-500 hover:text-blue-600 font-bold text-sm bg-blue-50 px-3 py-2 rounded-xl transition-colors">
+                                    <RefreshCw size={16} /> Test
+                                </button>
+                                <button onClick={() => handleSync(dev)} className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-bold text-sm bg-emerald-50 px-3 py-2 rounded-xl transition-colors">
+                                    <DownloadCloud size={16} /> Tarik Data
+                                </button>
+                            </div>
                             <button onClick={() => handleDelete(dev.id)} className="text-red-400 hover:text-red-500 p-2 rounded-xl hover:bg-red-50 transition-colors">
                                 <Trash2 size={20} />
                             </button>
@@ -113,8 +138,8 @@ const Devices = () => {
             {/* Modal Tambah */}
             {showModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-                    <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl">
-                        <h3 className="text-xl font-bold mb-6 text-slate-800">Tambah Mesin ZKTeco</h3>
+                    <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 mb-8 relative overflow-hidden max-w-md w-full">
+                        <h3 className="text-xl font-bold mb-6 text-slate-800">Tambah Mesin Absensi</h3>
                         <form onSubmit={handleAdd} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Nama Mesin</label>

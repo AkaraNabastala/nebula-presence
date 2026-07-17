@@ -8,11 +8,12 @@ const Holidays = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [date, setDate] = useState('');
     const [description, setDescription] = useState('');
+    const [sortConfig, setSortConfig] = useState({ key: 'holiday_date', direction: 'desc' });
 
     const fetchHolidays = async () => {
         try {
             const res = await api.get('/holidays');
-            setHolidays(res.data.data || []);
+            setHolidays(res.data || []);
         } catch (error) {
             console.error("Gagal memuat hari libur", error);
         } finally {
@@ -55,10 +56,31 @@ const Holidays = () => {
                 await api.delete(`/holidays/${id}`);
                 Swal.fire('Terhapus!', 'Hari libur berhasil dihapus.', 'success');
                 fetchHolidays();
-            } catch (error) {
+            } catch {
                 Swal.fire('Gagal!', 'Terjadi kesalahan saat menghapus.', 'error');
             }
         }
+    };
+
+    const sortedHolidays = [...holidays].sort((a,b) => {
+        if (sortConfig.key === 'holiday_date') {
+            const dateA = new Date(a.holiday_date);
+            const dateB = new Date(b.holiday_date);
+            return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
+        } else {
+            const valA = a.description || a.keterangan || a.nama_libur || "";
+            const valB = b.description || b.keterangan || b.nama_libur || "";
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        }
+    });
+
+    const handleSort = (key) => {
+        setSortConfig(prev => ({
+            key,
+            direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+        }));
     };
 
     return (
@@ -120,8 +142,12 @@ const Holidays = () => {
                         <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
                             <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700">
                                 <tr>
-                                    <th className="px-6 py-4">Tanggal</th>
-                                    <th className="px-6 py-4">Keterangan</th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('holiday_date')}>
+                                        Tanggal {sortConfig.key === 'holiday_date' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('description')}>
+                                        Keterangan {sortConfig.key === 'description' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                                    </th>
                                     <th className="px-6 py-4 text-center">Aksi</th>
                                 </tr>
                             </thead>
@@ -140,13 +166,13 @@ const Holidays = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    holidays.map((h, i) => (
+                                    sortedHolidays.map((h, i) => (
                                         <tr key={i} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/50">
                                             <td className="px-6 py-4 font-medium text-red-500 dark:text-red-400">
                                                 {new Date(h.holiday_date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                                             </td>
                                             <td className="px-6 py-4 text-slate-700 dark:text-slate-300">
-                                                {h.description}
+                                                {h.description || h.keterangan || h.nama_libur || '-'}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <button 

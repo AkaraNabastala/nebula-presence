@@ -2,8 +2,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 
-// Pastikan folder 'uploads' ada
-const uploadDir = path.join(__dirname, '../uploads');
+const os = require('os');
+const uploadDir = path.join(os.homedir(), '.nebula-presence-app', 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }

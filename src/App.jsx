@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'; 
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; 
 import api from "./api/axios";
-import { Lock, MessageCircle, ArrowRight, ShieldAlert, Copy, Check } from 'lucide-react';
+import { Lock, MessageCircle, Copy, Check } from 'lucide-react';
 
 // --- IMPORT LAYOUTS & PAGES ---
 import MainLayout from './layouts/MainLayout';
 import LoadingScreen from './layouts/LoadingScreen';
-import Absensi from './pages/Absensi'; 
-import Login from './pages/Login'; 
-import Dashboard from './pages/Dashboard';
-import Classes from './pages/Classes';
-import Students from './pages/Students';
-import Settings from './pages/Settings';
-import ManualAttendance from './pages/ManualAttendance';
-import BackupPage from './pages/BackupPage';
-import RestorePage from './pages/RestorePage';
-import Laporan from './pages/Laporan';
-import Profile from './pages/Profile';
-import Database from './pages/Database';
-import License from './pages/License'; 
-import Devices from './pages/Devices';
-import AuditLogs from './pages/AuditLogs';
-import Holidays from './pages/Holidays';
+
+// --- LAZY LOAD PAGES ---
+const Absensi = React.lazy(() => import('./pages/Absensi')); 
+const Login = React.lazy(() => import('./pages/Login')); 
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Classes = React.lazy(() => import('./pages/Classes'));
+const Students = React.lazy(() => import('./pages/Students'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const ManualAttendance = React.lazy(() => import('./pages/ManualAttendance'));
+const BackupPage = React.lazy(() => import('./pages/BackupPage'));
+const RestorePage = React.lazy(() => import('./pages/RestorePage'));
+const Laporan = React.lazy(() => import('./pages/Laporan'));
+const LaporanBulanan = React.lazy(() => import('./pages/ManualAttendance/LaporanBulanan'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const Database = React.lazy(() => import('./pages/Database'));
+const License = React.lazy(() => import('./pages/License')); 
+const Devices = React.lazy(() => import('./pages/Devices'));
+const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
+const Holidays = React.lazy(() => import('./pages/Holidays'));
 
 import backgroundSekolah from './assets/gedung.jpg'; 
 
@@ -41,11 +44,16 @@ const LockScreen = ({ onUnlock }) => {
 
   useEffect(() => {
     // Ambil Machine ID dari backend untuk ditunjukkan ke user
-    api.get(`/license-status`)
-      .catch(err => {
-        if (err.response?.data?.machineId) {
-          setMachineId(err.response.data.machineId);
+    api.get(`/license-status`, { validateStatus: status => status < 500 })
+      .then(res => {
+        if (res.data?.machineId) {
+          setMachineId(res.data.machineId);
+        } else {
+          setMachineId(JSON.stringify(res.data) || "KOSONG");
         }
+      })
+      .catch(() => {
+        setMachineId("Koneksi Error");
       });
   }, []);
 
@@ -88,10 +96,11 @@ const LockScreen = ({ onUnlock }) => {
         {/* MACHINE ID DISPLAY (PENTING UNTUK USER) */}
         <div className="w-full bg-black/40 rounded-2xl p-4 mb-6 border border-white/5 text-center">
             <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">ID Perangkat Anda</p>
-            <div className="flex items-center justify-center gap-2">
-                <code className="text-blue-400 font-mono text-sm">{machineId}</code>
-                <button onClick={copyToClipboard} className="text-slate-400 hover:text-white transition-colors">
-                    {copied ? <Check size={14} className="text-green-500"/> : <Copy size={14}/>}
+            <div className="flex flex-col items-center justify-center gap-2">
+                <code className="text-blue-400 font-mono text-[10px] sm:text-xs break-all max-w-full text-center px-2">{machineId}</code>
+                <button onClick={copyToClipboard} className="text-slate-400 hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs">
+                    {copied ? <Check size={12} className="text-green-500"/> : <Copy size={12}/>}
+                    {copied ? "Tersalin!" : "Salin ID"}
                 </button>
             </div>
         </div>
@@ -109,7 +118,7 @@ const LockScreen = ({ onUnlock }) => {
           </button>
         </form>
         
-        <button onClick={() => window.open('https://wa.me/6285183382128', '_blank')} className="mt-6 text-emerald-400 text-xs font-bold flex items-center gap-2 hover:opacity-80">
+        <button onClick={() => window.open('https://wa.me/6282132972773', '_blank')} className="mt-6 text-emerald-400 text-xs font-bold flex items-center gap-2 hover:opacity-80">
             <MessageCircle size={16}/> Chat Admin Nebula Tech
         </button>
       </div>
@@ -122,15 +131,33 @@ function App() {
   const [dbWaiting, setDbWaiting] = useState(true);
 
   useEffect(() => {
-    const checkLicense = async () => {
+    const initApp = async () => {
       try {
-        await api.get(`/license-status`);
-        setIsLocked(false);
-      } catch (err) {
-        if (err.response?.status === 403) setIsLocked(true);
+        // 1. Cek Lisensi
+        const res = await api.get(`/license-status`, { validateStatus: status => status < 500 });
+        if (res.status === 403) {
+          setIsLocked(true);
+        } else {
+          setIsLocked(false);
+        }
+
+        // 2. Ambil Settings untuk Favicon Dinamis & Judul
+        const resSet = await api.get('/settings');
+        if (resSet.data) {
+           const logo = resSet.data.logo_sekolah || resSet.data.logo_instansi;
+           const nama = resSet.data.nama_sekolah || resSet.data.nama_instansi;
+           
+           // Judul dihapus dari dynamic update agar tetap Nebula Smart Presence
+           // if (nama) {
+           //     document.title = nama;
+           // }
+        }
+
+      } catch {
+        setIsLocked(true);
       } finally { setDbWaiting(false); }
     };
-    checkLicense();
+    initApp();
   }, []);
 
   useEffect(() => {
@@ -147,28 +174,31 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Absensi />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/admin" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-          <Route index element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="members" element={<Students />} /> 
-          <Route path="divisions" element={<Classes />} /> 
-          <Route path="attendance-manual" element={<ManualAttendance />} />
-          <Route path="reports" element={<Laporan />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="database" element={<Database />} />
-          <Route path="backup" element={<BackupPage />} />
-          <Route path="restore" element={<RestorePage />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="license" element={<License />} /> 
-          <Route path="devices" element={<Devices />} />
-          <Route path="audit-logs" element={<AuditLogs />} />
-          <Route path="holidays" element={<Holidays />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <React.Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/" element={<Absensi />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/admin" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="members" element={<Students />} /> 
+            <Route path="divisions" element={<Classes />} /> 
+            <Route path="attendance-manual" element={<ManualAttendance />} />
+            <Route path="reports" element={<Laporan />} />
+            <Route path="reports-monthly" element={<LaporanBulanan />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="database" element={<Database />} />
+            <Route path="backup" element={<BackupPage />} />
+            <Route path="restore" element={<RestorePage />} />
+            <Route path="profile" element={<Profile />} />
+            <Route path="license" element={<License />} /> 
+            <Route path="devices" element={<Devices />} />
+            <Route path="audit-logs" element={<AuditLogs />} />
+            <Route path="holidays" element={<Holidays />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </React.Suspense>
     </BrowserRouter>
   );
 }
