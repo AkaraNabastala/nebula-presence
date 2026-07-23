@@ -1,21 +1,20 @@
 import React from 'react';
 
-const SkeletonTable = ({ rows = 5 }) => {
+const SkeletonTable = ({ rows = 5, cols = 4 }) => {
   return (
-    <div className="w-full animate-pulse">
-      {/* Header Skeleton */}
-      <div className="h-10 bg-gray-200 rounded-lg mb-4 w-full"></div>
-      
-      {/* Rows Skeleton */}
-      <div className="space-y-3">
-        {[...Array(rows)].map((_, i) => (
-          <div key={i} className="flex gap-4">
-            <div className="h-12 bg-gray-100 rounded-lg w-16"></div> {/* Avatar/No */}
-            <div className="h-12 bg-gray-100 rounded-lg flex-1"></div> {/* Content */}
-            <div className="h-12 bg-gray-100 rounded-lg w-24"></div> {/* Action */}
-          </div>
-        ))}
-      </div>
+    <div className="w-full animate-pulse space-y-3">
+      {Array.from({ length: rows }).map((_, rIdx) => (
+        <div key={rIdx} className="flex items-center gap-4 py-3 px-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+          {Array.from({ length: cols }).map((_, cIdx) => (
+            <div
+              key={cIdx}
+              className={`h-4 bg-slate-200 dark:bg-slate-700/60 rounded ${
+                cIdx === 0 ? 'w-1/4' : cIdx === 1 ? 'w-1/3' : 'w-1/6'
+              }`}
+            ></div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 };

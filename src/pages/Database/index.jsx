@@ -101,9 +101,9 @@ const Database = () => {
                     <UploadCloud size={32} className="text-orange-500 mb-3" />
                     <h3 className="font-bold text-gray-800 mb-1">Restore Data</h3>
                     <p className="text-xs text-gray-500 mb-4">Pulihkan dari file .sql / .sqlite</p>
-                    <label className="px-6 py-2 bg-orange-50 text-orange-600 font-bold rounded-xl hover:bg-orange-100 transition-colors w-full cursor-pointer relative z-0">
+                    <label htmlFor="restore-file-input" className="px-6 py-2 bg-orange-50 text-orange-600 font-bold rounded-xl hover:bg-orange-100 transition-colors w-full cursor-pointer relative z-0">
                         Upload & Restore
-                        <input type="file" accept=".sql,.sqlite" onChange={handleRestore} disabled={loading} className="hidden" />
+                        <input id="restore-file-input" name="restore_file" type="file" accept=".sql,.sqlite" onChange={handleRestore} disabled={loading} className="hidden" />
                     </label>
                 </div>
                 

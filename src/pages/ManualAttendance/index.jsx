@@ -66,16 +66,31 @@ const ManualAttendance = () => {
 
   // --- HELPER FORMAT JAM ---
   const formatTimeOnly = (timeString) => {
-      if (!timeString) return '-';
-      if (timeString.length > 8 && (timeString.includes('T') || timeString.includes('-'))) {
-          return new Date(timeString).toLocaleTimeString('id-ID', { 
+      if (!timeString || typeof timeString !== 'string') return '-';
+      const cleanStr = timeString.trim();
+
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(cleanStr)) {
+          return cleanStr.substring(0, 5);
+      }
+
+      const normalizedStr = cleanStr.replace(' ', 'T');
+      const d = new Date(normalizedStr);
+
+      if (isNaN(d.getTime())) {
+          const match = cleanStr.match(/(\d{2}:\d{2})/);
+          return match ? match[1] : '-';
+      }
+
+      try {
+          return d.toLocaleTimeString('id-ID', { 
               timeZone: appConfig.timezone, 
               hour: '2-digit', 
               minute: '2-digit', 
               hour12: false 
           }).replace('.', ':');
+      } catch {
+          return cleanStr.slice(0, 5) || '-';
       }
-      return timeString.slice(0, 5);
   };
 
   const showToast = (type, message) => {
@@ -114,18 +129,36 @@ const ManualAttendance = () => {
     }
   };
 
-  const handleStatusChange = async (studentId, newStatus) => {
-    // Simpan data lama untuk cadangan jika error (Rollback)
-    const originalStudents = [...students];
+  const [timeModal, setTimeModal] = useState({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' });
 
-    // --- PERBAIKAN LOGIKA OPTIMISTIC UPDATE ---
+  const handleStatusChange = async (studentId, newStatus, customTimeParam = null) => {
+    const studentObj = students.find(s => s.id === studentId);
+    if ((newStatus === 'HADIR_WAKTU' || newStatus === 'TERLAMBAT') && customTimeParam === null) {
+      const defaultTime = newStatus === 'TERLAMBAT' ? '07:30' : '07:15';
+      setTimeModal({ show: true, student: studentObj, inputTime: defaultTime, statusType: newStatus });
+      return;
+    }
+
+    const originalStudents = [...students];
+    let customScanTime = customTimeParam;
+    let isClearScanTime = false;
+    let actualStatus = newStatus === 'HADIR_WAKTU' ? 'HADIR' : newStatus;
+
+    if (newStatus === 'HADIR_TANPA_WAKTU') {
+      actualStatus = 'HADIR';
+      isClearScanTime = true;
+    }
+
     const updatedStudents = students.map(s => {
       if (s.id === studentId) {
         if (newStatus === 'RESET') {
-          // Jika RESET, kembalikan semua ke null agar UI menampilkan "Belum"
           return { ...s, status: null, scan_time: null, scan_out: null };
         }
-        return { ...s, status: newStatus };
+        return { 
+          ...s, 
+          status: actualStatus, 
+          scan_time: isClearScanTime ? null : (customScanTime ? `${selectedDate}T${customScanTime}:00` : s.scan_time) 
+        };
       }
       return s;
     });
@@ -134,19 +167,20 @@ const ManualAttendance = () => {
     calculateStats(updatedStudents);
 
     try {
-      // --- PERBAIKAN PENGIRIMAN DATA KE API ---
       await api.post('/attendance/manual', {
         student_id: studentId,
-        // Kirim null jika RESET, agar backend tahu data harus dihapus/direset
-        status: newStatus === 'RESET' ? null : newStatus, 
-        tanggal: selectedDate
+        status: newStatus === 'RESET' ? null : actualStatus, 
+        tanggal: selectedDate,
+        scan_time: customScanTime,
+        clear_scan_time: isClearScanTime
       });
       
       if (newStatus === 'RESET') {
         showToast('success', "Data kehadiran berhasil direset.");
+      } else {
+        showToast('success', `Status ${studentObj?.nama_lengkap || ''} diperbarui.`);
       }
     } catch {
-      // Jika gagal, kembalikan data ke kondisi semula
       setStudents(originalStudents); 
       calculateStats(originalStudents);
       showToast('error', "Gagal memperbarui status.");
@@ -179,26 +213,29 @@ const ManualAttendance = () => {
         return 0;
     });
 
-  // COMPONENT TOMBOL AKSI (DITAMBAHKAN TOMBOL "T")
+  // COMPONENT TOMBOL AKSI
   const ActionButtons = ({ student }) => (
-      <div className="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-slate-600 shadow-inner w-full md:w-auto overflow-x-auto">
-          {/* TOMBOL HADIR */}
-          <button onClick={() => handleStatusChange(student.id, 'HADIR')} className={`flex-1 min-w-[30px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-bold transition-all active:scale-95 ${student.status === 'HADIR' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>H</button>
+      <div className="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-slate-600 shadow-inner w-full md:w-auto overflow-x-auto gap-0.5">
+          {/* TOMBOL HADIR HIJAU (DENGAN JAM) */}
+          <button onClick={() => handleStatusChange(student.id, 'HADIR_WAKTU')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'HADIR' && student.scan_time ? 'bg-emerald-500 text-white shadow-sm' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100'}`} title="Hadir Lengkap dengan Jam Masuk">H</button>
           
-          {/* TOMBOL TERLAMBAT (BARU) */}
-          <button onClick={() => handleStatusChange(student.id, 'TERLAMBAT')} className={`flex-1 min-w-[30px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-bold transition-all active:scale-95 ${student.status === 'TERLAMBAT' ? 'bg-amber-400 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>T</button>
+          {/* TOMBOL HADIR MERAH (TANPA JAM / LUPA ABSEN) */}
+          <button onClick={() => handleStatusChange(student.id, 'HADIR_TANPA_WAKTU')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'HADIR' && !student.scan_time ? 'bg-rose-500 text-white shadow-sm' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100'}`} title="Hadir Tanpa Jam Masuk (Lupa Absen Pagi)">H</button>
+
+          {/* TOMBOL TERLAMBAT */}
+          <button onClick={() => handleStatusChange(student.id, 'TERLAMBAT')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'TERLAMBAT' ? 'bg-amber-400 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>T</button>
           
           {/* TOMBOL SAKIT */}
-          <button onClick={() => handleStatusChange(student.id, 'SAKIT')} className={`flex-1 min-w-[30px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-bold transition-all active:scale-95 ${student.status === 'SAKIT' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>S</button>
+          <button onClick={() => handleStatusChange(student.id, 'SAKIT')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'SAKIT' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>S</button>
           
           {/* TOMBOL IZIN */}
-          <button onClick={() => handleStatusChange(student.id, 'IZIN')} className={`flex-1 min-w-[30px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-bold transition-all active:scale-95 ${student.status === 'IZIN' ? 'bg-indigo-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>I</button>
+          <button onClick={() => handleStatusChange(student.id, 'IZIN')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'IZIN' ? 'bg-indigo-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>I</button>
           
           {/* TOMBOL ALFA */}
-          <button onClick={() => handleStatusChange(student.id, 'ALFA')} className={`flex-1 min-w-[30px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-bold transition-all active:scale-95 ${student.status === 'ALFA' ? 'bg-rose-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>A</button>
+          <button onClick={() => handleStatusChange(student.id, 'ALFA')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'ALFA' ? 'bg-rose-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>A</button>
           
           {student.status && (
-             <button onClick={() => handleStatusChange(student.id, 'RESET')} className="ml-1 px-2 rounded-md text-gray-400 dark:text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-600 dark:hover:text-slate-300 transition-all active:scale-95" title="Reset Status"><RefreshCcw size={14} /></button>
+             <button onClick={() => handleStatusChange(student.id, 'RESET')} className="ml-1 px-2 rounded-md text-gray-400 dark:text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-600 dark:hover:text-slate-300 transition-all active:scale-95" title="Reset Status (Hapus Log Hari Ini)"><RefreshCcw size={14} /></button>
           )}
       </div>
   );
@@ -228,12 +265,12 @@ const ManualAttendance = () => {
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                 <div className="relative">
                     <Calendar className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
-                    <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium"/>
+                    <input id="filter-date" name="filter_date" aria-label="Tanggal Absensi" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium"/>
                 </div>
                 
                 <div className="relative">
                     <Building2 className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
-                    <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
+                    <select id="filter-class" name="filter_class" aria-label="Pilih Kelompok" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
                         <option value="" disabled>-- Pilih Kelompok --</option>
                         {classes.map(c => (<option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>))}
                     </select>
@@ -242,7 +279,7 @@ const ManualAttendance = () => {
 
                 <div className="relative">
                     <Filter className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
+                    <select id="filter-status" name="filter_status" aria-label="Filter Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
                         <option value="ALL">Semua Status</option>
                         <option value="BELUM">Belum Absen</option>
                         <option value="SUDAH">Sudah Absen</option>
@@ -252,7 +289,7 @@ const ManualAttendance = () => {
 
                 <div className="relative">
                     <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
-                    <input type="text" placeholder="Cari Nama..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm"/>
+                    <input id="filter-search" name="filter_search" aria-label="Cari Nama" type="text" placeholder="Cari Nama..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm"/>
                 </div>
             </div>
         </div>
@@ -393,6 +430,76 @@ const ManualAttendance = () => {
             </>
         )}
       </div>
+      {/* MODAL INPUT WAKTU MASUK */}
+      {timeModal.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl transform animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-700">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700 mb-4">
+              <div className="flex items-center gap-2">
+                <div className={`p-2 rounded-xl ${timeModal.statusType === 'TERLAMBAT' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-500' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500'}`}>
+                  <Clock size={20} />
+                </div>
+                <h3 className="font-extrabold text-slate-800 dark:text-slate-100 text-sm">
+                  {timeModal.statusType === 'TERLAMBAT' ? 'Input Jam Terlambat' : 'Input Jam Masuk Hadir'}
+                </h3>
+              </div>
+              <button onClick={() => setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' })} className="text-slate-400 hover:text-slate-600"><XCircle size={20}/></button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Set jam masuk {timeModal.statusType === 'TERLAMBAT' ? 'terlambat' : ''} untuk <b className="text-slate-800 dark:text-slate-200">{timeModal.student?.nama_lengkap}</b> pada tanggal {selectedDate}:
+            </p>
+
+            <div className="mb-4">
+              <label htmlFor="modal-input-time" className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Pilih / Ketik Jam (HH:mm)</label>
+              <input 
+                id="modal-input-time"
+                name="modal_input_time"
+                type="time" 
+                className={`w-full text-center text-2xl font-mono font-bold p-3 border border-slate-200 dark:border-slate-600 rounded-2xl bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 outline-none focus:ring-4 ${timeModal.statusType === 'TERLAMBAT' ? 'focus:ring-amber-500/20 focus:border-amber-500' : 'focus:ring-emerald-500/20 focus:border-emerald-500'}`} 
+                value={timeModal.inputTime} 
+                onChange={(e) => setTimeModal({ ...timeModal, inputTime: e.target.value })}
+              />
+            </div>
+
+            <div className="flex gap-2 mb-6">
+              {['07:15', '07:30', '07:45', '08:00'].map(t => (
+                <button 
+                  key={t} 
+                  type="button" 
+                  onClick={() => setTimeModal({ ...timeModal, inputTime: t })}
+                  className={`flex-1 py-1.5 rounded-xl text-xs font-mono font-bold border transition ${timeModal.inputTime === t ? (timeModal.statusType === 'TERLAMBAT' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-500 text-white border-emerald-500') : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100'}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' })} 
+                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200"
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const studentId = timeModal.student?.id;
+                  const timeVal = timeModal.inputTime || '07:30';
+                  const targetStatus = timeModal.statusType || 'TERLAMBAT';
+                  setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' });
+                  handleStatusChange(studentId, targetStatus, timeVal);
+                }} 
+                className={`flex-1 py-2.5 text-white rounded-xl font-bold text-xs shadow-lg transition-all ${timeModal.statusType === 'TERLAMBAT' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'}`}
+              >
+                {timeModal.statusType === 'TERLAMBAT' ? 'Simpan Terlambat' : 'Simpan Hadir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

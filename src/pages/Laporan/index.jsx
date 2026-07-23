@@ -235,24 +235,24 @@ const Laporan = () => {
                 <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4 items-end">
                     <div className="w-full md:flex-1 grid grid-cols-2 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
+                            <label htmlFor="laporan-start-date" className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
                                 <Calendar size={12} /> Dari Tanggal
                             </label>
-                            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-800 transition-all cursor-pointer text-slate-800 dark:text-slate-200" />
+                            <input id="laporan-start-date" name="laporan_start_date" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-800 transition-all cursor-pointer text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
+                            <label htmlFor="laporan-end-date" className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
                                 <Calendar size={12} /> Sampai Tanggal
                             </label>
-                            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-800 transition-all cursor-pointer text-slate-800 dark:text-slate-200" />
+                            <input id="laporan-end-date" name="laporan_end_date" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-800 transition-all cursor-pointer text-slate-800 dark:text-slate-200" />
                         </div>
                     </div>
                     <div className="w-full md:w-64">
-                        <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
+                        <label htmlFor="laporan-class-select" className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
                             <Building2 size={12} /> {appConfig.labels?.label_kelompok || 'Kelompok'}
                         </label>
                         <div className="relative">
-                            <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-white dark:bg-slate-700 appearance-none cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-all text-slate-800 dark:text-slate-200">
+                            <select id="laporan-class-select" name="laporan_class" value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-white dark:bg-slate-700 appearance-none cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-all text-slate-800 dark:text-slate-200">
                                 <option value="">Semua {appConfig.labels?.label_kelompok || 'Kelompok'}</option>
                                 {classes.map(c => <option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>)}
                             </select>

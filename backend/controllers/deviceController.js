@@ -54,6 +54,55 @@ exports.testConnection = async (req, res) => {
     }
 };
 
+const performAutoSyncDevices = async (io) => {
+    try {
+        const devices = await pool.query("SELECT * FROM devices WHERE status != 'disabled'");
+        if (devices.rows.length === 0) return;
+
+        console.log(`[Tarik Data Otomatis] Menjalankan penarikan data dari ${devices.rows.length} mesin...`);
+
+        const tzRes = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'timezone'");
+        const tz = (tzRes.rows.length > 0 && tzRes.rows[0].setting_value) ? tzRes.rows[0].setting_value : 'Asia/Jakarta';
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+        const { processScanCore } = require('./attendanceController');
+
+        for (const dev of devices.rows) {
+            let zkInstance = null;
+            try {
+                zkInstance = new ZKLib(dev.ip_address, dev.port || 4370, 8000, 4000);
+                await zkInstance.createSocket();
+                const attendances = await zkInstance.getAttendances();
+                try { await zkInstance.disconnect(); } catch (e) {}
+
+                if (attendances && attendances.data && attendances.data.length > 0) {
+                    const todayLogs = attendances.data.filter(log => {
+                        if (!log.recordTime) return false;
+                        const logDateStr = new Date(log.recordTime).toLocaleDateString('en-CA', { timeZone: tz });
+                        return logDateStr === todayStr;
+                    });
+
+                    let count = 0;
+                    for (const log of todayLogs) {
+                        if (log.deviceUserId) {
+                            const historicalDateObj = new Date(log.recordTime);
+                            const result = await processScanCore(log.deviceUserId, historicalDateObj, io);
+                            if (result.success) count++;
+                        }
+                    }
+                    console.log(`[Tarik Data Otomatis] Mesin ${dev.name}: Berhasil menarik ${count} data absen.`);
+                }
+            } catch (err) {
+                console.log(`[Tarik Data Otomatis] Mesin ${dev.name} (${dev.ip_address}): ${err.message || 'Gagal terhubung'}`);
+                try { if (zkInstance) await zkInstance.disconnect(); } catch (e) {}
+            }
+        }
+    } catch (e) {
+        console.error("[Tarik Data Otomatis] Error:", e.message);
+    }
+};
+
+exports.performAutoSyncDevices = performAutoSyncDevices;
+
 exports.syncDeviceLogs = async (req, res) => {
     const { ip_address, port } = req.body;
     const { processScanCore } = require('./attendanceController');
@@ -78,7 +127,6 @@ exports.syncDeviceLogs = async (req, res) => {
         
         const todayLogs = attendances.data.filter(log => {
             if (!log.recordTime) return false;
-            // recordTime dari mesin biasanya berupa objek Date atau string
             const logDateStr = new Date(log.recordTime).toLocaleDateString('en-CA', { timeZone: tz });
             return logDateStr === todayStr;
         });
@@ -89,13 +137,10 @@ exports.syncDeviceLogs = async (req, res) => {
 
         let successCount = 0;
         
-        // Proses satu per satu menggunakan core logic
         for (const log of todayLogs) {
             if (log.deviceUserId) {
-                // Konversi recordTime ke Date object
                 const historicalDateObj = new Date(log.recordTime);
                 const result = await processScanCore(log.deviceUserId, historicalDateObj, req.app.get('io'));
-                // Jika sukses masuk ke database (entah MASUK atau PULANG)
                 if (result.success) {
                     successCount++;
                 }

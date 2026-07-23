@@ -8,7 +8,9 @@ exports.processScanCore = async (rfid_code, historicalDateObj, io) => {
     try {
         // A. PENCARIAN MEMBER
         const findMemberQuery = `
-            SELECT m.*, d.name as division_name 
+            SELECT m.*, d.name as division_name, 
+                   COALESCE(d.allow_pulang_awal, 1) as allow_pulang_awal,
+                   COALESCE(d.allow_lembur, 1) as allow_lembur 
             FROM members m 
             LEFT JOIN divisions d ON m.division_id = d.id
             WHERE m.rfid_code = $1 
@@ -63,7 +65,6 @@ exports.processScanCore = async (rfid_code, historicalDateObj, io) => {
                 const setHariIni = jadwal.find(j => j.day === todayName);
                 if (setHariIni) {
                     if (!setHariIni.active) isHoliday = true;
-                    // Hanya set limitIn/Out dari sini jika mode edukasi
                     if (appMode === 'edukasi') {
                         limitIn = setHariIni.in || limitIn;
                         limitOut = setHariIni.out || limitOut;
@@ -76,7 +77,6 @@ exports.processScanCore = async (rfid_code, historicalDateObj, io) => {
 
         if (appMode === 'korporat' && settingsMap['company_shifts']) {
             try {
-                // Logika Auto-Detect Shift untuk Karyawan
                 const shifts = JSON.parse(settingsMap['company_shifts'] || "[]");
                 if (shifts.length > 0) {
                     const [cHour, cMin] = currentTime.split(':').map(Number);
@@ -113,63 +113,98 @@ exports.processScanCore = async (rfid_code, historicalDateObj, io) => {
         
         const isOffDay = isHoliday || isNationalHoliday;
         
-        // Simpan nama shift jika dalam mode korporat dan shift terdeteksi
         let detectedShiftName = null;
-        if (appMode === 'korporat' && limitIn !== "07:00") { // Asumsi limitIn berubah = shift ditemukan
-             // Cari nama shift berdasarkan limitIn yang terdeteksi
+        if (appMode === 'korporat' && limitIn !== "07:00") {
              const shifts = JSON.parse(settingsMap['company_shifts'] || "[]");
              const foundShift = shifts.find(s => s.in === limitIn);
              if (foundShift) detectedShiftName = foundShift.name;
         }
 
+        // HITUNG TITIK TENGAH (MIDPOINT) JADWAL OPERASIONAL
+        const [inH, inM] = limitIn.split(':').map(Number);
+        const [outH, outM] = limitOut.split(':').map(Number);
+        const midMinutes = Math.floor(((inH * 60 + inM) + (outH * 60 + outM)) / 2);
+        const [currH, currM] = currentTime.split(':').map(Number);
+        const currentMinutes = currH * 60 + currM;
+        const isAfterMidpoint = currentMinutes >= midMinutes;
+
         // E. CEK RIWAYAT HARI INI
         const checkLog = await pool.query('SELECT * FROM attendance_logs WHERE member_id=$1 AND date_log=$2', [member.id, localDate]);
 
-        // === MASUK (CHECK IN) ===
+        // === SCAN PERTAMA HARI INI ===
         if (checkLog.rows.length === 0) {
-            let statusKehadiran = 'HADIR';
-            
-            if (isOffDay) {
-                // Jika hari libur (Minggu/Tanggal Merah), anggap LEMBUR
-                statusKehadiran = 'LEMBUR';
-            } else {
-                // Jika hari biasa, cek keterlambatan
-                statusKehadiran = (currentTime > limitIn) ? 'TERLAMBAT' : 'HADIR';
-            }
-            
-            // Perbaikan: Gunakan timestamp dari Node.js untuk konsistensi, bukan CURRENT_TIMESTAMP SQL
-            await pool.query(
-                'INSERT INTO attendance_logs (member_id, status, date_log, scan_time, shift_name) VALUES ($1, $2, $3, $4, $5)', 
-                [member.id, statusKehadiran, localDate, serverTimestamp, detectedShiftName]
-            );
+            const isPulangAwal = currentTime < limitOut;
 
-            const responsePayload = {
-                success: true, mode: 'MASUK',
-                nama: member.full_name, status: statusKehadiran,
-                waktu: currentTime, foto: member.photo,
-                info_id: member.identity_number, 
-                divisi: member.division_name
-            };
-            if (io) io.emit('new_scan', responsePayload);
-            return { success: true, data: responsePayload };
+            // Logika Cerdas: Jika scan pertama dilakukan SETELAH midpoint (waktu mendekati pulang) -> Diproses sebagai PULANG (Lupa Absen Masuk)
+            if (isAfterMidpoint) {
+                if (isPulangAwal && member.allow_pulang_awal === 0) {
+                    return { success: false, message: "Kelompok Anda tidak diizinkan Pulang Awal." };
+                }
+
+                await pool.query(
+                    'INSERT INTO attendance_logs (member_id, status, date_log, scan_time, scan_out, shift_name) VALUES ($1, $2, $3, NULL, $4, $5)', 
+                    [member.id, 'HADIR', localDate, currentTime, detectedShiftName]
+                );
+
+                const responsePayload = {
+                    success: true, mode: 'PULANG',
+                    nama: member.full_name, status: isPulangAwal ? 'PULANG AWAL' : 'PULANG',
+                    waktu: currentTime, foto: member.photo,
+                    info_id: member.identity_number, 
+                    divisi: member.division_name,
+                    isLupaMasuk: true
+                };
+                if (io) io.emit('new_scan', responsePayload);
+                return { success: true, data: responsePayload };
+            } 
+            
+            // Scan Pertama di Pagi Hari (CHECK IN)
+            else {
+                let statusKehadiran = 'HADIR';
+                if (isOffDay) {
+                    if (member.allow_lembur === 0) {
+                        return { success: false, message: "Absen lembur/libur tidak diizinkan untuk kelompok Anda." };
+                    }
+                    statusKehadiran = 'LEMBUR';
+                } else {
+                    const currentHHMM = currentTime.substring(0, 5);
+                    statusKehadiran = (currentHHMM > limitIn) ? 'TERLAMBAT' : 'HADIR';
+                }
+                
+                await pool.query(
+                    'INSERT INTO attendance_logs (member_id, status, date_log, scan_time, shift_name) VALUES ($1, $2, $3, $4, $5)', 
+                    [member.id, statusKehadiran, localDate, serverTimestamp, detectedShiftName]
+                );
+
+                const responsePayload = {
+                    success: true, mode: 'MASUK',
+                    nama: member.full_name, status: statusKehadiran,
+                    waktu: currentTime, foto: member.photo,
+                    info_id: member.identity_number, 
+                    divisi: member.division_name
+                };
+                if (io) io.emit('new_scan', responsePayload);
+                return { success: true, data: responsePayload };
+            }
         } 
         
-        // === PULANG (CHECK OUT) ===
+        // === SCAN KEDUA HARI INI (CHECK OUT) ===
         else {
             const log = checkLog.rows[0];
 
             if (log.scan_out) return { success: false, message: "Anda Sudah Absen Pulang" };
 
-            const lastScan = new Date(log.scan_time); 
-            const diffSeconds = (now - lastScan) / 1000; 
-            if (diffSeconds < 60) return { success: false, message: "Sistem mengunci absen beruntun. Tunggu 1 menit." };
+            if (log.scan_time) {
+                const lastScan = new Date(log.scan_time); 
+                const diffSeconds = (now - lastScan) / 1000; 
+                if (diffSeconds < 60) return { success: false, message: "Sistem mengunci absen beruntun. Tunggu 1 menit." };
+                if (diffSeconds < 3600) return { success: false, message: "Anda sudah melakukan absen masuk hari ini." };
+            }
 
-            // Batasi clock-out jika belum lewat 4 jam sejak masuk (Permasalahan 7)
-            if (diffSeconds < 4 * 3600) return { success: false, message: "Anda sudah melakukan absen masuk hari ini." };
-
-            // Mengizinkan pulang awal (tidak di-block lagi)
-            // Hanya memberikan pesan notifikasi "PULANG AWAL" jika pulang mendahului jadwal
             const isPulangAwal = currentTime < limitOut;
+            if (isPulangAwal && member.allow_pulang_awal === 0) {
+                return { success: false, message: "Kelompok Anda tidak diizinkan Pulang Awal." };
+            }
 
             await pool.query('UPDATE attendance_logs SET scan_out=$1 WHERE id=$2', [currentTime, log.id]);
 
@@ -192,8 +227,9 @@ exports.processScanCore = async (rfid_code, historicalDateObj, io) => {
 
 exports.scanRFID = async (req, res) => {
     const io = req.app.get('io');
-    // Jika lewat API manual scan, gunakan req.body.tanggal sebagai Date string jika ada
-    const historicalDateObj = req.body.tanggal ? new Date(req.body.tanggal) : null;
+    // Gunakan req.body.scan_time atau req.body.tanggal sebagai Date string jika ada
+    const timeParam = req.body.scan_time || req.body.tanggal;
+    const historicalDateObj = timeParam ? new Date(timeParam) : null;
     const result = await exports.processScanCore(req.body.rfid_code, historicalDateObj, io);
     if (result.success) {
         return res.json(result.data);
@@ -213,7 +249,12 @@ exports.getDailyAttendance = async (req, res) => {
                a.status, a.scan_time, a.scan_out 
         FROM members m 
         LEFT JOIN divisions d ON m.division_id = d.id
-        LEFT JOIN attendance_logs a ON m.id = a.member_id AND a.date_log = $1
+        LEFT JOIN (
+            SELECT member_id, status, scan_time, scan_out,
+                   ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY id DESC) as rn
+            FROM attendance_logs
+            WHERE date_log = $1
+        ) a ON m.id = a.member_id AND a.rn = 1
     `;
     const p = [tanggal];
     if (kelas) { 
@@ -247,24 +288,44 @@ exports.manualAttendance = async (req, res) => {
             return res.json({ success: true, message: "Absensi berhasil direset" });
         }
 
+        const { scan_time, clear_scan_time } = req.body;
+
         // Cek apakah sudah ada log hari ini
         const checkLog = await pool.query(
             'SELECT id FROM attendance_logs WHERE member_id = $1 AND date_log = $2',
             [student_id, tanggal]
         );
 
+        let finalScanTime = new Date().toISOString();
+        if (clear_scan_time) {
+            finalScanTime = null;
+        } else if (scan_time) {
+            finalScanTime = `${tanggal}T${scan_time}:00`;
+        }
+
         if (checkLog.rows.length > 0) {
             // Update
-            await pool.query(
-                'UPDATE attendance_logs SET status = $1 WHERE id = $2',
-                [status, checkLog.rows[0].id]
-            );
+            if (clear_scan_time) {
+                await pool.query(
+                    'UPDATE attendance_logs SET status = $1, scan_time = NULL WHERE id = $2',
+                    [status, checkLog.rows[0].id]
+                );
+            } else if (scan_time) {
+                await pool.query(
+                    'UPDATE attendance_logs SET status = $1, scan_time = $2 WHERE id = $3',
+                    [status, finalScanTime, checkLog.rows[0].id]
+                );
+            } else {
+                await pool.query(
+                    'UPDATE attendance_logs SET status = $1 WHERE id = $2',
+                    [status, checkLog.rows[0].id]
+                );
+            }
         } else {
             // Insert baru
-            const scanTime = new Date().toISOString();
             await pool.query(
                 'INSERT INTO attendance_logs (member_id, status, date_log, scan_time) VALUES ($1, $2, $3, $4)',
-                [student_id, status, tanggal, scanTime]
+                [student_id, status, tanggal, finalScanTime]
             );
         }
 
@@ -363,10 +424,36 @@ exports.getDashboardStats = async (req, res) => {
             terlambat,
             sakit_izin,
             alfa,
-            logs: logsRes.rows
+            recent_logs: logsRes.rows
         });
-    } catch (e) {
-        console.error("Dashboard Error:", e);
-        res.status(500).json({ message: "Gagal mengambil data dashboard" });
+    } catch (error) {
+        console.error("Error getDashboardStats:", error);
+        res.status(500).json({ message: "Gagal mengambil statistik dashboard" });
+    }
+};
+
+exports.getUnclosedNotifications = async (req, res) => {
+    try {
+        const tzRes = await pool.query("SELECT setting_value FROM app_settings WHERE setting_key = 'timezone'");
+        const tz = (tzRes.rows.length > 0 && tzRes.rows[0].setting_value) ? tzRes.rows[0].setting_value : 'Asia/Jakarta';
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+
+        // Cari log hari-hari lalu yang punya scan_time tapi scan_out kosong
+        const query = `
+            SELECT a.id, a.date_log, a.scan_time, m.full_name, m.identity_number, d.name as division_name
+            FROM attendance_logs a
+            JOIN members m ON a.member_id = m.id
+            LEFT JOIN divisions d ON m.division_id = d.id
+            WHERE a.date_log < $1
+              AND a.scan_time IS NOT NULL
+              AND a.scan_out IS NULL
+            ORDER BY a.date_log DESC, a.scan_time DESC
+            LIMIT 50
+        `;
+        const result = await pool.query(query, [today]);
+        res.json({ data: result.rows });
+    } catch (error) {
+        console.error("Error getUnclosedNotifications:", error);
+        res.status(500).json({ data: [] });
     }
 };

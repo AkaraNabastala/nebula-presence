@@ -142,16 +142,16 @@ const Devices = () => {
                         <h3 className="text-xl font-bold mb-6 text-slate-800">Tambah Mesin Absensi</h3>
                         <form onSubmit={handleAdd} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-1">Nama Mesin</label>
-                                <input required type="text" className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Pintu Utama" />
+                                <label htmlFor="device-name-input" className="block text-sm font-bold text-slate-700 mb-1">Nama Mesin</label>
+                                <input id="device-name-input" name="device_name" required type="text" className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Pintu Utama" />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-1">IP Address</label>
-                                <input required type="text" className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500" value={formData.ip_address} onChange={e => setFormData({...formData, ip_address: e.target.value})} placeholder="192.168.1.201" />
+                                <label htmlFor="device-ip-input" className="block text-sm font-bold text-slate-700 mb-1">IP Address</label>
+                                <input id="device-ip-input" name="device_ip" required type="text" className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500" value={formData.ip_address} onChange={e => setFormData({...formData, ip_address: e.target.value})} placeholder="192.168.1.201" />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-1">Port</label>
-                                <input required type="number" className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500" value={formData.port} onChange={e => setFormData({...formData, port: e.target.value})} />
+                                <label htmlFor="device-port-input" className="block text-sm font-bold text-slate-700 mb-1">Port</label>
+                                <input id="device-port-input" name="device_port" required type="number" className="w-full border-2 border-slate-200 rounded-xl p-3 outline-none focus:border-blue-500" value={formData.port} onChange={e => setFormData({...formData, port: e.target.value})} />
                             </div>
                             <div className="flex gap-4 pt-4">
                                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors">Batal</button>

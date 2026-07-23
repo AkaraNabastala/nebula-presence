@@ -18,7 +18,7 @@ const ManualAttendance = React.lazy(() => import('./pages/ManualAttendance'));
 const BackupPage = React.lazy(() => import('./pages/BackupPage'));
 const RestorePage = React.lazy(() => import('./pages/RestorePage'));
 const Laporan = React.lazy(() => import('./pages/Laporan'));
-const LaporanBulanan = React.lazy(() => import('./pages/ManualAttendance/LaporanBulanan'));
+const LaporanBulanan = React.lazy(() => import('./pages/Laporan/LaporanBulanan'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Database = React.lazy(() => import('./pages/Database'));
 const License = React.lazy(() => import('./pages/License')); 

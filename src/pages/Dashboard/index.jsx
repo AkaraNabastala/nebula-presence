@@ -85,14 +85,19 @@ const Dashboard = () => {
       const totalAlfaDisplay = alfa + belumAbsen;
 
       const logs = presentMembers
-        .filter(s => s.scan_time)
-        .sort((a, b) => new Date(b.scan_time) - new Date(a.scan_time))
+        .filter(s => s.scan_time || s.waktu || s.scan_out)
+        .sort((a, b) => {
+          const timeA = (a.scan_time || a.waktu || a.scan_out || '').toString().replace(' ', 'T');
+          const timeB = (b.scan_time || b.waktu || b.scan_out || '').toString().replace(' ', 'T');
+          return new Date(timeB) - new Date(timeA);
+        })
         .slice(0, 10)
         .map(log => {
           const m = membersArray.find(item => item.id === log.id);
           return {
             ...log,
-            foto: m ? (m.photo || m.foto) : log.foto
+            foto: m ? (m.photo || m.foto) : log.foto,
+            scan_time: log.scan_time || log.waktu || log.scan_out
           };
         });
 
@@ -103,13 +108,29 @@ const Dashboard = () => {
 
   // --- 4. FORMATTERS & HELPERS ---
   const formatTimeLog = (timeString) => {
-      if (!timeString) return '-';
+      if (!timeString || typeof timeString !== 'string') return '-';
+      const cleanStr = timeString.trim();
+
+      // Jika format jam murni HH:mm atau HH:mm:ss (contoh: "07:15" atau "07:15:00")
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(cleanStr)) {
+          return cleanStr.substring(0, 5);
+      }
+
+      // Normalisasi format "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
+      const normalizedStr = cleanStr.replace(' ', 'T');
+      const d = new Date(normalizedStr);
+
+      if (isNaN(d.getTime())) {
+          const match = cleanStr.match(/(\d{2}:\d{2})/);
+          return match ? match[1] : '-';
+      }
+
       try {
-        return new Date(timeString).toLocaleTimeString('id-ID', { 
-            timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', hour12: false 
-        }).replace('.', ':');
+          return d.toLocaleTimeString('id-ID', { 
+              timeZone: appConfig.timezone, hour: '2-digit', minute: '2-digit', hour12: false 
+          }).replace('.', ':');
       } catch {
-          return timeString.slice(0, 5);
+          return cleanStr.slice(0, 5) || '-';
       }
   };
 

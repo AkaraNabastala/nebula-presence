@@ -106,8 +106,10 @@ const Holidays = () => {
                         </h2>
                         
                         <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-400">Tanggal</label>
+                            <label htmlFor="holiday-date" className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-400">Tanggal</label>
                             <input 
+                                id="holiday-date"
+                                name="holiday_date"
                                 type="date" 
                                 required
                                 value={date}
@@ -117,8 +119,10 @@ const Holidays = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-400">Keterangan / Nama Libur</label>
+                            <label htmlFor="holiday-description" className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-400">Keterangan / Nama Libur</label>
                             <input 
+                                id="holiday-description"
+                                name="holiday_description"
                                 type="text" 
                                 required
                                 placeholder="Cth: Hari Raya Idul Fitri"

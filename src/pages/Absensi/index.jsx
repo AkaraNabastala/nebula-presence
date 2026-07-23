@@ -110,7 +110,7 @@ const Absensi = () => {
 
   // --- 4. ZKTECO REAL-TIME LISTENER (SOCKET.IO) ---
   useEffect(() => {
-    const SOCKET_URL = import.meta.env.VITE_API_URL || window.location.origin;
+    const SOCKET_URL = import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin;
     const socket = io(SOCKET_URL);
 
     const getNotificationDuration = () => {

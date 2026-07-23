@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, ClipboardList, Settings,
-  LogOut, Menu, X, ChevronDown,
+  LogOut, Menu, X, ChevronDown, Bell,
   Database, UploadCloud, Users, Building2,
   AlertTriangle, ShieldCheck, Sun, CloudSun, Sunrise, Moon
 } from 'lucide-react';
@@ -16,6 +16,8 @@ const MainLayout = () => {
   const [currentLogo, setCurrentLogo] = useState(logoNabastala);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const getInitialGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 11) return { text: 'Selamat Pagi', icon: Sunrise, color: 'text-amber-500' };
@@ -38,6 +40,43 @@ const MainLayout = () => {
 
   const [userData, setUserData] = useState(getSafeUser());
   const [labels, setLabels] = useState({ label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' });
+
+  const [clearedNotifIds, setClearedNotifIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('clearedNotifIds') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    setShowNotifDropdown(false);
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get('/attendance/unclosed-notifications');
+        const rawNotifs = res.data?.data || [];
+        const savedCleared = JSON.parse(localStorage.getItem('clearedNotifIds') || '[]');
+        const filtered = rawNotifs.filter(n => !savedCleared.includes(`${n.id}_${n.date_log}`));
+        setNotifications(filtered);
+      } catch (e) { }
+    };
+    fetchNotifications();
+  }, [location.pathname]);
+
+  const handleClearNotifItem = (itemKey) => {
+    const updatedCleared = [...clearedNotifIds, itemKey];
+    setClearedNotifIds(updatedCleared);
+    localStorage.setItem('clearedNotifIds', JSON.stringify(updatedCleared));
+    setNotifications(prev => prev.filter(n => `${n.id}_${n.date_log}` !== itemKey));
+  };
+
+  const handleClearAllNotifs = () => {
+    const currentKeys = notifications.map(n => `${n.id}_${n.date_log}`);
+    const updatedCleared = Array.from(new Set([...clearedNotifIds, ...currentKeys]));
+    setClearedNotifIds(updatedCleared);
+    localStorage.setItem('clearedNotifIds', JSON.stringify(updatedCleared));
+    setNotifications([]);
+  };
 
   // Handle Dark Mode Class
   useEffect(() => {
@@ -70,7 +109,7 @@ const MainLayout = () => {
 
   const userDisplay = {
     name: userData?.nama || userData?.nama_admin || 'Administrator',
-    role: 'Sistem Admin',
+    role: 'Pengelola Presence',
     photo: userData?.foto || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.nama || 'Admin')}&background=c7d2fe&color=3730a3&bold=true`
   };
 
@@ -167,8 +206,8 @@ const MainLayout = () => {
                   <Link
                     to={menu.path} onClick={() => setIsSidebarOpen(false)}
                     className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-[14.5px] ${isActive(menu.path)
-                        ? `${menu.activeBg} ${menu.activeText} dark:bg-slate-700/50 dark:text-slate-200`
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
+                      ? `${menu.activeBg} ${menu.activeText} dark:bg-slate-700/50 dark:text-slate-200`
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
                       }`}
                   >
                     <menu.icon size={22} className={menu.color} />
@@ -179,8 +218,8 @@ const MainLayout = () => {
                     <button
                       onClick={() => toggleMenu(menu.key)}
                       className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all duration-200 font-bold text-[14.5px] ${groupActive
-                          ? `${menu.activeBg} ${menu.activeText}`
-                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                        ? `${menu.activeBg} ${menu.activeText}`
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                         }`}
                     >
                       <div className="flex items-center gap-4">
@@ -196,8 +235,8 @@ const MainLayout = () => {
                           <Link
                             key={sub.name} to={sub.path} onClick={() => setIsSidebarOpen(false)}
                             className={`relative flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-[13.5px] font-semibold ${isActive(sub.path)
-                                ? `${menu.activeText} bg-white shadow-sm ring-1 ring-slate-100`
-                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                              ? `${menu.activeText} bg-white shadow-sm ring-1 ring-slate-100`
+                              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                               }`}
                           >
                             <div className={`w-2 h-2 rounded-full transition-all ${isActive(sub.path) ? `scale-110 ${menu.color.replace('text-', 'bg-')}` : 'bg-slate-200'}`}></div>
@@ -249,6 +288,19 @@ const MainLayout = () => {
           </div>
 
           <div className="flex items-center gap-4 bg-white pl-4 pr-1.5 py-1.5 rounded-full shadow-sm border border-slate-200/60 dark:bg-slate-800 dark:border-slate-700">
+            {/* NOTIFIKASI BELL INDIKASI BOLOS / LUPA ABSEN PULANG */}
+            <button
+              onClick={() => setShowNotifDropdown(true)}
+              className="p-2.5 rounded-full text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all relative active:scale-95"
+              title="Peringatan Absensi"
+            >
+              <Bell size={20} />
+              {notifications.length > 0 && (
+                <span className="absolute top-1 right-1 min-w-[18px] h-4 px-1 bg-rose-500 text-white text-[9.5px] font-black rounded-full flex items-center justify-center animate-pulse border-2 border-white dark:border-slate-800 shadow-sm">
+                  {notifications.length > 9 ? '9+' : notifications.length}
+                </span>
+              )}
+            </button>
 
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -275,6 +327,95 @@ const MainLayout = () => {
           </div>
         </div>
       </main>
+
+      {/* --- POP-UP NOTIFIKASI PAS DI BAWAH IKON NOTIFIKASI (TOP RIGHT) --- */}
+      {showNotifDropdown && (
+        <>
+          {/* BACKGROUND CLICK OUTSIDE TO CLOSE */}
+          <div
+            className="fixed inset-0 z-[9998] bg-transparent"
+            onClick={() => setShowNotifDropdown(false)}
+          />
+
+          {/* POP-UP BOX PAS DI BAWAH IKON NOTIFIKASI */}
+          <div className="fixed top-[80px] right-4 md:right-10 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 dark:border-slate-700/80 p-5 z-[9999] animate-in fade-in zoom-in-95 duration-200">
+            {/* HEADER POP-UP */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-700">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-500 rounded-xl shrink-0">
+                  <AlertTriangle size={18} />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-800 dark:text-white leading-tight">Peringatan Absensi</h4>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">Belum melakukan scan</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black px-2.5 py-1 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-full border border-rose-200/50 dark:border-rose-800 shrink-0">
+                  {notifications.length} Orang
+                </span>
+                {notifications.length > 0 && (
+                  <button
+                    onClick={handleClearAllNotifs}
+                    className="text-[10px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-2 py-1 rounded-lg transition-colors"
+                    title="Hapus Semua Notifikasi"
+                  >
+                    Clear Semua
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* LIST ITEM NOTIFIKASI */}
+            <div className="max-h-72 overflow-y-auto custom-scrollbar my-3 space-y-2 pr-1">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center">
+                  <ShieldCheck size={32} className="mx-auto text-emerald-400 opacity-60 mb-2" />
+                  <p className="text-xs text-slate-400 font-semibold">Tidak ada notifikasi aktif (Semua telah dibersihkan).</p>
+                </div>
+              ) : (
+                notifications.map((n) => {
+                  const itemKey = `${n.id}_${n.date_log}`;
+                  return (
+                    <div key={itemKey} className="p-3 bg-slate-50/80 dark:bg-slate-700/40 hover:bg-slate-100/80 dark:hover:bg-slate-700/70 transition-colors rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col gap-1 relative group">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate pr-6">{n.full_name}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/40 px-2 py-0.5 rounded-lg">{n.date_log}</span>
+                          <button
+                            onClick={() => handleClearNotifItem(itemKey)}
+                            className="text-slate-400 hover:text-rose-500 p-0.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/40 transition-colors"
+                            title="Hapus Notifikasi Ini"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        <span className="font-medium truncate max-w-[140px]">{n.division_name || 'Tanpa Kelompok'}</span>
+                        <span className="font-mono text-[11px]">
+                          Masuk: <b className="text-emerald-600 dark:text-emerald-400">{n.scan_time ? n.scan_time.substring(11, 16) : '-'}</b> | Pulang: <b className="text-rose-500">-</b>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* FOOTER */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-700 text-center">
+              <Link
+                to="/admin/reports"
+                onClick={() => setShowNotifDropdown(false)}
+                className="text-xs font-extrabold text-blue-600 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-1 transition-all hover:translate-x-1"
+              >
+                Lihat Laporan Kehadiran Lengkap →
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* --- MODAL LOGOUT --- */}
       {showLogoutModal && (

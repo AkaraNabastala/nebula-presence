@@ -12,7 +12,9 @@ const initSystem = async () => {
             // Tambahkan kolom role jika belum ada (untuk migrasi database yang sudah ada)
             try { await client.query(`ALTER TABLE admins ADD COLUMN role VARCHAR(20) DEFAULT 'SuperAdmin';`); } catch (e) {}
             await client.query(`CREATE TABLE IF NOT EXISTS app_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value TEXT);`);
-            await client.query(`CREATE TABLE IF NOT EXISTS divisions (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, supervisor_name VARCHAR(100));`);
+            await client.query(`CREATE TABLE IF NOT EXISTS divisions (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, supervisor_name VARCHAR(100), allow_pulang_awal INTEGER DEFAULT 1, allow_lembur INTEGER DEFAULT 1);`);
+            try { await client.query(`ALTER TABLE divisions ADD COLUMN allow_pulang_awal INTEGER DEFAULT 1;`); } catch (e) {}
+            try { await client.query(`ALTER TABLE divisions ADD COLUMN allow_lembur INTEGER DEFAULT 1;`); } catch (e) {}
             await client.query(`CREATE TABLE IF NOT EXISTS members (id SERIAL PRIMARY KEY, identity_number VARCHAR(50) UNIQUE, full_name VARCHAR(100) NOT NULL, role VARCHAR(50) DEFAULT 'member', division_id INTEGER REFERENCES divisions(id) ON DELETE SET NULL, rfid_code VARCHAR(50), photo TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
             // Tambahkan kolom identity_reference jika belum ada
             try { await client.query(`ALTER TABLE members ADD COLUMN identity_reference VARCHAR(50);`); } catch (e) {}

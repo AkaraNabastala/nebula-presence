@@ -245,11 +245,13 @@ exports.getAllDivisions = async (req, res) => {
         const s = {}; settings.rows.forEach(x => s[x.setting_key] = x.setting_value);
         const labels = getDynamicLabels(s);
 
-        // PERBAIKAN: Menambahkan ALIAS nama_kelas, wali_kelas, jumlah_siswa
+        // PERBAIKAN: Menambahkan ALIAS nama_kelas, wali_kelas, jumlah_siswa, allow_pulang_awal, allow_lembur
         const q = `
             SELECT d.id, 
                    d.name, d.name AS nama_kelas, 
                    d.supervisor_name AS manager_name, d.supervisor_name AS wali_kelas, 
+                   COALESCE(d.allow_pulang_awal, 1) AS allow_pulang_awal,
+                   COALESCE(d.allow_lembur, 1) AS allow_lembur,
                    CAST((SELECT COUNT(*) FROM members m WHERE m.division_id = d.id) AS INTEGER) as total_members,
                    CAST((SELECT COUNT(*) FROM members m WHERE m.division_id = d.id) AS INTEGER) as jumlah_siswa
             FROM divisions d 
@@ -267,7 +269,9 @@ exports.createDivision = async (req, res) => {
     try { 
         const name = req.body.name || req.body.nama_kelas;
         const manager = req.body.manager_name || req.body.wali_kelas;
-        await pool.query('INSERT INTO divisions (name, supervisor_name) VALUES ($1, $2)', [name, manager]); 
+        const allow_pulang_awal = req.body.allow_pulang_awal !== undefined ? (req.body.allow_pulang_awal ? 1 : 0) : 1;
+        const allow_lembur = req.body.allow_lembur !== undefined ? (req.body.allow_lembur ? 1 : 0) : 1;
+        await pool.query('INSERT INTO divisions (name, supervisor_name, allow_pulang_awal, allow_lembur) VALUES ($1, $2, $3, $4)', [name, manager, allow_pulang_awal, allow_lembur]); 
         res.json({ success: true }); 
     } catch (e) { 
         if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {
@@ -281,7 +285,9 @@ exports.updateDivision = async (req, res) => {
     try { 
         const name = req.body.name || req.body.nama_kelas;
         const manager = req.body.manager_name || req.body.wali_kelas;
-        await pool.query('UPDATE divisions SET name=$1, supervisor_name=$2 WHERE id=$3', [name, manager, req.params.id]); 
+        const allow_pulang_awal = req.body.allow_pulang_awal !== undefined ? (req.body.allow_pulang_awal ? 1 : 0) : 1;
+        const allow_lembur = req.body.allow_lembur !== undefined ? (req.body.allow_lembur ? 1 : 0) : 1;
+        await pool.query('UPDATE divisions SET name=$1, supervisor_name=$2, allow_pulang_awal=$3, allow_lembur=$4 WHERE id=$5', [name, manager, allow_pulang_awal, allow_lembur, req.params.id]); 
         res.json({ success: true }); 
     } catch (e) { 
         if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {

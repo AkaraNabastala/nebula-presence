@@ -242,13 +242,13 @@ const Students = () => {
     const renderClassInput = () => {
         if (isManualClass) return (
             <div className="flex gap-2">
-                <input name="kelas" value={formData.kelas} onChange={(e) => setFormData({ ...formData, kelas: e.target.value })} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-600 text-sm font-semibold dark:text-white" placeholder={`Nama ${appConfig.labels?.label_kelompok || 'Kelompok'} Baru...`} required />
+                <input id="student-kelas-manual" name="kelas" value={formData.kelas} onChange={(e) => setFormData({ ...formData, kelas: e.target.value })} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-600 text-sm font-semibold dark:text-white" placeholder={`Nama ${appConfig.labels?.label_kelompok || 'Kelompok'} Baru...`} required />
                 <button type="button" onClick={() => { setIsManualClass(false); setFormData({ ...formData, kelas: '' }); }} className="px-4 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition"><RotateCcw size={18} /></button>
             </div>
         );
         return (
             <div className="relative">
-                <select name="kelas" value={formData.kelas} onChange={(e) => { if (e.target.value === 'NEW') { setIsManualClass(true); setFormData({ ...formData, kelas: '' }); } else { setFormData({ ...formData, kelas: e.target.value }); } }} className={`w-full border-2 border-slate-200 dark:border-slate-700 p-3 pr-10 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer text-sm font-semibold ${!formData.kelas ? 'text-slate-400 bg-slate-50 dark:bg-slate-700' : 'text-slate-800 dark:text-white bg-white dark:bg-slate-600'}`} required>
+                <select id="student-kelas-select" name="kelas" value={formData.kelas} onChange={(e) => { if (e.target.value === 'NEW') { setIsManualClass(true); setFormData({ ...formData, kelas: '' }); } else { setFormData({ ...formData, kelas: e.target.value }); } }} className={`w-full border-2 border-slate-200 dark:border-slate-700 p-3 pr-10 rounded-xl outline-none focus:border-indigo-500 transition-all appearance-none cursor-pointer text-sm font-semibold ${!formData.kelas ? 'text-slate-400 bg-slate-50 dark:bg-slate-700' : 'text-slate-800 dark:text-white bg-white dark:bg-slate-600'}`} required>
                     <option value="" disabled>-- Pilih {appConfig.labels?.label_kelompok || 'Kelompok'} --</option>
                     {classesOption.map(c => (<option key={c.id} value={c.nama_kelas} className="text-slate-800">{c.nama_kelas}</option>))}
                     <option value="NEW" className="font-bold text-indigo-600 bg-indigo-50">+ Tambah Baru...</option>
@@ -314,11 +314,11 @@ const Students = () => {
             <div className="bg-white dark:bg-slate-800 p-2.5 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row gap-2.5">
                 <div className="relative flex-1 group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
-                    <input type="text" placeholder="Cari Nama atau ID Pengguna..." className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-700/50 border border-transparent rounded-[1rem] outline-none focus:border-indigo-200 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-700 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400" onChange={e => setSearchTerm(e.target.value)} value={searchTerm} />
+                    <input id="students-search-input" name="students_search" aria-label="Cari Nama atau ID Pengguna" type="text" placeholder="Cari Nama atau ID Pengguna..." className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-700/50 border border-transparent rounded-[1rem] outline-none focus:border-indigo-200 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-700 focus:ring-4 focus:ring-indigo-500/5 transition-all text-sm font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400" onChange={e => setSearchTerm(e.target.value)} value={searchTerm} />
                 </div>
                 <div className="relative sm:w-72">
                     <FolderArchive className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-                    <select className="w-full pl-12 pr-10 py-3.5 bg-slate-50 dark:bg-slate-700/50 border border-transparent rounded-[1rem] outline-none focus:border-indigo-200 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-700 focus:ring-4 focus:ring-indigo-500/5 cursor-pointer transition-all text-sm font-bold text-slate-700 dark:text-slate-200 appearance-none" value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)}>
+                    <select id="students-class-select" name="students_class_filter" aria-label="Pilih Kelompok" className="w-full pl-12 pr-10 py-3.5 bg-slate-50 dark:bg-slate-700/50 border border-transparent rounded-[1rem] outline-none focus:border-indigo-200 dark:focus:border-indigo-500/50 focus:bg-white dark:focus:bg-slate-700 focus:ring-4 focus:ring-indigo-500/5 cursor-pointer transition-all text-sm font-bold text-slate-700 dark:text-slate-200 appearance-none" value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)}>
                         <option value="">Semua {appConfig.labels?.label_kelompok || 'Kelompok'}</option>
                         {classesOption.map(c => (<option key={c.id} value={c.nama_kelas} className="dark:bg-slate-800 dark:text-slate-200">{c.nama_kelas}</option>))}
                     </select>
@@ -425,7 +425,7 @@ const Students = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 {/* Kolom Kiri: Foto */}
                                 <div className="md:col-span-1 flex flex-col gap-3">
-                                    <label className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">Foto Profil (Opsional)</label>
+                                    <label htmlFor="student-photo-input" className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">Foto Profil (Opsional)</label>
                                     <div className="relative aspect-[3/4] w-full max-w-[180px] mx-auto rounded-[1.5rem] bg-white dark:bg-slate-700 border-2 border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center overflow-hidden hover:bg-indigo-50 dark:hover:bg-slate-600 transition-all cursor-pointer group shadow-sm">
                                         {formData.foto ? (
                                             <div className="relative w-full h-full">
@@ -440,7 +440,7 @@ const Students = () => {
                                                 <span className="text-xs font-bold">Upload Foto</span>
                                             </div>
                                         )}
-                                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
+                                        <input id="student-photo-input" name="student_photo" type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
                                     </div>
                                 </div>
 
@@ -448,33 +448,33 @@ const Students = () => {
                                 <div className="md:col-span-2 space-y-5">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         <div>
-                                            <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">ID Pengguna <span className="text-rose-500">*</span></label>
-                                            <input name="nipd" value={formData.nipd} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" required placeholder="Contoh: 2024001" />
+                                            <label htmlFor="student-nipd" className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">ID Pengguna <span className="text-rose-500">*</span></label>
+                                            <input id="student-nipd" name="nipd" value={formData.nipd} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" required placeholder="Contoh: 2024001" />
                                         </div>
                                         <div>
-                                            <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">ID Referensi</label>
-                                            <input name="nisn" value={formData.nisn} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" placeholder="Opsional" />
+                                            <label htmlFor="student-nisn" className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">ID Referensi</label>
+                                            <input id="student-nisn" name="nisn" value={formData.nisn} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" placeholder="Opsional" />
                                         </div>
                                     </div>
 
                                     <div>
-                                        <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Nama Lengkap <span className="text-rose-500">*</span></label>
-                                        <input name="nama_lengkap" value={formData.nama_lengkap} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" required placeholder="Nama lengkap pengguna..." />
+                                        <label htmlFor="student-nama-lengkap" className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Nama Lengkap <span className="text-rose-500">*</span></label>
+                                        <input id="student-nama-lengkap" name="nama_lengkap" value={formData.nama_lengkap} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" required placeholder="Nama lengkap pengguna..." />
                                     </div>
 
                                     <div>
-                                        <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">{appConfig.labels?.label_kelompok || 'Kelompok'} <span className="text-rose-500">*</span></label>
+                                        <label htmlFor="student-kelas-select" className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">{appConfig.labels?.label_kelompok || 'Kelompok'} <span className="text-rose-500">*</span></label>
                                         {renderClassInput()}
                                     </div>
 
                                     {appConfig.metode_absensi !== 'MANUAL' && (
                                         <div>
-                                            <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest flex items-center gap-1.5">
+                                            <label htmlFor="student-kode-rfid" className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest flex items-center gap-1.5">
                                                 {appConfig.metode_absensi === 'FINGERPRINT' ? <Fingerprint size={14} /> : <ScanLine size={14} />}
                                                 {appConfig.metode_absensi === 'FINGERPRINT' ? "ID Mesin Fingerprint" : "UID Kartu / Barcode"}
                                             </label>
                                             <div className="flex gap-2">
-                                                <input name="kode_rfid" value={formData.kode_rfid} onChange={handleInputChange} className="w-full border-2 border-indigo-100 dark:border-indigo-500/30 p-3 rounded-xl font-mono bg-indigo-50/30 dark:bg-indigo-900/20 outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all" placeholder="Scan kartu atau ketik ID..." autoFocus={!isEditMode} />
+                                                <input id="student-kode-rfid" name="kode_rfid" value={formData.kode_rfid} onChange={handleInputChange} className="w-full border-2 border-indigo-100 dark:border-indigo-500/30 p-3 rounded-xl font-mono bg-indigo-50/30 dark:bg-indigo-900/20 outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all" placeholder="Scan kartu atau ketik ID..." autoFocus={!isEditMode} />
                                                 <button type="button" onClick={handleGenerateID} className="px-4 bg-slate-100 rounded-xl border border-slate-200 hover:bg-slate-200 transition-colors text-slate-600 font-bold" title="Buat Kode Acak"><RotateCcw size={20} /></button>
                                             </div>
                                         </div>

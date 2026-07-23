@@ -36,7 +36,9 @@ const FRONTEND_BUILD_PATH = path.join(process.cwd(), 'dist');
 // --- 2. MIDDLEWARE KEAMANAN & OPTIMASI ---
 app.use(helmet({ 
     contentSecurityPolicy: false, 
-    crossOriginEmbedderPolicy: false 
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false, // Nonaktifkan isolasi opener agar socket lancar di IP LAN
+    crossOriginResourcePolicy: false // Nonaktifkan isolasi resource
 }));
 app.use(compression()); 
 app.use(cookieParser()); // <-- TAMBAHAN 2: Gunakan Cookie Parser untuk baca token
@@ -110,16 +112,17 @@ const startZKTecoRealtime = async (io) => {
         const devices = await pool.query("SELECT * FROM devices WHERE status != 'disabled'");
         for (let dev of devices.rows) {
             const connectAndListen = async () => {
-                const zkInstance = new ZKLib(dev.ip_address, dev.port, 5200, 5000);
+                let zkInstance = null;
                 try {
+                    zkInstance = new ZKLib(dev.ip_address, dev.port || 4370, 5200, 5000);
                     await zkInstance.createSocket();
-                    console.log(`[Mesin Kehadiran] Siaga Real-Time di mesin: ${dev.name} (${dev.ip_address})`);
+                    console.log(`[Mesin Kehadiran] Siaga Real-Time di mesin: ${dev.name} (${dev.ip_address}:${dev.port || 4370})`);
                     
-                    zkInstance.getRealTimeLogs(async (log) => {
-                        // log.userId adalah ID Karyawan/Siswa (identity_number) dari mesin ZKTeco
-                        if (log && log.userId) {
-                            console.log(`[Mesin Kehadiran] Sidik jari terdeteksi: UID ${log.userId}`);
-                            const res = await processScanCore(log.userId, null, io);
+                    await zkInstance.getRealTimeLogs(async (log) => {
+                        if (log && (log.userId || log.deviceUserId)) {
+                            const uid = log.userId || log.deviceUserId;
+                            console.log(`[Mesin Kehadiran] Sidik jari terdeteksi: UID ${uid}`);
+                            const res = await processScanCore(uid, null, io);
                             if (!res.success) {
                                 console.log(`[Mesin Kehadiran] Gagal diproses: ${res.message}`);
                                 if (io) io.emit('scan_error', { message: res.message });
@@ -127,8 +130,9 @@ const startZKTecoRealtime = async (io) => {
                         }
                     });
                 } catch (err) {
-                    console.log(`[Mesin Kehadiran] Gagal/Terputus dari ${dev.name}, mencoba lagi dalam 10 detik...`);
-                    setTimeout(connectAndListen, 10000);
+                    console.log(`[Mesin Kehadiran] Gagal/Terputus dari ${dev.name} (${err.message || err}), mencoba lagi dalam 15 detik...`);
+                    try { if (zkInstance) await zkInstance.disconnect(); } catch (e) {}
+                    setTimeout(connectAndListen, 15000);
                 }
             };
             connectAndListen();
@@ -157,8 +161,12 @@ const startServer = async () => {
         const io = new Server(server, { cors: corsOptions });
         app.set('io', io); // Simpan io di express instance agar bisa diakses di controller
 
-        // START ZKTECO REAL-TIME
+        // START ZKTECO REAL-TIME & AUTO-SYNC DATA MESIN SAAT SERVER MENYALA
         startZKTecoRealtime(io);
+        const { performAutoSyncDevices } = require('./controllers/deviceController');
+        setTimeout(() => {
+            performAutoSyncDevices(io);
+        }, 3000);
 
         io.on('connection', (socket) => {
             console.log(`📡 Socket terhubung: ${socket.id}`);

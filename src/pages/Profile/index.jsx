@@ -168,8 +168,9 @@ const Profile = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Nama Lengkap</label>
+                                <label htmlFor="profile-nama" className="text-xs font-bold text-slate-700 mb-1.5 block">Nama Lengkap</label>
                                 <input 
+                                    id="profile-nama"
                                     name="nama" 
                                     value={formData.nama} 
                                     onChange={handleChange} 
@@ -179,9 +180,11 @@ const Profile = () => {
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Username Login</label>
+                                <label htmlFor="profile-username" className="text-xs font-bold text-slate-700 mb-1.5 block">Username Login</label>
                                 <input 
+                                    id="profile-username"
                                     name="username" 
+                                    autoComplete="username"
                                     value={formData.username} 
                                     onChange={handleChange} 
                                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm font-medium text-slate-800" 
@@ -206,10 +209,12 @@ const Profile = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Password Baru</label>
+                                <label htmlFor="profile-password" className="text-xs font-bold text-slate-700 mb-1.5 block">Password Baru</label>
                                 <input 
+                                    id="profile-password"
                                     type="password" 
                                     name="password" 
+                                    autoComplete="new-password"
                                     value={formData.password} 
                                     onChange={handleChange} 
                                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all text-sm font-medium text-slate-800" 
@@ -217,10 +222,12 @@ const Profile = () => {
                                 />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-700 mb-1.5 block">Konfirmasi Password</label>
+                                <label htmlFor="profile-confirm-password" className="text-xs font-bold text-slate-700 mb-1.5 block">Konfirmasi Password</label>
                                 <input 
+                                    id="profile-confirm-password"
                                     type="password" 
                                     name="confirmPassword" 
+                                    autoComplete="new-password"
                                     value={formData.confirmPassword} 
                                     onChange={handleChange} 
                                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all text-sm font-medium text-slate-800" 

@@ -220,14 +220,19 @@ const Classes = () => {
   // --- HANDLERS (CRUD) ---
   const handleOpenAdd = () => {
     setIsEditMode(false);
-    setFormData({ nama_kelas: '', wali_kelas: '' });
+    setFormData({ nama_kelas: '', wali_kelas: '', allow_pulang_awal: true, allow_lembur: appConfig.app_mode === 'korporat' });
     setShowFormModal(true);
   };
 
   const handleOpenEdit = (div) => {
     setIsEditMode(true);
     setEditId(div.id);
-    setFormData({ nama_kelas: div.nama_kelas, wali_kelas: div.wali_kelas || '' });
+    setFormData({ 
+      nama_kelas: div.nama_kelas, 
+      wali_kelas: div.wali_kelas || '', 
+      allow_pulang_awal: div.allow_pulang_awal !== 0,
+      allow_lembur: div.allow_lembur !== 0
+    });
     setShowFormModal(true);
   };
 
@@ -406,7 +411,7 @@ const Classes = () => {
               )}
               <div className="relative flex-1 md:w-64 group">
                 <Search className="absolute left-3 top-3 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                <input type="text" placeholder={`Cari ${appConfig.labels?.label_kelompok || 'Kelompok'}...`} className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 text-sm transition-all text-slate-700 dark:text-slate-200" onChange={(e) => setSearchTerm(e.target.value)} />
+                <input id="classes-search-input" name="classes_search" aria-label="Cari Kelompok" type="text" placeholder={`Cari ${appConfig.labels?.label_kelompok || 'Kelompok'}...`} className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 text-sm transition-all text-slate-700 dark:text-slate-200" onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
               <button onClick={handleOpenAdd} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 text-sm font-bold active:scale-95">
                 <Plus size={18} /> <span>Tambah</span>
@@ -593,12 +598,41 @@ const Classes = () => {
             </div>
             <form onSubmit={handleSubmitDivision} className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama {appConfig.labels?.label_kelompok || 'Kelompok'}</label>
-                <input className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder="Contoh: Staff IT / Finance" value={formData.nama_kelas} onChange={e => setFormData({ ...formData, nama_kelas: e.target.value })} required />
+                <label htmlFor="modal-nama-kelas" className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama {appConfig.labels?.label_kelompok || 'Kelompok'}</label>
+                <input id="modal-nama-kelas" name="nama_kelas" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder="Contoh: Staff IT / Finance" value={formData.nama_kelas} onChange={e => setFormData({ ...formData, nama_kelas: e.target.value })} required />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Penanggung Jawab</label>
-                <input className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder="Nama..." value={formData.wali_kelas} onChange={e => setFormData({ ...formData, wali_kelas: e.target.value })} />
+                <label htmlFor="modal-wali-kelas" className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Penanggung Jawab</label>
+                <input id="modal-wali-kelas" name="wali_kelas" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder="Nama..." value={formData.wali_kelas} onChange={e => setFormData({ ...formData, wali_kelas: e.target.value })} />
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div>
+                  <label htmlFor="modal-allow-pulang-awal" className="text-xs font-bold text-slate-700 dark:text-slate-200 block cursor-pointer">Izinkan Pulang Awal</label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Anggota kelompok ini boleh absen pulang sebelum jam kerja/sekolah berakhir</p>
+                </div>
+                <input 
+                  id="modal-allow-pulang-awal"
+                  name="allow_pulang_awal"
+                  type="checkbox" 
+                  className="w-5 h-5 accent-blue-600 rounded cursor-pointer" 
+                  checked={!!formData.allow_pulang_awal} 
+                  onChange={e => setFormData({ ...formData, allow_pulang_awal: e.target.checked })} 
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                <div>
+                  <label htmlFor="modal-allow-lembur" className="text-xs font-bold text-slate-700 dark:text-slate-200 block cursor-pointer">Izinkan Lembur / Absen Libur</label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Anggota kelompok ini boleh absen pada hari Minggu atau Tanggal Merah</p>
+                </div>
+                <input 
+                  id="modal-allow-lembur"
+                  name="allow_lembur"
+                  type="checkbox" 
+                  className="w-5 h-5 accent-blue-600 rounded cursor-pointer" 
+                  checked={!!formData.allow_lembur} 
+                  onChange={e => setFormData({ ...formData, allow_lembur: e.target.checked })} 
+                />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowFormModal(false)} className="flex-1 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-slate-600 transition text-sm">Batal</button>

@@ -174,7 +174,7 @@ const RestorePage = () => {
 
                     {/* DROPZONE */}
                     <div className="relative mb-8">
-                        <input type="file" accept=".sql,.sqlite" onChange={handleFileChange} disabled={loading} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
+                        <input id="restore-page-file-input" name="restore_page_file" type="file" accept=".sql,.sqlite" onChange={handleFileChange} disabled={loading} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
                         <div className={`border-2 border-dashed rounded-[2rem] py-12 flex flex-col items-center justify-center transition-all duration-500 ${
                             file ? 'border-emerald-400 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50 group-hover:border-amber-400 group-hover:bg-amber-50/30'
                         }`}>

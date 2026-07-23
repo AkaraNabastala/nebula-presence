@@ -177,7 +177,10 @@ const Login = () => {
               <div className="relative group">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-blue-400 transition-colors" size={18} />
                 <input 
+                  id="login-username"
+                  name="username"
                   type="text" 
+                  autoComplete="username"
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-11 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all text-sm"
                   placeholder="Username"
                   value={username}
@@ -191,8 +194,10 @@ const Login = () => {
               <div className="relative group">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-blue-400 transition-colors" size={18} />
                 <input 
-                  // Logic Toggle Password
+                  id="login-password"
+                  name="password"
                   type={showPassword ? "text" : "password"} 
+                  autoComplete="current-password"
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-11 pr-12 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all text-sm"
                   placeholder="Password"
                   value={password}

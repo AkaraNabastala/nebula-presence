@@ -42,6 +42,7 @@ router.get('/dashboard', (req, res) => attendanceController.getDashboardStats(re
 router.get('/attendance/report', (req, res) => attendanceController.getReport(req, res));
 router.get('/attendance/daily', (req, res) => attendanceController.getDailyAttendance(req, res));
 router.post('/attendance/manual', (req, res) => attendanceController.manualAttendance(req, res));
+router.get('/attendance/unclosed-notifications', (req, res) => attendanceController.getUnclosedNotifications(req, res));
 
 // MASTER DATA MEMBERS
 router.get('/members', (req, res) => masterController.getAllMembers(req, res));

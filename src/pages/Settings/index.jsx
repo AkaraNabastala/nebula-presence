@@ -216,21 +216,22 @@ const Settings = () => {
                 </h3>
                 <div className="space-y-5">
                     <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Nama Instansi / Perusahaan</label>
-                        <input name="nama_instansi" value={config.nama_instansi} readOnly disabled className="w-full border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 p-3 rounded-xl outline-none font-bold cursor-not-allowed opacity-80" title="Diatur oleh lisensi"/>
+                        <label htmlFor="settings-nama-instansi" className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Nama Instansi / Perusahaan</label>
+                        <input id="settings-nama-instansi" name="nama_instansi" value={config.nama_instansi} readOnly disabled className="w-full border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 text-gray-500 dark:text-slate-400 p-3 rounded-xl outline-none font-bold cursor-not-allowed opacity-80" title="Diatur oleh lisensi"/>
                         <p className="text-[10px] text-red-500 mt-1.5 font-medium">*Nama ini terikat pada lisensi dan tidak dapat diubah (Anti-Resale).</p>
                     </div>
                     
                     <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Alamat Lengkap</label>
-                        <textarea name="alamat_instansi" value={config.alamat_instansi} onChange={handleConfigChange} rows="3" className="w-full border border-gray-200 dark:border-slate-600 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" placeholder="Jl. Sudirman No. 1..."/>
+                        <label htmlFor="settings-alamat-instansi" className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Alamat Lengkap</label>
+                        <textarea id="settings-alamat-instansi" name="alamat_instansi" value={config.alamat_instansi} onChange={handleConfigChange} rows="3" className="w-full border border-gray-200 dark:border-slate-600 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" placeholder="Jl. Sudirman No. 1..."/>
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Zona Waktu (Timezone)</label>
+                        <label htmlFor="settings-timezone" className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Zona Waktu (Timezone)</label>
                         <div className="relative">
                             <MapPin className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
                             <select 
+                                id="settings-timezone"
                                 name="timezone" 
                                 value={config.timezone || 'Asia/Jakarta'} 
                                 onChange={handleConfigChange} 
