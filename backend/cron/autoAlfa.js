@@ -29,8 +29,8 @@ const runAutoAlfaForDate = async (targetDateStr, tz = 'Asia/Jakarta') => {
                 console.warn("Gagal membaca setting jadwal operasional cron:", e);
             }
         } else {
-            if (dayOfWeek === 0) {
-                console.log(`Tanggal ${targetDateStr} adalah hari Minggu. Tidak ada proses ALFA.`);
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                console.log(`Tanggal ${targetDateStr} adalah hari akhir pekan (Sabtu/Minggu). Tidak ada proses ALFA.`);
                 return 0;
             }
         }

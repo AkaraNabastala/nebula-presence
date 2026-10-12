@@ -6,11 +6,14 @@ import {
   MapPin, Fingerprint, Keyboard, X,
   Clock, Calendar as CalendarIcon,
   ScanLine, QrCode, UserCircle,
-  AlertTriangle, CheckCircle, Info
+  AlertTriangle, CheckCircle, Info,
+  Camera
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-// Aset Default
+// Scanner & Aset
+import CameraQrScanner from '../../components/CameraQrScanner';
+import CameraFaceScanner from '../../components/CameraFaceScanner';
 import logoDefault from '../../assets/logo-nabastala.png';
 import bgDefault from '../../assets/gedung.jpg';
 
@@ -43,6 +46,24 @@ const Absensi = () => {
     jam_pulang: '16:00'
   });
 
+  const [membersList, setMembersList] = useState([]);
+
+  // Ambil data anggota berwajah saat mode WAJAH aktif
+  useEffect(() => {
+    if (appConfig.metode_absensi === 'WAJAH') {
+      api.get('/members/faces').then(res => {
+        const list = res.data?.data || res.data || [];
+        console.log("Loaded face members count:", list.length);
+        setMembersList(list);
+      }).catch(() => {
+        // Fallback
+        api.get('/members').then(res => {
+          setMembersList(res.data?.data || res.data || []);
+        }).catch(err => console.error("Gagal load data wajah:", err));
+      });
+    }
+  }, [appConfig.metode_absensi]);
+
   // --- 1. LOAD CONFIG & JADWAL DINAMIS ---
   useEffect(() => {
     const fetchConfig = async () => {
@@ -72,7 +93,7 @@ const Absensi = () => {
                 fallbackName = licRes.data.owner;
               }
             } catch {
-                // ignore
+              // ignore
             }
           }
 
@@ -114,88 +135,94 @@ const Absensi = () => {
     const socket = io(SOCKET_URL);
 
     const getNotificationDuration = () => {
-        try {
-            const localTimeStr = new Date().toLocaleTimeString('en-GB', {
-                timeZone: appConfig.timezone || 'Asia/Jakarta', hour12: false
-            });
-            const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
-            
-            const [masukHour, masukMinute] = (appConfig.jam_masuk || '07:00').split(':').map(Number);
-            const [pulangHour, pulangMinute] = (appConfig.jam_pulang || '16:00').split(':').map(Number);
+      try {
+        const localTimeStr = new Date().toLocaleTimeString('en-GB', {
+          timeZone: appConfig.timezone || 'Asia/Jakarta', hour12: false
+        });
+        const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
 
-            const currentMinutes = currentHour * 60 + currentMinute;
-            const masukMinutes = masukHour * 60 + masukMinute;
-            const pulangMinutes = pulangHour * 60 + pulangMinute;
+        const [masukHour, masukMinute] = (appConfig.jam_masuk || '07:00').split(':').map(Number);
+        const [pulangHour, pulangMinute] = (appConfig.jam_pulang || '16:00').split(':').map(Number);
 
-            // Jam sibuk masuk: 1 jam sebelum sampai 1 jam sesudah jam masuk
-            const isJamMasukSibuk = currentMinutes >= (masukMinutes - 60) && currentMinutes <= (masukMinutes + 60);
-            
-            // Jam sibuk pulang: 1 jam sebelum sampai 1 jam sesudah jam pulang
-            const isJamPulangSibuk = currentMinutes >= (pulangMinutes - 60) && currentMinutes <= (pulangMinutes + 60);
+        const currentMinutes = currentHour * 60 + currentMinute;
+        const masukMinutes = masukHour * 60 + masukMinute;
+        const pulangMinutes = pulangHour * 60 + pulangMinute;
 
-            if (isJamMasukSibuk || isJamPulangSibuk) {
-                return 1000; // 1 detik jika jam sibuk (Permasalahan 8)
-            }
-        } catch (e) {
-            console.warn("Gagal menghitung jam sibuk:", e);
+        const isJamMasukSibuk = currentMinutes >= (masukMinutes - 60) && currentMinutes <= (masukMinutes + 60);
+        const isJamPulangSibuk = currentMinutes >= (pulangMinutes - 60) && currentMinutes <= (pulangMinutes + 60);
+
+        if (isJamMasukSibuk || isJamPulangSibuk) {
+          return 1000;
         }
-        return 3000; // 3 detik normal
+      } catch (e) {
+        console.warn("Gagal menghitung jam sibuk:", e);
+      }
+      return 3000;
     };
 
     const processQueue = () => {
-        if (processingRef.current || queueRef.current.length === 0) return;
-        processingRef.current = true;
+      if (processingRef.current) {
+        if (Date.now() - (processingRef.lastTime || 0) > 4000) {
+          processingRef.current = false;
+        } else {
+          return;
+        }
+      }
+      if (queueRef.current.length === 0) return;
 
-        const nextNotif = queueRef.current.shift();
-        setNotification(nextNotif);
+      processingRef.current = true;
+      processingRef.lastTime = Date.now();
 
-        const duration = getNotificationDuration();
+      const nextNotif = queueRef.current.shift();
+      setNotification(nextNotif);
 
-        setTimeout(() => {
-            setNotification(null);
-            processingRef.current = false;
-            processQueue(); // Lanjutkan antrean berikutnya
-        }, duration);
+      const duration = getNotificationDuration();
+
+      setTimeout(() => {
+        setNotification(null);
+        processingRef.current = false;
+        processQueue();
+      }, duration);
     };
 
     socket.on('new_scan', (data) => {
-        let pesanBawah = "TERIMA KASIH";
-        let statusText = data.status;
-        
-        if (data.mode === 'PULANG') { 
-            pesanBawah = "HATI-HATI DI JALAN"; 
-            statusText = data.status || "PULANG"; 
-        } else if (data.status === 'TERLAMBAT') { 
-            pesanBawah = "JANGAN TERLAMBAT LAGI"; 
-        } else if (data.status === 'HADIR') { 
-            pesanBawah = "SELAMAT BERAKTIVITAS"; 
-        }
+      let pesanBawah = "TERIMA KASIH";
+      let statusText = data.status;
 
-        const notifPayload = {
-            nama: data.nama,
-            status: statusText,
-            pesan: pesanBawah,
-            waktu: data.waktu || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-            id_user: data.info_id,
-            info: data.divisi || "Pengguna Aktif",
-            foto: data.foto,
-            type: 'SUCCESS'
-        };
+      if (data.mode === 'PULANG') {
+        pesanBawah = "HATI-HATI DI JALAN";
+        statusText = data.status || "PULANG";
+      } else if (data.status === 'TERLAMBAT') {
+        pesanBawah = "JANGAN TERLAMBAT LAGI";
+      } else if (data.status === 'HADIR') {
+        pesanBawah = "SELAMAT BERAKTIVITAS";
+      }
 
-        queueRef.current.push(notifPayload);
-        processQueue();
+      const notifPayload = {
+        nama: data.nama,
+        status: statusText,
+        pesan: pesanBawah,
+        waktu: data.waktu || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        id_user: data.info_id,
+        info: data.divisi || "Pengguna Aktif",
+        foto: data.foto,
+        type: 'SUCCESS'
+      };
+
+      queueRef.current.push(notifPayload);
+      processQueue();
     });
 
     socket.on('scan_error', (data) => {
-        const notifPayload = {
-            nama: "Gagal Absensi",
-            status: "ERROR",
-            pesan: data.message || "ID Tidak Terdaftar",
-            type: 'ERROR'
-        };
+      const notifPayload = {
+        nama: "Gagal Absensi",
+        status: "ERROR",
+        pesan: data.message || "ID Tidak Terdaftar",
+        type: 'ERROR'
+      };
 
-        queueRef.current.push(notifPayload);
-        processQueue();
+      queueRef.current.push(notifPayload);
+      processQueue();
     });
 
     return () => socket.disconnect();
@@ -265,10 +292,12 @@ const Absensi = () => {
         type: 'SUCCESS'
       });
     } catch (error) {
+      const serverMsg = error.response?.data?.message || "ID Tidak Terdaftar";
+      console.warn("[Absensi] Respon Server 400/Error:", serverMsg);
       setNotification({
         nama: "Gagal Absensi",
         status: "ERROR",
-        pesan: error.response?.data?.message || "ID Tidak Terdaftar",
+        pesan: serverMsg,
         type: 'ERROR'
       });
     } finally {
@@ -307,7 +336,6 @@ const Absensi = () => {
     };
 
     window.addEventListener('online', syncOfflineData);
-    // Coba sync saat pertama load jika online
     if (navigator.onLine) {
       syncOfflineData();
     }
@@ -341,6 +369,12 @@ const Absensi = () => {
     if (metode === 'BARCODE') return { title: "Scan Barcode", text: "Arahkan Barcode ID", icon: <QrCode {...iconProps} /> };
     if (metode === 'FINGERPRINT') return { title: "Tempel Jari", text: "Letakkan jari pada sensor", icon: <Fingerprint {...iconProps} /> };
     if (metode === 'MANUAL') return { title: "Input ID", text: "Ketik ID Pengguna", icon: <Keyboard {...iconProps} /> };
+    if (metode === 'QR_CODE') {
+      return { title: "Kamera QR Code", text: "Arahkan QR Code ke Lensa Kamera", icon: <Camera {...iconProps} /> };
+    }
+    if (metode === 'WAJAH') {
+      return { title: "Pengenalan Wajah", text: "Arahkan Wajah ke Lensa Kamera", icon: <UserCircle {...iconProps} /> };
+    }
     return { title: "Tempel Kartu", text: "Silakan Tap Kartu ID", icon: <ScanLine {...iconProps} /> };
   };
   const instruction = renderScanInstruction();
@@ -427,15 +461,14 @@ const Absensi = () => {
           <div className="relative w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[380px]">
             <div className="w-full aspect-[3/4] bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 lg:p-6 shadow-2xl relative flex flex-col items-center justify-center overflow-hidden ring-1 ring-white/5 transition-all duration-300">
 
-              {!notification && !showManualInput && (
+              {!notification && !showManualInput && appConfig.metode_absensi !== 'QR_CODE' && appConfig.metode_absensi !== 'WAJAH' && (
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent h-[100%] w-full animate-[scan_3s_ease-in-out_infinite] pointer-events-none"></div>
               )}
 
-              {notification ? (
+              {/* 1. NOTIFIKASI HASIL SCAN (Untuk mode selain WAJAH) */}
+              {notification && appConfig.metode_absensi !== 'WAJAH' ? (
                 <div className="w-full h-full flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300 relative z-10">
                   <div className="relative mb-4 lg:mb-6">
-
-                    {/* PERBAIKAN WARNA BORDER FOTO BERDASARKAN STATUS */}
                     <div className={`w-28 h-36 lg:w-36 lg:h-44 p-1 rounded-2xl border-2 ${notification.type === 'ERROR' ? 'border-rose-500 shadow-rose-500/20' :
                       notification.status === 'TERLAMBAT' ? 'border-yellow-500 shadow-yellow-500/20' :
                         'border-emerald-500 shadow-emerald-500/20'
@@ -450,7 +483,6 @@ const Absensi = () => {
                       )}
                     </div>
 
-                    {/* PERBAIKAN WARNA BADGE STATUS */}
                     <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full font-bold text-[9px] lg:text-[10px] text-white uppercase tracking-wider shadow-lg border border-slate-900 ${notification.type === 'ERROR' ? 'bg-rose-600' :
                       notification.status === 'TERLAMBAT' ? 'bg-yellow-500' :
                         'bg-emerald-600'
@@ -468,7 +500,6 @@ const Absensi = () => {
                     <span className="text-[9px] lg:text-[10px] font-bold text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{notification.info}</span>
                   </div>
 
-                  {/* PERBAIKAN WARNA BOX PESAN BAWAH */}
                   <div className={`w-full py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-white/5 border border-white/10 font-bold uppercase tracking-widest text-[10px] lg:text-xs animate-pulse shadow-inner ${notification.type === 'ERROR' ? 'text-rose-400 bg-rose-500/10' :
                     notification.status === 'TERLAMBAT' ? 'text-yellow-400 bg-yellow-500/10' :
                       'text-emerald-400 bg-emerald-500/10'
@@ -477,6 +508,7 @@ const Absensi = () => {
                   </div>
                 </div>
               ) : showManualInput ? (
+                /* 2. FORM INPUT MANUAL */
                 <div className="w-full h-full flex flex-col justify-center animate-in slide-in-from-right duration-300 relative z-[50]">
                   <button
                     type="button"
@@ -514,7 +546,39 @@ const Absensi = () => {
                     </button>
                   </form>
                 </div>
+              ) : appConfig.metode_absensi === 'WAJAH' ? (
+                /* 3. TAMPILAN KAMERA PENGENALAN WAJAH AKTIF (Kamera Tetap Menyala) */
+                <div className="w-full h-full flex flex-col items-center justify-between p-1 relative z-10 animate-in fade-in duration-300">
+                  <div className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-white/10">
+                    <CameraFaceScanner
+                      onScanSuccess={processAbsensi}
+                      isLoading={isLoading}
+                      members={membersList}
+                      notification={notification}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowManualInput(true)}
+                    className="mt-3 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all shadow-md active:scale-95 touch-manipulation pointer-events-auto"
+                  >
+                    Input Manual
+                  </button>
+                </div>
+              ) : appConfig.metode_absensi === 'QR_CODE' ? (
+                /* 4. TAMPILAN KAMERA QR AKTIF */
+                <div className="w-full h-full flex flex-col items-center justify-between p-1 relative z-10 animate-in fade-in duration-300">
+                  <div className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-white/10">
+                    <CameraQrScanner onScanSuccess={processAbsensi} isLoading={isLoading} />
+                  </div>
+                  <button
+                    onClick={() => setShowManualInput(true)}
+                    className="mt-3 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all shadow-md active:scale-95 touch-manipulation pointer-events-auto"
+                  >
+                    Input Manual
+                  </button>
+                </div>
               ) : (
+                /* 5. TAMPILAN STANDAR (RFID / BARCODE / FINGERPRINT) */
                 <div className="w-full h-full flex flex-col items-center justify-center text-center animate-in fade-in duration-500 relative z-10">
                   <div className="relative mb-6 lg:mb-8 group cursor-default">
                     <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full animate-pulse opacity-50"></div>
@@ -551,7 +615,7 @@ const Absensi = () => {
           </div>
           <div className="h-4 w-[1px] bg-white/20 mx-1"></div>
           <p className="text-white/80 text-[8px] lg:text-[10px] font-medium tracking-[0.2em] group-hover:text-white transition-colors">
-            POWERED BY NEBULA TECH
+            POWERED BY NABASTALA
           </p>
         </div>
       </a>

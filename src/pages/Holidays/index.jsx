@@ -13,7 +13,7 @@ const Holidays = () => {
     const fetchHolidays = async () => {
         try {
             const res = await api.get('/holidays');
-            setHolidays(res.data || []);
+            setHolidays(res.data?.data || (Array.isArray(res.data) ? res.data : []));
         } catch (error) {
             console.error("Gagal memuat hari libur", error);
         } finally {
@@ -28,7 +28,7 @@ const Holidays = () => {
     const handleAddHoliday = async (e) => {
         e.preventDefault();
         if (!date || !description) return;
-        
+
         try {
             await api.post('/holidays', { date, description });
             Swal.fire('Berhasil', 'Hari libur ditambahkan', 'success');
@@ -62,7 +62,7 @@ const Holidays = () => {
         }
     };
 
-    const sortedHolidays = [...holidays].sort((a,b) => {
+    const sortedHolidays = [...(Array.isArray(holidays) ? holidays : [])].sort((a, b) => {
         if (sortConfig.key === 'holiday_date') {
             const dateA = new Date(a.holiday_date);
             const dateB = new Date(b.holiday_date);
@@ -104,13 +104,13 @@ const Holidays = () => {
                             <Plus className="w-5 h-5" />
                             Tambah Hari Libur
                         </h2>
-                        
+
                         <div>
                             <label htmlFor="holiday-date" className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-400">Tanggal</label>
-                            <input 
+                            <input
                                 id="holiday-date"
                                 name="holiday_date"
-                                type="date" 
+                                type="date"
                                 required
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
@@ -120,10 +120,10 @@ const Holidays = () => {
 
                         <div>
                             <label htmlFor="holiday-description" className="block text-sm font-medium text-slate-600 mb-1 dark:text-slate-400">Keterangan / Nama Libur</label>
-                            <input 
+                            <input
                                 id="holiday-description"
                                 name="holiday_description"
-                                type="text" 
+                                type="text"
                                 required
                                 placeholder="Cth: Hari Raya Idul Fitri"
                                 value={description}
@@ -132,8 +132,8 @@ const Holidays = () => {
                             />
                         </div>
 
-                        <button 
-                            type="submit" 
+                        <button
+                            type="submit"
                             className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 rounded-xl transition-colors shadow-sm"
                         >
                             Simpan Hari Libur
@@ -179,7 +179,7 @@ const Holidays = () => {
                                                 {h.description || h.keterangan || h.nama_libur || '-'}
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <button 
+                                                <button
                                                     onClick={() => handleDelete(h.id)}
                                                     className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all dark:hover:bg-red-900/30"
                                                     title="Hapus"

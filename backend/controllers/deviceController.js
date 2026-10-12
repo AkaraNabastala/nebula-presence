@@ -14,11 +14,12 @@ exports.getAllDevices = async (req, res) => {
 exports.addDevice = async (req, res) => {
     const { name, ip_address, port } = req.body;
     try {
-        const r = await pool.query(
-            'INSERT INTO devices (name, ip_address, port, status) VALUES ($1, $2, $3, $4) RETURNING *',
+        await pool.query(
+            'INSERT INTO devices (name, ip_address, port, status) VALUES ($1, $2, $3, $4)',
             [name, ip_address, port || 4370, 'offline']
         );
-        res.json({ success: true, message: "Perangkat ditambahkan", device: r.rows[0] });
+        const fetchDev = await pool.query('SELECT * FROM devices WHERE ip_address=$1 LIMIT 1', [ip_address]);
+        res.json({ success: true, message: "Perangkat ditambahkan", device: fetchDev.rows[0] });
     } catch (e) {
         console.error(e);
         if (e.code === '23505' || e.code === 'SQLITE_CONSTRAINT' || (e.message && e.message.includes('UNIQUE constraint'))) {

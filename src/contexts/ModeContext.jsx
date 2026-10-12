@@ -5,12 +5,12 @@ const ModeContext = createContext();
 
 export const ModeProvider = ({ children }) => {
   const [modeConfig, setModeConfig] = useState({
-    app_mode: 'korporat',
+    app_mode: 'edukasi',
     labels: {
-      label_kelompok: 'Kelompok',
-      label_pengguna: 'Pengguna',
-      label_wali: 'Manajer/Supervisor',
-      label_identitas: 'ID Pengguna'
+      label_kelompok: 'Kelas',
+      label_pengguna: 'Siswa',
+      label_wali: 'Wali Kelas',
+      label_identitas: 'NIPD / NISN'
     },
     loading: true
   });

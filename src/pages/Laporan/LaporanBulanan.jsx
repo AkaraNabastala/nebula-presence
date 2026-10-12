@@ -25,11 +25,40 @@ const LaporanBulanan = () => {
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
     // Config
+    // Config
     const [appConfig, setAppConfig] = useState({
         nama_instansi: 'INSTANSI',
-        labels: { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' },
+        app_mode: 'edukasi',
+        labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' },
         logo: logoNabastala
     });
+
+    const labelKelompok = (appConfig.labels?.label_kelompok && appConfig.labels?.label_kelompok !== 'Kelompok')
+        ? appConfig.labels.label_kelompok
+        : (appConfig.app_mode === 'korporat' ? 'Divisi' : 'Kelas');
+    const labelPengguna = (appConfig.labels?.label_pengguna && appConfig.labels?.label_pengguna !== 'Pengguna')
+        ? appConfig.labels.label_pengguna
+        : (appConfig.app_mode === 'korporat' ? 'Karyawan' : 'Siswa');
+
+    const fetchConfig = async () => {
+        try {
+            const res = await api.get('/settings');
+            if (res.data) {
+                const isEdu = (res.data.app_mode || 'edukasi') === 'edukasi';
+                setAppConfig({
+                    nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'INSTANSI',
+                    app_mode: res.data.app_mode || 'edukasi',
+                    company_shifts: res.data.company_shifts || '[]',
+                    labels: res.data.labels || {
+                        label_pengguna: isEdu ? 'Siswa' : 'Karyawan',
+                        label_kelompok: isEdu ? 'Kelas' : 'Divisi'
+                    },
+                    logo: res.data.logo_sekolah || res.data.logo_instansi || logoNabastala
+                });
+            }
+        } catch { /* ignore */ }
+    };
+
 
     // --- INIT ---
     useEffect(() => {
@@ -40,19 +69,6 @@ const LaporanBulanan = () => {
     const showToast = (type, message) => {
         setNotification({ show: true, type, message });
         setTimeout(() => setNotification({ show: false, type: '', message: '' }), 3000);
-    };
-
-    const fetchConfig = async () => {
-        try {
-            const res = await api.get('/settings');
-            if (res.data) setAppConfig({
-                nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'INSTANSI',
-                app_mode: res.data.app_mode || 'korporat',
-                company_shifts: res.data.company_shifts || '[]',
-                labels: res.data.labels || { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' },
-                logo: res.data.logo_sekolah || res.data.logo_instansi || logoNabastala
-            });
-        } catch { /* ignore */ }
     };
 
     const fetchDivisions = async () => {
@@ -198,7 +214,7 @@ const LaporanBulanan = () => {
         const excelData = [
             [appConfig.nama_instansi.toUpperCase()],
             [`LAPORAN ABSENSI BULAN ${namaBulan.toUpperCase()} ${filterTahun}`],
-            [`${(appConfig.labels?.label_kelompok || 'KELOMPOK').toUpperCase()}: ${appConfig.app_mode === 'korporat' ? 'Karyawan' : selectedDivision.nama_kelas}${isSpecificShift ? ` (${selectedShift})` : ''}`],
+            [`${labelKelompok.toUpperCase()}: ${selectedDivision.nama_kelas}${isSpecificShift ? ` (${selectedShift})` : ''}`],
             [],
             headerRow,
             ...dataRows
@@ -283,7 +299,7 @@ const LaporanBulanan = () => {
                         <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
                             <FileText className="text-emerald-500" size={32} /> Laporan Bulanan
                         </h2>
-                        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Rekapitulasi absensi per bulan berdasarkan {appConfig.labels?.label_kelompok || 'kelompok'}.</p>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Rekapitulasi absensi per bulan berdasarkan {labelKelompok.toLowerCase()}.</p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
@@ -302,7 +318,7 @@ const LaporanBulanan = () => {
                                 {divisionsList.map(div => (
                                     <option key={div.id} value={div.id}>{div.nama_kelas}</option>
                                 ))}
-                                {divisionsList.length === 0 && <option value="">Tidak ada {appConfig.labels?.label_kelompok || 'kelompok'}</option>}
+                                {divisionsList.length === 0 && <option value="">Tidak ada {labelKelompok.toLowerCase()}</option>}
                             </select>
                         </div>
 
@@ -377,7 +393,7 @@ const LaporanBulanan = () => {
                 {loadingReport ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 animate-pulse py-20"><RefreshCcw size={32} className="animate-spin mb-4" /><p className="text-sm">Memuat data absen...</p></div>
                 ) : !selectedDivision ? (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-400 py-20"><Briefcase size={32} className="mb-4 opacity-20" /><p className="text-sm">Pilih {appConfig.labels?.label_kelompok || 'kelompok'} untuk melihat laporan.</p></div>
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 py-20"><Briefcase size={32} className="mb-4 opacity-20" /><p className="text-sm">Pilih {labelKelompok.toLowerCase()} untuk melihat laporan.</p></div>
                 ) : (
                     <div className="flex-1 overflow-auto bg-white min-w-full">
                         <table className="w-full text-left text-sm border-collapse min-w-[900px]">
@@ -385,7 +401,7 @@ const LaporanBulanan = () => {
                                 <tr>
                                     <th className="p-3 border-r border-gray-200 dark:border-slate-700 sticky left-0 bg-slate-100 dark:bg-slate-800 z-20 w-10 text-center text-[11px] uppercase tracking-wider">No</th>
                                     <th className="p-3 border-r border-gray-200 dark:border-slate-700 sticky left-10 bg-slate-100 dark:bg-slate-800 z-20 w-48 shadow-[4px_0_12px_rgba(0,0,0,0.03)] text-[11px] uppercase tracking-wider cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700" onClick={() => handleSort('nama_lengkap')}>
-                                        Nama {appConfig.labels?.label_pengguna || 'Pengguna'} {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                                        Nama {labelPengguna} {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                                     </th>
                                     {Array.from({ length: new Date(filterTahun, filterBulan, 0).getDate() }, (_, i) => (<th key={i} className="p-1 border-r border-gray-200 dark:border-slate-700 text-center text-[9px] w-7 text-gray-500 dark:text-slate-400">{i + 1}</th>))}
                                     <th className="p-2 border-r border-gray-200 dark:border-slate-700 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-center w-8 text-[11px]">H</th>
@@ -397,7 +413,7 @@ const LaporanBulanan = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                                 {sortedReportData.length === 0 ? (
-                                    <tr><td colSpan={38} className="text-center py-20 text-gray-400 text-sm">Tidak ada pengguna di {appConfig.labels?.label_kelompok || 'kelompok'} ini.</td></tr>
+                                    <tr><td colSpan={38} className="text-center py-20 text-gray-400 text-sm">Tidak ada {labelPengguna.toLowerCase()} di {labelKelompok.toLowerCase()} ini.</td></tr>
                                 ) : sortedReportData.map((m, idx) => (
                                     <tr key={m.id || idx} className="hover:bg-blue-50/40 dark:hover:bg-slate-700/50 transition group">
                                         <td className="p-2.5 border-r border-gray-100 dark:border-slate-700 sticky left-0 bg-white dark:bg-slate-800 group-hover:bg-blue-50/40 dark:group-hover:bg-slate-700/50 text-center font-mono text-[11px] text-gray-500 dark:text-slate-400">{idx + 1}</td>

@@ -22,7 +22,6 @@ const loginLimiter = rateLimit({
     max: 20,
     message: { message: "Terlalu banyak percobaan login." }
 });
-
 // 1. PUBLIC ROUTES
 router.get('/license-status', (req, res) => licenseController.checkStatus(req, res));
 router.post('/activation', (req, res) => licenseController.activate(req, res));
@@ -31,11 +30,65 @@ router.post('/logout', (req, res) => authController.logout(req, res));
 router.get('/settings', (req, res) => masterController.getSettings(req, res));
 router.post('/scan', (req, res) => attendanceController.scanRFID(req, res));
 router.post('/reset-password', (req, res) => authController.resetPassword(req, res));
+router.get('/members/faces', (req, res) => masterController.getFaceMembers(req, res));
 
 // 2. PROTECTED ROUTES
 router.use(authGuard);
+// TEST & INFO NOTIFIKASI TELEGRAM
+const { sendTelegram, getBotInfo } = require('../utils/notificationService');
+
+router.get('/notifications/bot-info', (req, res) => {
+    res.json(getBotInfo());
+});
+
+router.post('/notifications/test-telegram', async (req, res) => {
+    try {
+        const { bot_token, chat_id } = req.body;
+        if (!bot_token || !chat_id) {
+            return res.status(400).json({ success: false, message: "Bot Token dan Chat ID wajib diisi." });
+        }
+
+        const botId = String(bot_token).split(':')[0].trim();
+        const cleanChatId = String(chat_id).replace(/[^0-9-]/g, '').trim();
+
+        // Cegah jika pengguna memasukkan ID bot ke kolom chat_id
+        if (botId && cleanChatId === botId) {
+            return res.status(400).json({
+                success: false,
+                message: "Chat ID yang Anda masukkan adalah ID Bot Anda sendiri! Bot Telegram tidak bisa mengirim pesan ke dirinya sendiri. Masukkan Chat ID akun Telegram pribadi Anda atau ID Grup."
+            });
+        }
+
+        const result = await sendTelegram(
+            bot_token,
+            cleanChatId,
+            "🤖 <b>Koneksi Berhasil!</b>\n\nSistem Notifikasi Presensi telah terhubung dengan Bot Telegram Anda."
+        );
+        if (result.success) {
+            return res.json({ success: true, message: "Pesan uji coba berhasil terkirim ke Telegram!" });
+        } else {
+            let errorMsg = result.message || "Gagal mengirim ke Telegram.";
+            if (errorMsg.includes("bot can't send messages to the bot")) {
+                errorMsg = "Chat ID yang dimasukkan adalah ID Bot! Masukkan Chat ID akun Telegram pribadi Anda (orang) atau ID Grup. Buka bot Anda di Telegram dan ketik /start untuk melihat Chat ID Anda.";
+            } else if (errorMsg.includes("chat not found")) {
+                errorMsg = "Chat ID tidak ditemukan. Pastikan Anda sudah membuka bot Telegram tersebut dan menekan tombol START terlebih dahulu!";
+            } else if (errorMsg.includes("bot was blocked by the user")) {
+                errorMsg = "Bot diblokir oleh akun Telegram ini. Silakan buka blokir bot di Telegram Anda.";
+            }
+            return res.status(400).json({ success: false, message: errorMsg });
+        }
+    } catch (err) {
+        console.error("Test Telegram Route Error:", err);
+        return res.status(400).json({ success: false, message: "Gagal memproses tes: " + err.message });
+    }
+});
 
 router.put('/profile', (req, res) => authController.updateProfile(req, res));
+// CLOUD SYNC (Local-First Offline-Ready Engine)
+const cloudSyncController = require('../controllers/cloudSyncController');
+router.get('/cloud-sync/status', (req, res) => cloudSyncController.getStatus(req, res));
+router.post('/cloud-sync/trigger', (req, res) => cloudSyncController.triggerSync(req, res));
+router.post('/cloud-sync/settings', roleGuard(['SuperAdmin']), (req, res) => cloudSyncController.saveSettings(req, res));
 
 // ATTENDANCE
 router.get('/dashboard', (req, res) => attendanceController.getDashboardStats(req, res));

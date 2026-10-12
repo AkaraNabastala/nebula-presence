@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Plus, Search, Trash2, Edit, Users, Save, X, Eye, ArrowLeft, CheckCircle, AlertCircle, CheckSquare, Square, UserMinus, AlertTriangle, RefreshCcw, Briefcase, Building2, FolderTree
+  Plus, Search, Trash2, Edit, Users, Save, X, Eye, ArrowLeft, CheckCircle, AlertCircle, CheckSquare, Square, UserMinus, AlertTriangle, RefreshCcw, Briefcase, Building2, FolderTree, ChevronDown, GraduationCap, ShieldCheck
 } from 'lucide-react';
 import api from '../../api/axios';
 import logoNabastala from '../../assets/logo-nabastala.png';
@@ -8,6 +8,7 @@ import logoNabastala from '../../assets/logo-nabastala.png';
 const Classes = () => {
   // --- STATE ---
   const [divisionsList, setDivisionsList] = useState([]);
+  const [allUsersList, setAllUsersList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [btnLoading, setBtnLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -24,7 +25,8 @@ const Classes = () => {
   // Edit & Form Data
   const [isEditMode, setIsEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [formData, setFormData] = useState({ nama_kelas: '', wali_kelas: '' });
+  const [isManualWali, setIsManualWali] = useState(false);
+  const [formData, setFormData] = useState({ nama_kelas: '', wali_kelas: '', allow_pulang_awal: true, allow_lembur: false });
 
   // Detail Data
   const [selectedDivision, setSelectedDivision] = useState(null);
@@ -34,23 +36,34 @@ const Classes = () => {
 
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
-  // States untuk fitur tambah anggota masal (Permasalahan 4)
+  // States untuk fitur tambah anggota masal
   const [showAddMembersModal, setShowAddMembersModal] = useState(false);
   const [unassignedMembers, setUnassignedMembers] = useState([]);
   const [selectedAddMemberIds, setSelectedAddMemberIds] = useState([]);
   const [addMemberSearchTerm, setAddMemberSearchTerm] = useState("");
 
-  // Config 
+  // Config
   const [appConfig, setAppConfig] = useState({
     nama_instansi: 'INSTANSI',
-    labels: { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' },
+    app_mode: 'edukasi',
+    labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' },
     logo: logoNabastala
   });
+
+  const isEdu = (appConfig.app_mode || 'edukasi').toLowerCase() === 'edukasi';
+  const labelKelompok = (appConfig.labels?.label_kelompok && appConfig.labels?.label_kelompok !== 'Kelompok')
+    ? appConfig.labels.label_kelompok
+    : (isEdu ? 'Kelas' : 'Divisi');
+  const labelPengguna = (appConfig.labels?.label_pengguna && appConfig.labels?.label_pengguna !== 'Pengguna')
+    ? appConfig.labels.label_pengguna
+    : (isEdu ? 'Siswa' : 'Karyawan');
+  const labelWali = isEdu ? 'Wali Kelas' : 'Penanggung Jawab / SPV';
 
   // --- INIT ---
   useEffect(() => {
     fetchDivisions();
     fetchConfig();
+    fetchAllUsers();
   }, []);
 
   const showToast = (type, message) => {
@@ -64,18 +77,25 @@ const Classes = () => {
       const res = await api.get('/settings');
       if (res.data) setAppConfig({
         nama_instansi: res.data.nama_sekolah || res.data.nama_instansi || 'INSTANSI',
-        app_mode: res.data.app_mode || 'korporat',
+        app_mode: res.data.app_mode || 'edukasi',
         company_shifts: res.data.company_shifts || '[]',
-        labels: res.data.labels || { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' },
+        labels: res.data.labels || { label_pengguna: isEdu ? 'Siswa' : 'Karyawan', label_kelompok: isEdu ? 'Kelas' : 'Divisi' },
         logo: res.data.logo_sekolah || res.data.logo_instansi || logoNabastala
       });
+    } catch { /* ignore */ }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const res = await api.get('/members');
+      setAllUsersList(res.data?.data || (Array.isArray(res.data) ? res.data : []));
     } catch { /* ignore */ }
   };
 
   const fetchDivisions = async () => {
     try {
       const response = await api.get('/divisions');
-      setDivisionsList(response.data);
+      setDivisionsList(response.data?.data || (Array.isArray(response.data) ? response.data : []));
       setLoading(false);
     } catch {
       setLoading(false);
@@ -85,18 +105,19 @@ const Classes = () => {
   const fetchDivisionMembers = async (divName) => {
     try {
       const resMembers = await api.get('/members');
-      const allMembers = Array.isArray(resMembers.data) ? resMembers.data.filter(s => s.kelas === divName) : [];
+      const list = resMembers.data?.data || (Array.isArray(resMembers.data) ? resMembers.data : []);
+      const allMembers = list.filter(s => (s.kelas || s.division_name) === divName);
       setDivisionMembers(allMembers);
-      setSelectedMemberIds([]); // reset selection
+      setSelectedMemberIds([]);
     } catch (error) {
-      showToast('error', "Gagal memuat data pengguna.");
+      showToast('error', `Gagal memuat data ${labelPengguna.toLowerCase()}.`);
     }
   };
 
   // --- FILTER & SELECTION ---
-  const filteredDivisions = divisionsList.filter(c => c.nama_kelas.toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => {
-    let valA = a[mainSortConfig.key] || "";
-    let valB = b[mainSortConfig.key] || "";
+  const filteredDivisions = (divisionsList || []).filter(c => (c.nama_kelas || c.name || '').toLowerCase().includes(searchTerm.toLowerCase())).sort((a, b) => {
+    let valA = a[mainSortConfig.key] || (mainSortConfig.key === 'nama_kelas' ? (a.nama_kelas || a.name) : '') || "";
+    let valB = b[mainSortConfig.key] || (mainSortConfig.key === 'nama_kelas' ? (b.nama_kelas || b.name) : '') || "";
 
     if (mainSortConfig.key === 'jumlah_siswa') {
       valA = parseInt(valA) || 0;
@@ -134,7 +155,8 @@ const Classes = () => {
   };
 
   // Members selection
-  const filteredMembers = divisionMembers.filter(m => m.nama_lengkap.toLowerCase().includes(memberSearchTerm.toLowerCase()));
+  const filteredMembers = divisionMembers.filter(m => (m.nama_lengkap || m.full_name || '').toLowerCase()
+    .includes(memberSearchTerm.toLowerCase()));
 
   const toggleSelectAllMembers = () => {
     if (selectedMemberIds.length === filteredMembers.length) {
@@ -152,17 +174,16 @@ const Classes = () => {
     }
   };
 
-  // Fungsi-fungsi untuk fitur tambah anggota masal (Permasalahan 4)
+  // Tambah anggota masal ke kelompok
   const fetchUnassignedMembers = async () => {
     try {
       const res = await api.get('/members');
-      // filter members who do not have division_id or kelas
-      const all = res.data?.data || res.data || [];
+      const all = res.data?.data || (Array.isArray(res.data) ? res.data : []);
       const unassigned = all.filter(m => !m.kelas && !m.division_id);
       setUnassignedMembers(unassigned);
       setSelectedAddMemberIds([]);
     } catch (e) {
-      showToast('error', "Gagal memuat daftar pengguna tanpa kelompok.");
+      showToast('error', `Gagal memuat daftar ${labelPengguna.toLowerCase()} tanpa ${labelKelompok.toLowerCase()}.`);
     }
   };
 
@@ -172,7 +193,7 @@ const Classes = () => {
   };
 
   const toggleSelectAllAddMembers = () => {
-    const filtered = unassignedMembers.filter(m => m.nama_lengkap.toLowerCase().includes(addMemberSearchTerm.toLowerCase()));
+    const filtered = unassignedMembers.filter(m => (m.nama_lengkap || m.full_name || '').toLowerCase().includes(addMemberSearchTerm.toLowerCase()));
     if (selectedAddMemberIds.length === filtered.length) {
       setSelectedAddMemberIds([]);
     } else {
@@ -206,12 +227,12 @@ const Classes = () => {
           await api.put(`/members/${memberId}`, payload);
         }
       }));
-      showToast('success', "Anggota berhasil ditambahkan!");
+      showToast('success', `${labelPengguna} berhasil ditambahkan!`);
       setShowAddMembersModal(false);
       fetchDivisionMembers(selectedDivision.nama_kelas);
       fetchDivisions();
     } catch (e) {
-      showToast('error', "Gagal menambahkan anggota.");
+      showToast('error', `Gagal menambahkan ${labelPengguna.toLowerCase()}.`);
     } finally {
       setBtnLoading(false);
     }
@@ -220,6 +241,7 @@ const Classes = () => {
   // --- HANDLERS (CRUD) ---
   const handleOpenAdd = () => {
     setIsEditMode(false);
+    setIsManualWali(false);
     setFormData({ nama_kelas: '', wali_kelas: '', allow_pulang_awal: true, allow_lembur: appConfig.app_mode === 'korporat' });
     setShowFormModal(true);
   };
@@ -227,9 +249,12 @@ const Classes = () => {
   const handleOpenEdit = (div) => {
     setIsEditMode(true);
     setEditId(div.id);
-    setFormData({ 
-      nama_kelas: div.nama_kelas, 
-      wali_kelas: div.wali_kelas || '', 
+    const waliName = div.wali_kelas || '';
+    const existsInList = allUsersList.some(u => (u.nama_lengkap || u.full_name) === waliName);
+    setIsManualWali(waliName !== '' && !existsInList);
+    setFormData({
+      nama_kelas: div.nama_kelas || div.name || '',
+      wali_kelas: waliName,
       allow_pulang_awal: div.allow_pulang_awal !== 0,
       allow_lembur: div.allow_lembur !== 0
     });
@@ -256,7 +281,7 @@ const Classes = () => {
         showToast('success', "Data berhasil diperbarui!");
       } else {
         await api.post('/divisions', formData);
-        showToast('success', "Kelompok baru ditambahkan!");
+        showToast('success', `${labelKelompok} baru ditambahkan!`);
       }
       setShowFormModal(false);
       fetchDivisions();
@@ -269,7 +294,7 @@ const Classes = () => {
 
   const validateDelete = (div) => {
     if (parseInt(div.jumlah_siswa) > 0) {
-      showToast('error', `Gagal! "${div.nama_kelas}" masih memiliki ${div.jumlah_siswa} pengguna.`);
+      showToast('error', `Gagal! "${div.nama_kelas}" masih memiliki ${div.jumlah_siswa} ${labelPengguna.toLowerCase()}.`);
       return false;
     }
     return true;
@@ -294,7 +319,7 @@ const Classes = () => {
     });
 
     if (rejectedCount > 0) {
-      showToast('error', `${rejectedCount} data dilewati karena masih ada penggunanya.`);
+      showToast('error', `${rejectedCount} data dilewati karena masih memiliki ${labelPengguna.toLowerCase()}.`);
     }
 
     if (idsToDelete.length === 0) return;
@@ -346,28 +371,28 @@ const Classes = () => {
   const sortedMembers = sortData(filteredMembers);
 
   const handleKickMemberSingle = async (member) => {
-    if (!window.confirm(`Keluarkan ${member.nama_lengkap} dari kelompok ini?`)) return;
+    if (!window.confirm(`Keluarkan ${member.nama_lengkap} dari ${labelKelompok.toLowerCase()} ini?`)) return;
     try {
       await api.put(`/members/${member.id}`, { ...member, kelas: '', division_id: null, division_name: '' });
-      showToast('success', "Pengguna berhasil dikeluarkan.");
+      showToast('success', `${labelPengguna} berhasil dikeluarkan.`);
       fetchDivisionMembers(selectedDivision.nama_kelas);
       fetchDivisions();
-    } catch { showToast('error', "Gagal mengeluarkan pengguna."); }
+    } catch { showToast('error', `Gagal mengeluarkan ${labelPengguna.toLowerCase()}.`); }
   };
 
   const handleKickMemberBulk = async () => {
-    if (!window.confirm(`Keluarkan ${selectedMemberIds.length} pengguna yang dipilih dari kelompok ini?`)) return;
+    if (!window.confirm(`Keluarkan ${selectedMemberIds.length} ${labelPengguna.toLowerCase()} yang dipilih dari ${labelKelompok.toLowerCase()} ini?`)) return;
     setBtnLoading(true);
     try {
       await Promise.all(selectedMemberIds.map(id => {
         const member = divisionMembers.find(m => m.id === id);
         return api.put(`/members/${id}`, { ...member, kelas: '', division_id: null, division_name: '' });
       }));
-      showToast('success', `${selectedMemberIds.length} pengguna berhasil dikeluarkan.`);
+      showToast('success', `${selectedMemberIds.length} ${labelPengguna.toLowerCase()} berhasil dikeluarkan.`);
       fetchDivisionMembers(selectedDivision.nama_kelas);
       fetchDivisions();
     } catch {
-      showToast('error', "Gagal mengeluarkan pengguna.");
+      showToast('error', `Gagal mengeluarkan ${labelPengguna.toLowerCase()}.`);
     } finally {
       setBtnLoading(false);
     }
@@ -398,9 +423,9 @@ const Classes = () => {
             <div className="relative z-10">
               <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
                 <Building2 className="text-indigo-600" size={32} />
-                Kelompok
+                {isEdu ? 'Daftar Kelas' : 'Daftar Divisi'}
               </h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Kelola daftar kelompok.</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Kelola daftar {labelKelompok.toLowerCase()} dan penanggung jawab.</p>
             </div>
 
             <div className="relative z-10 flex flex-col sm:flex-row w-full md:w-auto gap-3">
@@ -411,10 +436,10 @@ const Classes = () => {
               )}
               <div className="relative flex-1 md:w-64 group">
                 <Search className="absolute left-3 top-3 text-gray-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-                <input id="classes-search-input" name="classes_search" aria-label="Cari Kelompok" type="text" placeholder={`Cari ${appConfig.labels?.label_kelompok || 'Kelompok'}...`} className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 text-sm transition-all text-slate-700 dark:text-slate-200" onChange={(e) => setSearchTerm(e.target.value)} />
+                <input id="classes-search-input" name="classes_search" aria-label={`Cari ${labelKelompok}`} type="text" placeholder={`Cari ${labelKelompok}...`} className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/5 text-sm transition-all text-slate-700 dark:text-slate-200" onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
               <button onClick={handleOpenAdd} className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 text-sm font-bold active:scale-95">
-                <Plus size={18} /> <span>Tambah</span>
+                <Plus size={18} /> <span>Tambah {labelKelompok}</span>
               </button>
             </div>
           </div>
@@ -431,13 +456,13 @@ const Classes = () => {
                       </button>
                     </th>
                     <th className="p-6 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleMainSort('nama_kelas')}>
-                      Nama {appConfig.labels?.label_kelompok || 'Kelompok'} {mainSortConfig.key === 'nama_kelas' ? (mainSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                      Nama {labelKelompok} {mainSortConfig.key === 'nama_kelas' ? (mainSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                     </th>
                     <th className="p-6 hidden md:table-cell cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleMainSort('wali_kelas')}>
-                      Penanggung Jawab {mainSortConfig.key === 'wali_kelas' ? (mainSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                      {labelWali} {mainSortConfig.key === 'wali_kelas' ? (mainSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                     </th>
                     <th className="p-6 text-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleMainSort('jumlah_siswa')}>
-                      Total {appConfig.labels?.label_pengguna || 'Pengguna'} {mainSortConfig.key === 'jumlah_siswa' ? (mainSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                      Total {labelPengguna} {mainSortConfig.key === 'jumlah_siswa' ? (mainSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                     </th>
                     <th className="p-6 text-center">Aksi</th>
                   </tr>
@@ -446,34 +471,32 @@ const Classes = () => {
                   {loading ? (<tr><td colSpan="5" className="p-20 text-center text-gray-400 animate-pulse font-medium">Memuat data...</td></tr>)
                     : filteredDivisions.length === 0 ? (<tr><td colSpan="5" className="p-20 text-center text-gray-400"><Search size={48} className="mx-auto opacity-10 mb-2" /><p>Tidak ada data ditemukan.</p></td></tr>)
                       : (filteredDivisions.map((div) => (
-                        <tr key={div.id} className={`hover:bg-indigo-50/40 dark:hover:bg-slate-700/50 transition-colors group ${selectedIds.includes(div.id) ? 'bg-indigo-50/60 dark:bg-slate-700/50' : ''}`}>
+                        <tr key={div.id} className={`hover:bg-blue-50/40 dark:hover:bg-slate-700/50 transition-colors group ${selectedIds.includes(div.id) ? 'bg-blue-50/60 dark:bg-slate-700/50' : ''}`}>
                           <td className="p-6 text-center">
-                            <button onClick={() => toggleSelectOne(div.id)} className="text-slate-300 hover:text-indigo-600 transition-colors">
-                              {selectedIds.includes(div.id) ? <CheckSquare size={20} className="text-indigo-600" /> : <Square size={20} />}
+                            <button onClick={() => toggleSelectOne(div.id)} className="text-gray-300 hover:text-blue-600 transition-colors">
+                              {selectedIds.includes(div.id) ? <CheckSquare size={20} className="text-blue-600" /> : <Square size={20} />}
                             </button>
                           </td>
                           <td className="p-6">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center shadow-sm text-slate-500 dark:text-slate-300">
-                                <Briefcase size={20} />
-                              </div>
-                              <div>
-                                <span className="font-bold text-slate-800 dark:text-slate-200 block text-[14px] group-hover:text-indigo-600 transition-colors">{div.nama_kelas}</span>
-                                <span className="md:hidden text-xs text-slate-400 font-medium">{div.wali_kelas || 'Kosong'}</span>
-                              </div>
+                            <div className="font-bold text-slate-800 dark:text-slate-200 text-base">{div.nama_kelas}</div>
+                            <div className="text-xs text-gray-400 font-medium md:hidden">{labelWali}: {div.wali_kelas || '-'}</div>
+                          </td>
+                          <td className="p-6 hidden md:table-cell">
+                            <div className="flex items-center gap-2">
+                              {isEdu ? <GraduationCap size={16} className="text-indigo-500 shrink-0" /> : <ShieldCheck size={16} className="text-indigo-500 shrink-0" />}
+                              <span className="font-semibold text-slate-700 dark:text-slate-300 text-sm">{div.wali_kelas || '-'}</span>
                             </div>
                           </td>
-                          <td className="p-6 text-slate-600 dark:text-slate-300 hidden md:table-cell font-medium text-[14px]">{div.wali_kelas || <span className="text-gray-300 dark:text-slate-500 italic font-normal">Belum diatur</span>}</td>
                           <td className="p-6 text-center">
-                            <span className={`px-4 py-1.5 rounded-full text-xs font-medium inline-flex items-center gap-2 ${div.jumlah_siswa > 0 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 border border-slate-100 dark:border-slate-600'}`}>
-                              <Users size={14} /> {div.jumlah_siswa || 0} Orang
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-50 dark:bg-slate-700 text-blue-700 dark:text-blue-300">
+                              {div.jumlah_siswa} {labelPengguna}
                             </span>
                           </td>
-                          <td className="p-6">
-                            <div className="flex justify-center gap-2">
-                              <button onClick={() => handleDetailClick(div)} className="p-2 bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-600 rounded-lg transition-all shadow-sm" title="Lihat Pengguna"><Eye size={18} /></button>
-                              <button onClick={() => handleOpenEdit(div)} className="p-2 bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-600 rounded-lg transition-all shadow-sm" title="Edit"><Edit size={18} /></button>
-                              <button onClick={() => confirmDeleteSingle(div)} className={`p-2 bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-lg transition-all shadow-sm ${div.jumlah_siswa > 0 ? 'text-gray-300 cursor-not-allowed' : 'text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-slate-600'}`} title="Hapus"><Trash2 size={18} /></button>
+                          <td className="p-6 text-center">
+                            <div className="flex justify-center items-center gap-2">
+                              <button onClick={() => handleDetailClick(div)} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-700 rounded-xl transition" title={`Lihat Daftar ${labelPengguna}`}><Eye size={18} /></button>
+                              <button onClick={() => handleOpenEdit(div)} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-xl transition" title="Edit Data"><Edit size={18} /></button>
+                              <button onClick={() => confirmDeleteSingle(div)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-slate-700 rounded-xl transition" title="Hapus Data"><Trash2 size={18} /></button>
                             </div>
                           </td>
                         </tr>
@@ -485,22 +508,20 @@ const Classes = () => {
         </>
       ) : (
         // ==============================================
-        // MEMBERS VIEW (INLINE)
+        // DETAIL MEMBERS VIEW
         // ==============================================
         <>
           {/* HEADER CARD MEMBERS */}
-          <div className="relative bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0 animate-in fade-in slide-in-from-right-4">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-            <div className="relative z-10 flex items-center gap-4">
-              <button onClick={handleBackToDivisions} className="p-2.5 bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 text-gray-500 dark:text-slate-300 rounded-xl transition-all shadow-sm active:scale-95" title="Kembali">
+          <div className="relative bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+            <div className="flex items-center gap-4">
+              <button onClick={handleBackToDivisions} className="p-2.5 bg-gray-50 dark:bg-slate-700 hover:bg-gray-100 dark:hover:bg-slate-600 rounded-xl text-gray-600 dark:text-slate-300 transition" title="Kembali">
                 <ArrowLeft size={20} />
               </button>
               <div>
                 <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
-                  <Users size={28} className="text-indigo-600" /> Pengguna {selectedDivision.nama_kelas}
+                  <Users size={28} className="text-indigo-600" /> {labelPengguna} {selectedDivision.nama_kelas}
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-slate-400 font-medium uppercase tracking-widest mt-1">Total: <span className="text-indigo-600 font-bold">{divisionMembers.length} {appConfig.labels?.label_pengguna || 'Pengguna'}</span></p>
+                <p className="text-xs text-gray-500 dark:text-slate-400 font-medium uppercase tracking-widest mt-1">Total: <span className="text-indigo-600 font-bold">{divisionMembers.length} {labelPengguna}</span></p>
               </div>
             </div>
 
@@ -513,7 +534,7 @@ const Classes = () => {
               )}
               <div className="relative flex-1 md:w-64 group">
                 <Search className="absolute left-3 top-3 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                <input type="text" placeholder={`Cari Pengguna...`} className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 text-sm transition-all text-slate-700 dark:text-slate-200" value={memberSearchTerm} onChange={(e) => setMemberSearchTerm(e.target.value)} />
+                <input type="text" placeholder={`Cari ${labelPengguna}...`} className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/5 text-sm transition-all text-slate-700 dark:text-slate-200" value={memberSearchTerm} onChange={(e) => setMemberSearchTerm(e.target.value)} />
               </div>
               <button onClick={openAddMembersModal} className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition text-sm font-bold active:scale-95 shadow-lg shadow-indigo-200">
                 <Plus size={18} /> <span>Tambah Anggota</span>
@@ -537,7 +558,7 @@ const Classes = () => {
                       Nama Lengkap {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                     </th>
                     <th className="py-5 px-4 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors hidden md:table-cell" onClick={() => handleSort('id')}>
-                      ID Pengguna {sortConfig.key === 'id' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                      ID {labelPengguna} {sortConfig.key === 'id' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                     </th>
                     <th className="py-5 px-6 text-right">Tindakan</th>
                   </tr>
@@ -545,9 +566,9 @@ const Classes = () => {
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50 text-sm">
                   {sortedMembers.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="p-20 text-center text-gray-400">
+                      <td colSpan="5" className="p-20 text-center text-gray-400">
                         <Users size={48} className="mx-auto opacity-10 mb-2" />
-                        <p>Tidak ada pengguna ditemukan.</p>
+                        <p>Tidak ada {labelPengguna.toLowerCase()} ditemukan.</p>
                       </td>
                     </tr>
                   ) : (
@@ -560,7 +581,7 @@ const Classes = () => {
                         </td>
                         <td className="py-4 px-4">
                           <div className="w-12 h-12 rounded-[14px] bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 shadow-sm overflow-hidden flex items-center justify-center relative group-hover:border-indigo-200 transition-colors">
-                            {m.foto ? <img src={m.foto} className="w-full h-full object-cover" alt="Foto" /> : <span className="font-black text-slate-400 text-lg">{m.nama_lengkap.charAt(0).toUpperCase()}</span>}
+                            {m.foto ? <img src={m.foto} className="w-full h-full object-cover" alt="Foto" /> : <span className="font-black text-slate-400 text-lg">{(m.nama_lengkap || '?').charAt(0).toUpperCase()}</span>}
                           </div>
                         </td>
                         <td className="py-4 px-4">
@@ -588,52 +609,114 @@ const Classes = () => {
         </>
       )}
 
-      {/* MODAL FORM ADD/EDIT */}
+      {/* MODAL FORM ADD/EDIT DIVISI / KELAS */}
       {showFormModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-[1.5rem] w-full max-w-md shadow-2xl relative overflow-hidden">
             <div className="px-6 py-4 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center">
-              <h3 className="font-extrabold text-xl text-gray-800 dark:text-white">{isEditMode ? 'Edit Kelompok' : 'Tambah Kelompok Baru'}</h3>
+              <h3 className="font-extrabold text-xl text-gray-800 dark:text-white">{isEditMode ? `Edit ${labelKelompok}` : `Tambah ${labelKelompok} Baru`}</h3>
               <button onClick={() => setShowFormModal(false)} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full"><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmitDivision} className="p-6 space-y-4">
               <div>
-                <label htmlFor="modal-nama-kelas" className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama {appConfig.labels?.label_kelompok || 'Kelompok'}</label>
-                <input id="modal-nama-kelas" name="nama_kelas" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder="Contoh: Staff IT / Finance" value={formData.nama_kelas} onChange={e => setFormData({ ...formData, nama_kelas: e.target.value })} required />
+                <label htmlFor="modal-nama-kelas" className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Nama {labelKelompok}</label>
+                <input id="modal-nama-kelas" name="nama_kelas" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder={isEdu ? 'Contoh: X MIPA 1 / XII IPS 2' : 'Contoh: Staff IT / HRD'} value={formData.nama_kelas} onChange={e => setFormData({ ...formData, nama_kelas: e.target.value })} required />
               </div>
+
+              {/* WALI KELAS / PENANGGUNG JAWAB DARI PENGGUNA TERDAFTAR */}
               <div>
-                <label htmlFor="modal-wali-kelas" className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Penanggung Jawab</label>
-                <input id="modal-wali-kelas" name="wali_kelas" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200" placeholder="Nama..." value={formData.wali_kelas} onChange={e => setFormData({ ...formData, wali_kelas: e.target.value })} />
+                <div className="flex justify-between items-center mb-1.5">
+                  <label htmlFor="modal-wali-kelas" className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    {isEdu ? <GraduationCap size={15} className="text-indigo-600" /> : <ShieldCheck size={15} className="text-indigo-600" />}
+                    {labelWali}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsManualWali(!isManualWali)}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 underline transition-colors"
+                  >
+                    {isManualWali ? 'Pilih dari Daftar Pengguna' : 'Ketik Manual...'}
+                  </button>
+                </div>
+
+                {isManualWali ? (
+                  <input
+                    id="modal-wali-kelas"
+                    name="wali_kelas"
+                    className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200"
+                    placeholder={`Nama ${labelWali.toLowerCase()}...`}
+                    value={formData.wali_kelas}
+                    onChange={e => setFormData({ ...formData, wali_kelas: e.target.value })}
+                  />
+                ) : (
+                  <div className="relative">
+                    <select
+                      id="modal-wali-kelas"
+                      name="wali_kelas"
+                      value={formData.wali_kelas}
+                      onChange={e => setFormData({ ...formData, wali_kelas: e.target.value })}
+                      className="w-full border border-slate-200 dark:border-slate-700 p-2.5 pr-10 rounded-xl focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 outline-none bg-white dark:bg-slate-800 focus:bg-slate-50 dark:focus:bg-slate-700 transition-all font-medium text-sm text-slate-800 dark:text-slate-200 appearance-none cursor-pointer"
+                    >
+                      <option value="">-- Pilih {labelWali} --</option>
+                      {allUsersList.filter(u => u.role === 'guru' || u.role === 'staff' || u.role === 'manager').length > 0 && (
+                        <optgroup label={isEdu ? "Dewan Guru & Tenaga Pendidik" : "Manager & Supervisor"}>
+                          {allUsersList
+                            .filter(u => u.role === 'guru' || u.role === 'staff' || u.role === 'manager')
+                            .map(u => (
+                              <option key={u.id} value={u.nama_lengkap || u.full_name}>
+                                {u.nama_lengkap || u.full_name} {u.nipd ? `(${u.nipd})` : ''}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                      <optgroup label={isEdu ? "Pengguna Lainnya" : "Karyawan / Anggota Lain"}>
+                        {allUsersList
+                          .filter(u => u.role !== 'guru' && u.role !== 'staff' && u.role !== 'manager')
+                          .map(u => (
+                            <option key={u.id} value={u.nama_lengkap || u.full_name}>
+                              {u.nama_lengkap || u.full_name} {u.role && u.role !== 'member' && u.role !== 'siswa' ? `[${u.role}]` : ''}
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+                    <ChevronDown size={18} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Guru/pengguna yang dipilih sebagai wali kelas tetap dapat melakukan absensi presensi harian secara mandiri.
+                </p>
               </div>
+
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
                 <div>
                   <label htmlFor="modal-allow-pulang-awal" className="text-xs font-bold text-slate-700 dark:text-slate-200 block cursor-pointer">Izinkan Pulang Awal</label>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Anggota kelompok ini boleh absen pulang sebelum jam kerja/sekolah berakhir</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Anggota {labelKelompok.toLowerCase()} ini boleh absen pulang sebelum jam berakhir</p>
                 </div>
-                <input 
+                <input
                   id="modal-allow-pulang-awal"
                   name="allow_pulang_awal"
-                  type="checkbox" 
-                  className="w-5 h-5 accent-blue-600 rounded cursor-pointer" 
-                  checked={!!formData.allow_pulang_awal} 
-                  onChange={e => setFormData({ ...formData, allow_pulang_awal: e.target.checked })} 
+                  type="checkbox"
+                  className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
+                  checked={!!formData.allow_pulang_awal}
+                  onChange={e => setFormData({ ...formData, allow_pulang_awal: e.target.checked })}
                 />
               </div>
 
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700">
                 <div>
                   <label htmlFor="modal-allow-lembur" className="text-xs font-bold text-slate-700 dark:text-slate-200 block cursor-pointer">Izinkan Lembur / Absen Libur</label>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Anggota kelompok ini boleh absen pada hari Minggu atau Tanggal Merah</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Anggota {labelKelompok.toLowerCase()} ini boleh absen pada hari Minggu atau Tanggal Merah</p>
                 </div>
-                <input 
+                <input
                   id="modal-allow-lembur"
                   name="allow_lembur"
-                  type="checkbox" 
-                  className="w-5 h-5 accent-blue-600 rounded cursor-pointer" 
-                  checked={!!formData.allow_lembur} 
-                  onChange={e => setFormData({ ...formData, allow_lembur: e.target.checked })} 
+                  type="checkbox"
+                  className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
+                  checked={!!formData.allow_lembur}
+                  onChange={e => setFormData({ ...formData, allow_lembur: e.target.checked })}
                 />
               </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowFormModal(false)} className="flex-1 py-2.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-slate-600 transition text-sm">Batal</button>
                 <button type="submit" disabled={btnLoading} className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition active:scale-95 flex justify-center gap-2 items-center text-sm">
@@ -670,14 +753,14 @@ const Classes = () => {
         </div>
       )}
 
-      {/* MODAL TAMBAH ANGGOTA MASAL (Permasalahan 4) */}
+      {/* MODAL TAMBAH ANGGOTA MASAL */}
       {showAddMembersModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl relative flex flex-col transform animate-in zoom-in-95 duration-200 border border-white dark:border-slate-700">
             <div className="px-8 py-5 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex justify-between items-center shrink-0">
               <div>
                 <h3 className="font-extrabold text-xl text-gray-800 dark:text-white">Tambah Anggota ke {selectedDivision?.nama_kelas}</h3>
-                <p className="text-xs text-slate-500 mt-1">Pilih pengguna terdaftar yang belum memiliki kelompok.</p>
+                <p className="text-xs text-slate-500 mt-1">Pilih {labelPengguna.toLowerCase()} terdaftar yang belum memiliki {labelKelompok.toLowerCase()}.</p>
               </div>
               <button onClick={() => setShowAddMembersModal(false)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full"><X size={20} /></button>
             </div>
@@ -685,7 +768,7 @@ const Classes = () => {
             <div className="p-4 bg-white dark:bg-slate-800 border-b dark:border-slate-700 shrink-0">
               <div className="relative group">
                 <Search className="absolute left-3 top-3 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                <input type="text" placeholder="Cari nama pengguna..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-transparent rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-sm transition-all text-slate-700 dark:text-slate-200" value={addMemberSearchTerm} onChange={(e) => setAddMemberSearchTerm(e.target.value)} />
+                <input type="text" placeholder={`Cari nama ${labelPengguna.toLowerCase()}...`} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-700 border border-transparent rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 text-sm transition-all text-slate-700 dark:text-slate-200" value={addMemberSearchTerm} onChange={(e) => setAddMemberSearchTerm(e.target.value)} />
               </div>
             </div>
 
@@ -695,7 +778,7 @@ const Classes = () => {
                   <tr>
                     <th className="py-3 px-4 w-10 text-center">
                       <button onClick={toggleSelectAllAddMembers} className="hover:text-indigo-600 transition-colors">
-                        {selectedAddMemberIds.length === unassignedMembers.filter(m => m.nama_lengkap.toLowerCase().includes(addMemberSearchTerm.toLowerCase())).length && unassignedMembers.filter(m => m.nama_lengkap.toLowerCase().includes(addMemberSearchTerm.toLowerCase())).length > 0 ? <CheckSquare size={18} className="text-indigo-600" /> : <Square size={18} />}
+                        {selectedAddMemberIds.length === unassignedMembers.filter(m => (m.nama_lengkap || m.full_name || '').toLowerCase().includes(addMemberSearchTerm.toLowerCase())).length && unassignedMembers.filter(m => (m.nama_lengkap || m.full_name || '').toLowerCase().includes(addMemberSearchTerm.toLowerCase())).length > 0 ? <CheckSquare size={18} className="text-indigo-600" /> : <Square size={18} />}
                       </button>
                     </th>
                     <th className="py-3 px-4">Nama Lengkap</th>
@@ -703,23 +786,23 @@ const Classes = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50 text-sm">
-                  {unassignedMembers.filter(m => m.nama_lengkap.toLowerCase().includes(addMemberSearchTerm.toLowerCase())).length === 0 ? (
+                  {unassignedMembers.filter(m => (m.nama_lengkap || m.full_name || '').toLowerCase().includes(addMemberSearchTerm.toLowerCase())).length === 0 ? (
                     <tr>
                       <td colSpan="3" className="p-10 text-center text-gray-400">
                         <Users size={36} className="mx-auto opacity-10 mb-2" />
-                        <p className="text-xs">Tidak ada pengguna tanpa kelompok ditemukan.</p>
+                        <p className="text-xs">Tidak ada {labelPengguna.toLowerCase()} tanpa {labelKelompok.toLowerCase()} ditemukan.</p>
                       </td>
                     </tr>
                   ) : (
-                    unassignedMembers.filter(m => m.nama_lengkap.toLowerCase().includes(addMemberSearchTerm.toLowerCase())).map((m) => (
+                    unassignedMembers.filter(m => (m.nama_lengkap || m.full_name || '').toLowerCase().includes(addMemberSearchTerm.toLowerCase())).map((m) => (
                       <tr key={m.id} className={`hover:bg-indigo-50/40 dark:hover:bg-slate-700/40 transition-colors ${selectedAddMemberIds.includes(m.id) ? 'bg-indigo-50/60 dark:bg-slate-700/50' : ''}`}>
                         <td className="py-3 px-4 text-center">
                           <button onClick={() => toggleSelectOneAddMember(m.id)} className="text-slate-300 hover:text-indigo-600 transition-colors">
                             {selectedAddMemberIds.includes(m.id) ? <CheckSquare size={18} className="text-indigo-600" /> : <Square size={18} />}
                           </button>
                         </td>
-                        <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{m.nama_lengkap}</td>
-                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{m.nipd}</td>
+                        <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">{m.nama_lengkap || m.full_name}</td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400 font-mono text-xs">{m.nipd || m.identity_number || '-'}</td>
                       </tr>
                     ))
                   )}
@@ -731,7 +814,7 @@ const Classes = () => {
               <button onClick={() => setShowAddMembersModal(false)} className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors text-sm">Batal</button>
               <button onClick={handleAddMembersSubmit} disabled={btnLoading} className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2 text-sm disabled:opacity-70">
                 {btnLoading ? <RefreshCcw size={16} className="animate-spin" /> : <Save size={16} />}
-                Masukkan ke Kelompok ({selectedAddMemberIds.length})
+                Masukkan ke {labelKelompok} ({selectedAddMemberIds.length})
               </button>
             </div>
           </div>

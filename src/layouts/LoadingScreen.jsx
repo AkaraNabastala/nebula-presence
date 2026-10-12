@@ -25,7 +25,7 @@ const LoadingScreen = ({ message = "MENYIAPKAN DATABASE" }) => {
         {/* --- Text Section --- */}
         <div className="text-center space-y-4 md:space-y-6">
           <h1 className="text-xl md:text-3xl font-black tracking-[0.3em] md:tracking-[0.5em] uppercase opacity-100 leading-relaxed bg-gradient-to-r from-blue-400 via-indigo-300 to-blue-500 text-transparent bg-clip-text drop-shadow-lg">
-            NEBULA SMART PRESENCE
+            NEBULA PRESENCE
           </h1>
 
           <div className="flex flex-col items-center gap-4">
@@ -45,7 +45,7 @@ const LoadingScreen = ({ message = "MENYIAPKAN DATABASE" }) => {
       {/* --- Credit Footer (Responsive Position & Text) --- */}
       <div className="absolute bottom-6 md:bottom-10 flex flex-col items-center gap-2 w-full text-center">
         <p className="text-white/20 text-[8px] md:text-[9px] font-bold tracking-[0.3em] md:tracking-[0.5em] uppercase px-4">
-          Mahakarya Nebula Tech Digital Solution
+          Mahakarya Nabastala Digital Tech
         </p>
       </div>
 

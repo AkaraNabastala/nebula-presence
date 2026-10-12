@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axios';
-import { 
-    Calendar, Filter, Search, Clock, 
-    CheckCircle, AlertCircle, XCircle, 
-    UserCheck, ChevronDown, RefreshCcw, 
-    HelpCircle, Activity, Building2, User, ClipboardList
+import {
+  Calendar, Filter, Search, Clock,
+  CheckCircle, AlertCircle, XCircle,
+  UserCheck, ChevronDown, RefreshCcw,
+  HelpCircle, Activity, Building2, User, ClipboardList
 } from 'lucide-react';
 
 const ManualAttendance = () => {
@@ -14,44 +14,66 @@ const ManualAttendance = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: 'nama_lengkap', direction: 'asc' });
-  
+
   // Config State
-  const [appConfig, setAppConfig] = useState({ timezone: 'Asia/Jakarta' });
+  // Config State
+  const [appConfig, setAppConfig] = useState({
+    timezone: 'Asia/Jakarta',
+    app_mode: 'edukasi',
+    labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' }
+  });
 
   // Filter State
   const [selectedClass, setSelectedClass] = useState("");
-  const [selectedDate, setSelectedDate] = useState(""); 
+  const [selectedDate, setSelectedDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   // Stats
   const [stats, setStats] = useState({ total: 0, hadir: 0, terlambat: 0, sakit: 0, izin: 0, alfa: 0, belum: 0 });
   const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
+  // Label Dinamis (Mode Sekolah: Kelas/Siswa, Mode Korporat: Divisi/Karyawan)
+  const labelKelompok = (appConfig.labels?.label_kelompok && appConfig.labels?.label_kelompok !== 'Kelompok')
+    ? appConfig.labels.label_kelompok
+    : (appConfig.app_mode === 'korporat' ? 'Divisi' : 'Kelas');
+  const labelPengguna = (appConfig.labels?.label_pengguna && appConfig.labels?.label_pengguna !== 'Pengguna')
+    ? appConfig.labels.label_pengguna
+    : (appConfig.app_mode === 'korporat' ? 'Karyawan' : 'Siswa');
+
   // --- 1. INISIALISASI ---
   useEffect(() => {
     const initPage = async () => {
-        try {
-            const resSettings = await api.get('/settings');
-            const schoolTimezone = resSettings.data.timezone || 'Asia/Jakarta';
-            setAppConfig({ timezone: schoolTimezone });
+      try {
+        const resSettings = await api.get('/settings');
+        const schoolTimezone = resSettings.data.timezone || 'Asia/Jakarta';
+        const isEdu = (resSettings.data.app_mode || 'edukasi') === 'edukasi';
+        setAppConfig({
+          timezone: schoolTimezone,
+          app_mode: resSettings.data.app_mode || 'edukasi',
+          labels: resSettings.data.labels || {
+            label_pengguna: isEdu ? 'Siswa' : 'Karyawan',
+            label_kelompok: isEdu ? 'Kelas' : 'Divisi'
+          }
+        });
 
-            const today = new Intl.DateTimeFormat('en-CA', {
-                timeZone: schoolTimezone,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-            }).format(new Date());
-            
-            setSelectedDate(today);
+        const today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: schoolTimezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date());
 
-            const resClasses = await api.get('/divisions');
-            setClasses(resClasses.data);
-        } catch (e) {
-            console.error("Gagal inisialisasi halaman", e);
-        }
+        setSelectedDate(today);
+
+        const resClasses = await api.get('/divisions');
+        setClasses(resClasses.data?.data || (Array.isArray(resClasses.data) ? resClasses.data : []));
+      } catch (e) {
+        console.error("Gagal inisialisasi halaman", e);
+      }
     };
     initPage();
   }, []);
+
 
   // --- 2. FETCH DATA ---
   useEffect(() => {
@@ -66,31 +88,31 @@ const ManualAttendance = () => {
 
   // --- HELPER FORMAT JAM ---
   const formatTimeOnly = (timeString) => {
-      if (!timeString || typeof timeString !== 'string') return '-';
-      const cleanStr = timeString.trim();
+    if (!timeString || typeof timeString !== 'string') return '-';
+    const cleanStr = timeString.trim();
 
-      if (/^\d{2}:\d{2}(:\d{2})?$/.test(cleanStr)) {
-          return cleanStr.substring(0, 5);
-      }
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(cleanStr)) {
+      return cleanStr.substring(0, 5);
+    }
 
-      const normalizedStr = cleanStr.replace(' ', 'T');
-      const d = new Date(normalizedStr);
+    const normalizedStr = cleanStr.replace(' ', 'T');
+    const d = new Date(normalizedStr);
 
-      if (isNaN(d.getTime())) {
-          const match = cleanStr.match(/(\d{2}:\d{2})/);
-          return match ? match[1] : '-';
-      }
+    if (isNaN(d.getTime())) {
+      const match = cleanStr.match(/(\d{2}:\d{2})/);
+      return match ? match[1] : '-';
+    }
 
-      try {
-          return d.toLocaleTimeString('id-ID', { 
-              timeZone: appConfig.timezone, 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              hour12: false 
-          }).replace('.', ':');
-      } catch {
-          return cleanStr.slice(0, 5) || '-';
-      }
+    try {
+      return d.toLocaleTimeString('id-ID', {
+        timeZone: appConfig.timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).replace('.', ':');
+    } catch {
+      return cleanStr.slice(0, 5) || '-';
+    }
   };
 
   const showToast = (type, message) => {
@@ -99,16 +121,16 @@ const ManualAttendance = () => {
   };
 
   const calculateStats = (data) => {
-      const newStats = { total: data.length, hadir: 0, terlambat: 0, sakit: 0, izin: 0, alfa: 0, belum: 0 };
-      data.forEach(s => {
-          if (s.status === 'HADIR') newStats.hadir++;
-          else if (s.status === 'TERLAMBAT') newStats.terlambat++;
-          else if (s.status === 'SAKIT') newStats.sakit++;
-          else if (s.status === 'IZIN') newStats.izin++;
-          else if (s.status === 'ALFA') newStats.alfa++;
-          else newStats.belum++;
-      });
-      setStats(newStats);
+    const newStats = { total: data.length, hadir: 0, terlambat: 0, sakit: 0, izin: 0, alfa: 0, belum: 0 };
+    data.forEach(s => {
+      if (s.status === 'HADIR') newStats.hadir++;
+      else if (s.status === 'TERLAMBAT') newStats.terlambat++;
+      else if (s.status === 'SAKIT') newStats.sakit++;
+      else if (s.status === 'IZIN') newStats.izin++;
+      else if (s.status === 'ALFA') newStats.alfa++;
+      else newStats.belum++;
+    });
+    setStats(newStats);
   };
 
   const resetStats = () => setStats({ total: 0, hadir: 0, terlambat: 0, sakit: 0, izin: 0, alfa: 0, belum: 0 });
@@ -154,280 +176,287 @@ const ManualAttendance = () => {
         if (newStatus === 'RESET') {
           return { ...s, status: null, scan_time: null, scan_out: null };
         }
-        return { 
-          ...s, 
-          status: actualStatus, 
-          scan_time: isClearScanTime ? null : (customScanTime ? `${selectedDate}T${customScanTime}:00` : s.scan_time) 
+        return {
+          ...s,
+          status: actualStatus,
+          scan_time: isClearScanTime ? null : (customScanTime ? `${selectedDate}T${customScanTime}:00` : s.scan_time)
         };
       }
       return s;
     });
-    
+
     setStudents(updatedStudents);
     calculateStats(updatedStudents);
 
     try {
       await api.post('/attendance/manual', {
         student_id: studentId,
-        status: newStatus === 'RESET' ? null : actualStatus, 
+        status: newStatus === 'RESET' ? 'RESET' : actualStatus,
         tanggal: selectedDate,
         scan_time: customScanTime,
         clear_scan_time: isClearScanTime
       });
-      
+
       if (newStatus === 'RESET') {
         showToast('success', "Data kehadiran berhasil direset.");
       } else {
         showToast('success', `Status ${studentObj?.nama_lengkap || ''} diperbarui.`);
       }
     } catch {
-      setStudents(originalStudents); 
+      setStudents(originalStudents);
       calculateStats(originalStudents);
       showToast('error', "Gagal memperbarui status.");
     }
   };
 
   const handleSort = (key) => {
-      setSortConfig(prev => ({
-          key,
-          direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
-      }));
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
-  const filteredStudents = students
-    .filter(s => s.nama_lengkap.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredStudents = (students || [])
+    .filter(s => (s.nama_lengkap || s.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()))
     .filter(s => {
-        if (statusFilter === 'ALL') return true;
-        if (statusFilter === 'BELUM') return !s.status;
-        if (statusFilter === 'SUDAH') return !!s.status;
-        return true;
+      if (statusFilter === 'ALL') return true;
+      if (statusFilter === 'BELUM') return !s.status;
+      if (statusFilter === 'SUDAH') return !!s.status;
+      return true;
     })
     .sort((a, b) => {
-        let valA = a[sortConfig.key] || "";
-        let valB = b[sortConfig.key] || "";
-        if (typeof valA === 'string') valA = valA.toLowerCase();
-        if (typeof valB === 'string') valB = valB.toLowerCase();
-        
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
+      let valA = a[sortConfig.key] || "";
+      let valB = b[sortConfig.key] || "";
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
     });
 
   // COMPONENT TOMBOL AKSI
   const ActionButtons = ({ student }) => (
-      <div className="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-slate-600 shadow-inner w-full md:w-auto overflow-x-auto gap-0.5">
-          {/* TOMBOL HADIR HIJAU (DENGAN JAM) */}
-          <button onClick={() => handleStatusChange(student.id, 'HADIR_WAKTU')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'HADIR' && student.scan_time ? 'bg-emerald-500 text-white shadow-sm' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100'}`} title="Hadir Lengkap dengan Jam Masuk">H</button>
-          
-          {/* TOMBOL HADIR MERAH (TANPA JAM / LUPA ABSEN) */}
-          <button onClick={() => handleStatusChange(student.id, 'HADIR_TANPA_WAKTU')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'HADIR' && !student.scan_time ? 'bg-rose-500 text-white shadow-sm' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100'}`} title="Hadir Tanpa Jam Masuk (Lupa Absen Pagi)">H</button>
+    <div className="flex bg-gray-100 dark:bg-slate-700/50 p-1 rounded-lg border border-gray-200 dark:border-slate-600 shadow-inner w-full md:w-auto overflow-x-auto gap-0.5">
+      {/* TOMBOL HADIR HIJAU (DENGAN JAM) */}
+      <button onClick={() => handleStatusChange(student.id, 'HADIR_WAKTU')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'HADIR' && student.scan_time ? 'bg-emerald-500 text-white shadow-sm' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100'}`} title="Hadir Lengkap dengan Jam Masuk">H</button>
 
-          {/* TOMBOL TERLAMBAT */}
-          <button onClick={() => handleStatusChange(student.id, 'TERLAMBAT')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'TERLAMBAT' ? 'bg-amber-400 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>T</button>
-          
-          {/* TOMBOL SAKIT */}
-          <button onClick={() => handleStatusChange(student.id, 'SAKIT')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'SAKIT' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>S</button>
-          
-          {/* TOMBOL IZIN */}
-          <button onClick={() => handleStatusChange(student.id, 'IZIN')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'IZIN' ? 'bg-indigo-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>I</button>
-          
-          {/* TOMBOL ALFA */}
-          <button onClick={() => handleStatusChange(student.id, 'ALFA')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'ALFA' ? 'bg-rose-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>A</button>
-          
-          {student.status && (
-             <button onClick={() => handleStatusChange(student.id, 'RESET')} className="ml-1 px-2 rounded-md text-gray-400 dark:text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-600 dark:hover:text-slate-300 transition-all active:scale-95" title="Reset Status (Hapus Log Hari Ini)"><RefreshCcw size={14} /></button>
-          )}
-      </div>
+      {/* TOMBOL HADIR MERAH (TANPA JAM / LUPA ABSEN) */}
+      <button onClick={() => handleStatusChange(student.id, 'HADIR_TANPA_WAKTU')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'HADIR' && !student.scan_time ? 'bg-rose-500 text-white shadow-sm' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100'}`} title="Hadir Tanpa Jam Masuk (Lupa Absen Pagi)">H</button>
+
+      {/* TOMBOL TERLAMBAT */}
+      <button onClick={() => handleStatusChange(student.id, 'TERLAMBAT')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'TERLAMBAT' ? 'bg-amber-400 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>T</button>
+
+      {/* TOMBOL SAKIT */}
+      <button onClick={() => handleStatusChange(student.id, 'SAKIT')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'SAKIT' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>S</button>
+
+      {/* TOMBOL IZIN */}
+      <button onClick={() => handleStatusChange(student.id, 'IZIN')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'IZIN' ? 'bg-indigo-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>I</button>
+
+      {/* TOMBOL ALFA */}
+      <button onClick={() => handleStatusChange(student.id, 'ALFA')} className={`flex-1 min-w-[28px] py-2 md:py-1.5 px-2 rounded-md text-[10px] font-extrabold transition-all active:scale-95 ${student.status === 'ALFA' ? 'bg-rose-500 text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}>A</button>
+
+      {student.status && (
+        <button onClick={() => handleStatusChange(student.id, 'RESET')} className="ml-1 px-2 rounded-md text-gray-400 dark:text-slate-500 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-600 dark:hover:text-slate-300 transition-all active:scale-95" title="Reset Status (Hapus Log Hari Ini)"><RefreshCcw size={14} /></button>
+      )}
+    </div>
   );
 
   return (
     <div className="space-y-6 pb-24 md:pb-0 relative h-full font-sans">
-      
+
       {/* TOAST NOTIFICATION */}
       {notification.show && (
         <div className={`fixed top-4 right-4 z-[99] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-right border bg-white dark:bg-slate-800 ${notification.type === 'success' ? 'border-green-200 dark:border-green-800 text-green-700 dark:text-green-400' : 'border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'}`}>
-            {notification.type === 'success' ? <CheckCircle size={22}/> : <AlertCircle size={22}/>}
-            <div><h4 className="font-bold text-sm">{notification.type === 'success' ? 'Berhasil' : 'Gagal'}</h4><p className="text-xs text-gray-500 dark:text-gray-400">{notification.message}</p></div>
-            <button onClick={() => setNotification({ show: false })}><XCircle size={18} className="text-gray-400"/></button>
+          {notification.type === 'success' ? <CheckCircle size={22} /> : <AlertCircle size={22} />}
+          <div><h4 className="font-bold text-sm">{notification.type === 'success' ? 'Berhasil' : 'Gagal'}</h4><p className="text-xs text-gray-500 dark:text-gray-400">{notification.message}</p></div>
+          <button onClick={() => setNotification({ show: false })}><XCircle size={18} className="text-gray-400" /></button>
         </div>
       )}
 
       {/* HEADER & FILTER */}
       <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 flex flex-col gap-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-            <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
-                    <ClipboardList className="text-blue-600" /> Log Kehadiran
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Kelola dan input manual data kehadiran pengguna hari ini.</p>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+              <ClipboardList className="text-blue-600" /> Log Kehadiran
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+              Kelola dan input manual data kehadiran {labelPengguna.toLowerCase()} hari ini.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="relative">
+              <Calendar className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18} />
+              <input id="filter-date" name="filter_date" aria-label="Tanggal Absensi" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium" />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                <div className="relative">
-                    <Calendar className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
-                    <input id="filter-date" name="filter_date" aria-label="Tanggal Absensi" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium"/>
-                </div>
-                
-                <div className="relative">
-                    <Building2 className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
-                    <select id="filter-class" name="filter_class" aria-label="Pilih Kelompok" value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
-                        <option value="" disabled>-- Pilih Kelompok --</option>
-                        {classes.map(c => (<option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16}/>
-                </div>
-
-                <div className="relative">
-                    <Filter className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18}/>
-                    <select id="filter-status" name="filter_status" aria-label="Filter Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
-                        <option value="ALL">Semua Status</option>
-                        <option value="BELUM">Belum Absen</option>
-                        <option value="SUDAH">Sudah Absen</option>
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16}/>
-                </div>
-
-                <div className="relative">
-                    <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
-                    <input id="filter-search" name="filter_search" aria-label="Cari Nama" type="text" placeholder="Cari Nama..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm"/>
-                </div>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18} />
+              <select
+                id="filter-class"
+                name="filter_class"
+                aria-label={`Pilih ${labelKelompok}`}
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none"
+              >
+                <option value="" disabled>-- Pilih {labelKelompok} --</option>
+                {classes.map(c => (<option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>))}
+              </select>
+              <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
             </div>
+
+            <div className="relative">
+              <Filter className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={18} />
+              <select id="filter-status" name="filter_status" aria-label="Filter Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 cursor-pointer text-sm font-medium appearance-none">
+                <option value="ALL">Semua Status</option>
+                <option value="BELUM">Belum Absen</option>
+                <option value="SUDAH">Sudah Absen</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
+            </div>
+
+            <div className="relative">
+              <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+              <input id="filter-search" name="filter_search" aria-label="Cari Nama" type="text" placeholder="Cari Nama..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm" />
+            </div>
+          </div>
         </div>
 
         {/* STATISTIK RINGKAS */}
         <div className={`flex flex-wrap gap-2 pt-4 border-t border-dashed border-gray-100 transition-all duration-500 ${selectedClass ? 'opacity-100' : 'opacity-50 grayscale cursor-not-allowed'}`}>
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600">
-                <Activity size={14} className="text-gray-400"/>
-                <span className="text-xs font-bold text-gray-600 dark:text-slate-300">Total: {stats.total}</span>
-            </div>
-            <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">Hadir: {stats.hadir}</div>
-            <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800">Telat: {stats.terlambat}</div>
-            <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-xs font-bold text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800">Sakit: {stats.sakit}</div>
-            <div className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">Izin: {stats.izin}</div>
-            <div className="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800">Alfa: {stats.alfa}</div>
-            <div className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${stats.belum > 0 ? 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border-gray-100 dark:border-slate-700'}`}>Belum: {stats.belum}</div>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600">
+            <Activity size={14} className="text-gray-400" />
+            <span className="text-xs font-bold text-gray-600 dark:text-slate-300">Total: {stats.total}</span>
+          </div>
+          <div className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800">Hadir: {stats.hadir}</div>
+          <div className="px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800">Telat: {stats.terlambat}</div>
+          <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-xs font-bold text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800">Sakit: {stats.sakit}</div>
+          <div className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">Izin: {stats.izin}</div>
+          <div className="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/30 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800">Alfa: {stats.alfa}</div>
+          <div className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${stats.belum > 0 ? 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600' : 'bg-gray-50 dark:bg-slate-800 text-gray-400 dark:text-slate-500 border-gray-100 dark:border-slate-700'}`}>Belum: {stats.belum}</div>
         </div>
       </div>
 
       {/* TABLE CONTENT */}
       <div className="bg-white dark:bg-slate-800 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden min-h-[400px]">
         {!selectedClass ? (
-            <div className="flex flex-col items-center justify-center h-96 text-gray-400 animate-in fade-in zoom-in duration-500">
-                <div className="p-6 bg-gray-50 rounded-full mb-4 border border-gray-100"><Filter size={40} className="opacity-20 text-blue-500"/></div>
-                <h3 className="font-bold text-lg text-gray-600">Pilih Kelompok Terlebih Dahulu</h3>
-                <p className="text-xs text-gray-400 mt-2">Silakan pilih opsi filter di atas.</p>
-            </div>
+          <div className="flex flex-col items-center justify-center h-96 text-gray-400 animate-in fade-in zoom-in duration-500">
+            <div className="p-6 bg-gray-50 rounded-full mb-4 border border-gray-100"><Filter size={40} className="opacity-20 text-blue-500" /></div>
+            <h3 className="font-bold text-lg text-gray-600 dark:text-slate-200">Pilih {labelKelompok} Terlebih Dahulu</h3>
+            <p className="text-xs text-gray-400 mt-2">Silakan pilih opsi filter di atas.</p>
+          </div>
         ) : loading ? (
-            <div className="flex flex-col items-center justify-center h-96 text-gray-400 animate-pulse">
-                <div className="p-4 bg-gray-50 rounded-full mb-3"><RefreshCcw size={32} className="animate-spin opacity-20"/></div>
-                <p className="text-sm">Memuat data pengguna...</p>
-            </div>
+          <div className="flex flex-col items-center justify-center h-96 text-gray-400 animate-pulse">
+            <div className="p-4 bg-gray-50 rounded-full mb-3"><RefreshCcw size={32} className="animate-spin opacity-20" /></div>
+            <p className="text-sm">Memuat data {labelPengguna.toLowerCase()}...</p>
+          </div>
         ) : filteredStudents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-96 text-gray-400">
-                <div className="p-4 bg-gray-50 rounded-full mb-3"><Search size={32} className="opacity-20"/></div>
-                <p className="text-sm">Tidak ada pengguna ditemukan.</p>
-            </div>
+          <div className="flex flex-col items-center justify-center h-96 text-gray-400">
+            <div className="p-4 bg-gray-50 rounded-full mb-3"><Search size={32} className="opacity-20" /></div>
+            <p className="text-sm">Tidak ada {labelPengguna.toLowerCase()} ditemukan.</p>
+          </div>
         ) : (
-            <>
-                {/* 1. DESKTOP TABLE VIEW */}
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-left whitespace-nowrap">
-                        <thead className="bg-slate-50/80 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-extrabold text-[11px] uppercase tracking-widest border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10">
-                            <tr>
-                                <th className="p-5 w-16 text-center">No</th>
-                                <th className="p-5 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleSort('nama_lengkap')}>
-                                    Nama {appConfig.labels?.label_pengguna || 'Pengguna'} {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
-                                </th>
-                                <th className="p-5 text-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleSort('status')}>
-                                    Status {sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
-                                </th>
-                                <th className="p-5 text-center">Jam Masuk</th>
-                                <th className="p-5 text-center">Jam Pulang</th>
-                                <th className="p-5 text-center w-[320px]">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50 text-sm">
-                            {filteredStudents.map((student, idx) => (
-                                <tr key={student.id} className={`hover:bg-blue-50/20 dark:hover:bg-slate-700/50 transition-colors ${!student.status ? 'bg-amber-50/30 dark:bg-amber-900/10' : ''}`}>
-                                    <td className="p-5 text-center text-gray-400 font-mono text-xs">{idx + 1}</td>
-                                    <td className="p-5">
-                                        <div className="font-bold text-gray-800 dark:text-slate-200 text-base">{student.nama_lengkap}</div>
-                                        <div className="text-xs text-gray-400 mt-0.5 font-mono">{student.nisn}</div>
-                                    </td>
-                                    <td className="p-5 text-center">
-                                        {student.status ? (
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${
-                                                student.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' : 
-                                                student.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600 border-amber-200' :
-                                                student.status === 'SAKIT' ? 'bg-blue-100 text-blue-600 border-blue-200' :
-                                                student.status === 'IZIN' ? 'bg-indigo-100 text-indigo-600 border-indigo-200' :
-                                                'bg-rose-100 text-rose-600 border-rose-200'
-                                            }`}>
-                                                {student.status}
-                                            </span>
-                                        ) : (
-                                            <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-white dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-600 flex items-center justify-center gap-1 w-fit mx-auto">
-                                                <HelpCircle size={12}/> Belum
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="p-5 text-center font-mono text-gray-500 dark:text-slate-400 text-xs">
-                                        {student.scan_time ? <span className="text-emerald-600 font-bold">{formatTimeOnly(student.scan_time)}</span> : '-'}
-                                    </td>
-                                    <td className="p-5 text-center font-mono text-gray-500 dark:text-slate-400 text-xs">
-                                        {student.scan_out ? <span className="text-blue-600 font-bold">{formatTimeOnly(student.scan_out)}</span> : '-'}
-                                    </td>
-                                    <td className="p-5">
-                                        <ActionButtons student={student} />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+          <>
+            {/* 1. DESKTOP TABLE VIEW */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left whitespace-nowrap">
+                <thead className="bg-slate-50/80 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-extrabold text-[11px] uppercase tracking-widest border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10">
+                  <tr>
+                    <th className="p-5 w-16 text-center">No</th>
+                    <th className="p-5 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleSort('nama_lengkap')}>
+                      Nama {labelPengguna} {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-5 text-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => handleSort('status')}>
+                      Status {sortConfig.key === 'status' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                    </th>
+                    <th className="p-5 text-center">Jam Masuk</th>
+                    <th className="p-5 text-center">Jam Pulang</th>
+                    <th className="p-5 text-center w-[320px]">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 dark:divide-slate-700/50 text-sm">
+                  {filteredStudents.map((student, idx) => (
+                    <tr key={student.id} className={`hover:bg-blue-50/20 dark:hover:bg-slate-700/50 transition-colors ${!student.status ? 'bg-amber-50/30 dark:bg-amber-900/10' : ''}`}>
+                      <td className="p-5 text-center text-gray-400 font-mono text-xs">{idx + 1}</td>
+                      <td className="p-5">
+                        <div className="font-bold text-gray-800 dark:text-slate-200 text-base">{student.nama_lengkap || student.full_name}</div>
+                        <div className="text-xs text-gray-400 mt-0.5 font-mono">{student.nisn}</div>
+                      </td>
+                      <td className="p-5 text-center">
+                        {student.status ? (
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${student.status === 'HADIR' ? 'bg-emerald-100 text-emerald-600 border-emerald-200' :
+                            student.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600 border-amber-200' :
+                              student.status === 'SAKIT' ? 'bg-blue-100 text-blue-600 border-blue-200' :
+                                student.status === 'IZIN' ? 'bg-indigo-100 text-indigo-600 border-indigo-200' :
+                                  'bg-rose-100 text-rose-600 border-rose-200'
+                            }`}>
+                            {student.status}
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-white dark:bg-slate-800 text-gray-400 dark:text-slate-500 border border-gray-200 dark:border-slate-600 flex items-center justify-center gap-1 w-fit mx-auto">
+                            <HelpCircle size={12} /> Belum
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-5 text-center font-mono text-gray-500 dark:text-slate-400 text-xs">
+                        {student.scan_time ? <span className="text-emerald-600 font-bold">{formatTimeOnly(student.scan_time)}</span> : '-'}
+                      </td>
+                      <td className="p-5 text-center font-mono text-gray-500 dark:text-slate-400 text-xs">
+                        {student.scan_out ? <span className="text-blue-600 font-bold">{formatTimeOnly(student.scan_out)}</span> : '-'}
+                      </td>
+                      <td className="p-5">
+                        <ActionButtons student={student} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 2. MOBILE CARD VIEW */}
+            <div className="md:hidden p-4 space-y-3 bg-gray-50 dark:bg-slate-900/50">
+              {filteredStudents.map((student) => (
+                <div key={student.id} className={`bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border ${!student.status ? 'border-amber-200 dark:border-amber-800 ring-1 ring-amber-100 dark:ring-amber-900/30' : 'border-gray-100 dark:border-slate-700'}`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-xs shrink-0 ${student.status ? 'bg-blue-500' : 'bg-gray-300'}`}>
+                        {(student.nama_lengkap || student.full_name || '?').charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-800 dark:text-slate-200 text-sm leading-tight">{student.nama_lengkap || student.full_name}</h3>
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">{student.nisn}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border mb-1 inline-block ${student.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600 border-amber-200' :
+                        student.status ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-gray-100 text-gray-500 border-gray-200'
+                        }`}>
+                        {student.status || 'BELUM'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* JAM INFO DI MOBILE */}
+                  <div className="flex justify-between items-center text-xs bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg mb-3 border border-gray-100 dark:border-slate-600">
+                    <div className="text-center flex-1 border-r border-gray-200 dark:border-slate-600">
+                      <p className="text-[9px] text-gray-400 uppercase font-bold">Masuk</p>
+                      <p className="font-mono font-bold text-emerald-600">{formatTimeOnly(student.scan_time)}</p>
+                    </div>
+                    <div className="text-center flex-1">
+                      <p className="text-[9px] text-gray-400 uppercase font-bold">Pulang</p>
+                      <p className="font-mono font-bold text-blue-600">{formatTimeOnly(student.scan_out)}</p>
+                    </div>
+                  </div>
+
+                  <ActionButtons student={student} />
                 </div>
-
-                {/* 2. MOBILE CARD VIEW */}
-                <div className="md:hidden p-4 space-y-3 bg-gray-50 dark:bg-slate-900/50">
-                    {filteredStudents.map((student) => (
-                        <div key={student.id} className={`bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border ${!student.status ? 'border-amber-200 dark:border-amber-800 ring-1 ring-amber-100 dark:ring-amber-900/30' : 'border-gray-100 dark:border-slate-700'}`}>
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-xs shrink-0 ${student.status ? 'bg-blue-500' : 'bg-gray-300'}`}>
-                                        {student.nama_lengkap.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-800 dark:text-slate-200 text-sm leading-tight">{student.nama_lengkap}</h3>
-                                        <p className="text-xs text-gray-400 font-mono mt-0.5">{student.nisn}</p>
-                                    </div>
-                                </div>
-                                
-                                <div className="text-right">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border mb-1 inline-block ${
-                                         student.status === 'TERLAMBAT' ? 'bg-amber-100 text-amber-600 border-amber-200' :
-                                         student.status ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-gray-100 text-gray-500 border-gray-200'
-                                    }`}>
-                                        {student.status || 'BELUM'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* JAM INFO DI MOBILE */}
-                            <div className="flex justify-between items-center text-xs bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg mb-3 border border-gray-100 dark:border-slate-600">
-                                <div className="text-center flex-1 border-r border-gray-200 dark:border-slate-600">
-                                    <p className="text-[9px] text-gray-400 uppercase font-bold">Masuk</p>
-                                    <p className="font-mono font-bold text-emerald-600">{formatTimeOnly(student.scan_time)}</p>
-                                </div>
-                                <div className="text-center flex-1">
-                                    <p className="text-[9px] text-gray-400 uppercase font-bold">Pulang</p>
-                                    <p className="font-mono font-bold text-blue-600">{formatTimeOnly(student.scan_out)}</p>
-                                </div>
-                            </div>
-
-                            <ActionButtons student={student} />
-                        </div>
-                    ))}
-                </div>
-            </>
+              ))}
+            </div>
+          </>
         )}
       </div>
       {/* MODAL INPUT WAKTU MASUK */}
@@ -443,30 +472,31 @@ const ManualAttendance = () => {
                   {timeModal.statusType === 'TERLAMBAT' ? 'Input Jam Terlambat' : 'Input Jam Masuk Hadir'}
                 </h3>
               </div>
-              <button onClick={() => setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' })} className="text-slate-400 hover:text-slate-600"><XCircle size={20}/></button>
+              <button onClick={() => setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' })} className="text-slate-400 hover:text-slate-600"><XCircle size={20} /></button>
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              Set jam masuk {timeModal.statusType === 'TERLAMBAT' ? 'terlambat' : ''} untuk <b className="text-slate-800 dark:text-slate-200">{timeModal.student?.nama_lengkap}</b> pada tanggal {selectedDate}:
+              Set jam masuk {timeModal.statusType === 'TERLAMBAT' ? 'terlambat' : ''} untuk <b className="text-slate-800 dark:text-slate-200">{timeModal.student?.nama_lengkap || timeModal.student?.full_name}
+              </b> pada tanggal {selectedDate}:
             </p>
 
             <div className="mb-4">
               <label htmlFor="modal-input-time" className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Pilih / Ketik Jam (HH:mm)</label>
-              <input 
+              <input
                 id="modal-input-time"
                 name="modal_input_time"
-                type="time" 
-                className={`w-full text-center text-2xl font-mono font-bold p-3 border border-slate-200 dark:border-slate-600 rounded-2xl bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 outline-none focus:ring-4 ${timeModal.statusType === 'TERLAMBAT' ? 'focus:ring-amber-500/20 focus:border-amber-500' : 'focus:ring-emerald-500/20 focus:border-emerald-500'}`} 
-                value={timeModal.inputTime} 
+                type="time"
+                className={`w-full text-center text-2xl font-mono font-bold p-3 border border-slate-200 dark:border-slate-600 rounded-2xl bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 outline-none focus:ring-4 ${timeModal.statusType === 'TERLAMBAT' ? 'focus:ring-amber-500/20 focus:border-amber-500' : 'focus:ring-emerald-500/20 focus:border-emerald-500'}`}
+                value={timeModal.inputTime}
                 onChange={(e) => setTimeModal({ ...timeModal, inputTime: e.target.value })}
               />
             </div>
 
             <div className="flex gap-2 mb-6">
               {['07:15', '07:30', '07:45', '08:00'].map(t => (
-                <button 
-                  key={t} 
-                  type="button" 
+                <button
+                  key={t}
+                  type="button"
                   onClick={() => setTimeModal({ ...timeModal, inputTime: t })}
                   className={`flex-1 py-1.5 rounded-xl text-xs font-mono font-bold border transition ${timeModal.inputTime === t ? (timeModal.statusType === 'TERLAMBAT' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-500 text-white border-emerald-500') : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100'}`}
                 >
@@ -476,22 +506,22 @@ const ManualAttendance = () => {
             </div>
 
             <div className="flex gap-3">
-              <button 
-                type="button" 
-                onClick={() => setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' })} 
+              <button
+                type="button"
+                onClick={() => setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' })}
                 className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-bold text-xs hover:bg-slate-200"
               >
                 Batal
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => {
                   const studentId = timeModal.student?.id;
                   const timeVal = timeModal.inputTime || '07:30';
                   const targetStatus = timeModal.statusType || 'TERLAMBAT';
                   setTimeModal({ show: false, student: null, inputTime: '07:15', statusType: 'HADIR_WAKTU' });
                   handleStatusChange(studentId, targetStatus, timeVal);
-                }} 
+                }}
                 className={`flex-1 py-2.5 text-white rounded-xl font-bold text-xs shadow-lg transition-all ${timeModal.statusType === 'TERLAMBAT' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200 dark:shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'}`}
               >
                 {timeModal.statusType === 'TERLAMBAT' ? 'Simpan Terlambat' : 'Simpan Hadir'}

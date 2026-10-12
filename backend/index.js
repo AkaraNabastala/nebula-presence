@@ -7,14 +7,14 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const express = require('express');
-const http = require('http'); // <-- TAMBAHAN: http module
-const { Server } = require('socket.io'); // <-- TAMBAHAN: socket.io
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
-const cookieParser = require('cookie-parser'); // <-- TAMBAHAN 1: Cookie Parser
+const cookieParser = require('cookie-parser');
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 const authGuard = require('./middleware/authGuard');
@@ -29,35 +29,34 @@ const ZKLib = require('node-zklib');
 const app = express();
 const PORT = process.env.PORT || 6990;
 
-// --- PERBAIKAN PATH (PENTING UNTUK EXE STANDALONE) ---
-// Menggunakan process.cwd() agar aplikasi mencari folder dist di mana file .exe dijalankan
+// Path frontend static untuk mode .exe standalone
 const FRONTEND_BUILD_PATH = path.join(process.cwd(), 'dist');
 
 // --- 2. MIDDLEWARE KEAMANAN & OPTIMASI ---
-app.use(helmet({ 
-    contentSecurityPolicy: false, 
+app.use(helmet({
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: false, // Nonaktifkan isolasi opener agar socket lancar di IP LAN
-    crossOriginResourcePolicy: false // Nonaktifkan isolasi resource
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false
 }));
-app.use(compression()); 
-app.use(cookieParser()); // <-- TAMBAHAN 2: Gunakan Cookie Parser untuk baca token
+app.use(compression());
+app.use(cookieParser());
 
 // --- 3. KONFIGURASI CORS ---
 const corsOptions = {
     origin: function (origin, callback) {
-        if (!origin || 
-            origin.startsWith('http://localhost') || 
-            origin.startsWith('http://127.0.0.1') || 
-            origin.startsWith('http://192.168.') || 
-            origin.startsWith('http://10.') || 
+        if (!origin ||
+            origin.startsWith('http://localhost') ||
+            origin.startsWith('http://127.0.0.1') ||
+            origin.startsWith('http://192.168.') ||
+            origin.startsWith('http://10.') ||
             origin.startsWith('http://172.')) {
             return callback(null, true);
         }
         callback(new Error('Akses Ditolak oleh CORS Policy'));
     },
     credentials: true,
-    exposedHeaders: ['Content-Disposition'] 
+    exposedHeaders: ['Content-Disposition']
 };
 
 app.use(cors(corsOptions));
@@ -65,21 +64,15 @@ app.use(express.json({ limit: '70mb' }));
 app.use(express.urlencoded({ limit: '70mb', extended: true }));
 
 // --- 4. ROUTING ---
-
-// A. API Routes
-app.use('/api', strictGuard, apiRoutes); 
-
-// B. File Statis
+app.use('/api', strictGuard, apiRoutes);
 app.use(express.static(FRONTEND_BUILD_PATH));
 
-// C. FALLBACK ROUTE
+// Fallback Route untuk Single Page Application
 app.use((req, res, next) => {
     if (req.url.startsWith('/api')) {
         return next();
     }
-
     const indexPath = path.join(FRONTEND_BUILD_PATH, 'index.html');
-    
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
@@ -94,17 +87,17 @@ app.use((req, res, next) => {
     }
 });
 
-// --- 5. GLOBAL ERROR HANDLING ---
+// Global Error Handler
 app.use((err, req, res, next) => {
     console.error('❌ Server Error:', err.message);
     if (res.headersSent) return next(err);
-    res.status(500).json({ 
+    res.status(500).json({
         status: 'error',
-        message: "Terjadi kesalahan internal pada server." 
+        message: "Terjadi kesalahan internal pada server."
     });
 });
 
-// --- 6. ZKTECO REAL-TIME LISTENER ---
+// --- 5. ZKTECO REAL-TIME LISTENER ---
 const { processScanCore } = require('./controllers/attendanceController');
 
 const startZKTecoRealtime = async (io) => {
@@ -117,7 +110,7 @@ const startZKTecoRealtime = async (io) => {
                     zkInstance = new ZKLib(dev.ip_address, dev.port || 4370, 5200, 5000);
                     await zkInstance.createSocket();
                     console.log(`[Mesin Kehadiran] Siaga Real-Time di mesin: ${dev.name} (${dev.ip_address}:${dev.port || 4370})`);
-                    
+
                     await zkInstance.getRealTimeLogs(async (log) => {
                         if (log && (log.userId || log.deviceUserId)) {
                             const uid = log.userId || log.deviceUserId;
@@ -131,7 +124,7 @@ const startZKTecoRealtime = async (io) => {
                     });
                 } catch (err) {
                     console.log(`[Mesin Kehadiran] Gagal/Terputus dari ${dev.name} (${err.message || err}), mencoba lagi dalam 15 detik...`);
-                    try { if (zkInstance) await zkInstance.disconnect(); } catch (e) {}
+                    try { if (zkInstance) await zkInstance.disconnect(); } catch (e) { }
                     setTimeout(connectAndListen, 15000);
                 }
             };
@@ -142,26 +135,32 @@ const startZKTecoRealtime = async (io) => {
     }
 };
 
-// --- 7. BOOTSTRAP (START SERVER) ---
+// --- 6. BOOTSTRAP (START SERVER) ---
 const startServer = async () => {
     console.log(`=================================================`);
     console.log(`🛠️  Starting SI-MAS Standalone Server...`);
-    
+
     try {
-        // Setup database
+        // Setup database lokal & index
         await initSystem();
 
-        // Start Cron Jobs
+        // Start Cron Jobs (Auto Alfa)
         initAutoAlfa();
 
         // BUNGKUS DENGAN HTTP SERVER UNTUK SOCKET.IO
         const server = http.createServer(app);
-        
-        // SETUP SOCKET.IO
         const io = new Server(server, { cors: corsOptions });
-        app.set('io', io); // Simpan io di express instance agar bisa diakses di controller
+        app.set('io', io);
 
-        // START ZKTECO REAL-TIME & AUTO-SYNC DATA MESIN SAAT SERVER MENYALA
+        // 1. Start Telegram Bot Auto-Linking & Background Worker
+        const { startTelegramPolling } = require('./utils/notificationService');
+        startTelegramPolling(pool, io);
+
+        // 2. Start Cloud Sync Worker (Local-First Offline-Ready Engine)
+        const { startCloudSyncWorker } = require('./services/cloudSyncService');
+        startCloudSyncWorker(pool, io);
+
+        // 3. Start ZKTeco Real-Time Listener & Penarikan Otomatis
         startZKTecoRealtime(io);
         const { performAutoSyncDevices } = require('./controllers/deviceController');
         setTimeout(() => {
@@ -175,16 +174,14 @@ const startServer = async () => {
             });
         });
 
-        // Menggunakan PORT tetap (6990) agar sinkron dengan Vite proxy di frontend
-        // Menggunakan 0.0.0.0 agar dapat diakses oleh komputer lain di jaringan LAN
         server.listen(PORT, '0.0.0.0', () => {
             const assignedPort = server.address().port;
             console.log(`🚀 Server Running on Port: ${assignedPort}`);
             console.log(`🌍 URL: http://localhost:${assignedPort}`);
             console.log(`📁 Frontend Path: ${FRONTEND_BUILD_PATH}`);
             console.log(`=================================================`);
-            
-            // Buka browser otomatis di Windows dengan sedikit delay agar Socket.io siap sepenuhnya (Permasalahan 1)
+
+            // Buka browser otomatis di Windows
             const { exec } = require('child_process');
             setTimeout(() => {
                 exec(`start http://localhost:${assignedPort}`);
@@ -197,7 +194,6 @@ const startServer = async () => {
         process.exit(1);
     }
 };
-
 
 if (process.env.NODE_ENV !== 'test') {
     startServer();

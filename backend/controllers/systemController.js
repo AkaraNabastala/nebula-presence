@@ -72,7 +72,7 @@ exports.uploadPhotoBase64 = async (req, res) => {
 
     try {
         // PERBAIKAN: Gunakan tabel members dan identity_number
-        await pool.query('UPDATE members SET photo=$1 WHERE identity_number=$2', [foto, nipd]);
+        await pool.query('UPDATE members SET photo=$1, is_synced=0 WHERE identity_number=$2', [foto, nipd]);
         await addAuditLog(req.user?.nama_admin || 'Admin', 'Update Foto Profil', `NIPD/NISN: ${nipd}`);
         res.json({ success: true });
     } catch (e) {

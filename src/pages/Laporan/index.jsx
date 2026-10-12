@@ -20,11 +20,19 @@ const Laporan = () => {
 
     const [appConfig, setAppConfig] = useState({
         timezone: 'Asia/Jakarta',
+        app_mode: 'edukasi',
         nama_instansi: 'Instansi',
         alamat_instansi: 'Alamat Belum Diatur',
         logo_instansi: '',
-        labels: { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' },
+        labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' },
     });
+
+    const labelKelompok = (appConfig.labels?.label_kelompok && appConfig.labels?.label_kelompok !== 'Kelompok')
+        ? appConfig.labels.label_kelompok
+        : (appConfig.app_mode === 'korporat' ? 'Divisi' : 'Kelas');
+    const labelPengguna = (appConfig.labels?.label_pengguna && appConfig.labels?.label_pengguna !== 'Pengguna')
+        ? appConfig.labels.label_pengguna
+        : (appConfig.app_mode === 'korporat' ? 'Karyawan' : 'Siswa');
 
     useEffect(() => {
         const init = async () => {
@@ -32,12 +40,17 @@ const Laporan = () => {
                 // Load Settings
                 const resSet = await api.get('/settings');
                 const tz = resSet.data.timezone || 'Asia/Jakarta';
+                const isEdu = (resSet.data.app_mode || 'edukasi') === 'edukasi';
                 setAppConfig({
                     timezone: tz,
+                    app_mode: resSet.data.app_mode || 'edukasi',
                     nama_instansi: resSet.data.nama_sekolah || resSet.data.nama_instansi || 'Instansi',
                     alamat_instansi: resSet.data.alamat_sekolah || resSet.data.alamat_instansi || 'Alamat Instansi',
                     logo_instansi: resSet.data.logo_sekolah || resSet.data.logo_instansi || '',
-                    labels: resSet.data.labels || { label_pengguna: 'Pengguna', label_kelompok: 'Kelompok' },
+                    labels: resSet.data.labels || {
+                        label_pengguna: isEdu ? 'Siswa' : 'Karyawan',
+                        label_kelompok: isEdu ? 'Kelas' : 'Divisi'
+                    },
                 });
 
                 // Set Default Date
@@ -47,7 +60,7 @@ const Laporan = () => {
 
                 // Load Classes
                 const resCls = await api.get('/divisions');
-                setClasses(resCls.data);
+                setClasses(resCls.data?.data || (Array.isArray(resCls.data) ? resCls.data : []));
 
                 // Fetch Laporan Default (Hari ini, Semua Kelas)
                 setLoading(true);
@@ -133,7 +146,7 @@ const Laporan = () => {
                 [appConfig.nama_instansi ? appConfig.nama_instansi.toUpperCase() : "INSTANSI"],
                 ["LAPORAN REKAP ABSENSI BULANAN"],
                 [`Periode: ${formatTgl(startDate)} - ${formatTgl(endDate)}`],
-                [`Kelompok: ${selectedClass || 'SEMUA'}`],
+                [`${labelKelompok}: ${selectedClass || 'SEMUA'}`],
                 [],
                 ["NO", "ID", "NAMA LENGKAP", "MASUK", "PULANG", "STATUS"]
             ];
@@ -249,11 +262,11 @@ const Laporan = () => {
                     </div>
                     <div className="w-full md:w-64">
                         <label htmlFor="laporan-class-select" className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase ml-1 mb-1.5 block flex items-center gap-1">
-                            <Building2 size={12} /> {appConfig.labels?.label_kelompok || 'Kelompok'}
+                            <Building2 size={12} /> {labelKelompok}
                         </label>
                         <div className="relative">
                             <select id="laporan-class-select" name="laporan_class" value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full px-4 py-2.5 border border-gray-200 dark:border-slate-600 rounded-xl outline-none focus:border-blue-500 text-sm font-bold bg-white dark:bg-slate-700 appearance-none cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 transition-all text-slate-800 dark:text-slate-200">
-                                <option value="">Semua {appConfig.labels?.label_kelompok || 'Kelompok'}</option>
+                                <option value="">Semua {labelKelompok}</option>
                                 {classes.map(c => <option key={c.id} value={c.nama_kelas}>{c.nama_kelas}</option>)}
                             </select>
                             <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={16} />
@@ -279,9 +292,9 @@ const Laporan = () => {
                                     <th className="p-5 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" onClick={() => {
                                         setSortConfig({ key: 'nama_lengkap', direction: sortConfig.key === 'nama_lengkap' && sortConfig.direction === 'asc' ? 'desc' : 'asc' });
                                     }}>
-                                        Nama {appConfig.labels?.label_pengguna || 'Pengguna'} {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                                        Nama {labelPengguna} {sortConfig.key === 'nama_lengkap' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                                     </th>
-                                    <th className="p-5">{appConfig.labels?.label_kelompok || 'Kelompok'}</th>
+                                    <th className="p-5">{labelKelompok}</th>
                                     <th className="p-5 text-center">Masuk</th>
                                     <th className="p-5 text-center">Pulang</th>
                                     <th className="p-5 text-center">Status</th>
