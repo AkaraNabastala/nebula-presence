@@ -1,0 +1,71 @@
+import React, { useState } from 'react';
+import { BookOpen, Users, CalendarDays, FileUp } from 'lucide-react';
+
+const tabs = [
+  { id: 'jadwal', label: 'Jadwal Mengajar', icon: CalendarDays },
+  { id: 'penugasan', label: 'Penugasan Guru', icon: Users },
+  { id: 'mapel', label: 'Mata Pelajaran', icon: BookOpen },
+];
+
+const pages = {
+  jadwal: React.lazy(() => import('./JadwalPembelajaran.jsx')),
+  penugasan: React.lazy(() => import('./JurnalMengajar.jsx')),
+  mapel: React.lazy(() => import('./Subjects.jsx')),
+};
+
+export default function Akademik() {
+  const [activeTab, setActiveTab] = useState('jadwal');
+  const ActivePage = pages[activeTab];
+
+  return (
+    <div className="space-y-5 p-4 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+            Akademik
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Kelola mata pelajaran, penugasan guru, dan jadwal mengajar dari satu menu.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => alert('Fitur Import Excel akan diimplementasikan pada tahap berikutnya.')}
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          <FileUp size={17} />
+          Import Excel
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+              activeTab === id
+                ? 'bg-violet-600 text-white'
+                : 'border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Icon size={17} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <React.Suspense
+        fallback={
+          <div className="rounded-xl border border-slate-200 p-6 text-sm text-slate-500 dark:border-slate-700">
+            Memuat halaman akademik...
+          </div>
+        }
+      >
+        <ActivePage />
+      </React.Suspense>
+    </div>
+  );
+}

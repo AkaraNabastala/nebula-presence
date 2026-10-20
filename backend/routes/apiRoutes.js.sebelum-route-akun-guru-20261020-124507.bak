@@ -1,0 +1,189 @@
+const express = require('express');
+const router = express.Router();
+const rateLimit = require('express-rate-limit');
+
+// Controller (Gunakan path absolut atau pastikan nama file benar)
+const authController = require('../controllers/authController');
+const attendanceController = require('../controllers/attendanceController');
+const masterController = require('../controllers/masterController');
+const licenseController = require('../controllers/licenseController');
+const systemController = require('../controllers/systemController');
+const deviceController = require('../controllers/deviceController');
+const holidaysController = require('../controllers/holidaysController');
+const extracurricularController = require('../controllers/extracurricularController');
+const academicController = require('../controllers/academicController');
+const jadwalMapelController = require('../controllers/jadwalMapelController');
+
+// Middleware
+const upload = require('../middleware/upload');
+const authGuard = require('../middleware/authGuard');
+const roleGuard = require('../middleware/roleGuard');
+
+// Rate Limiter
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: { message: "Terlalu banyak percobaan login." }
+});
+// 1. PUBLIC ROUTES
+router.get('/license-status', (req, res) => licenseController.checkStatus(req, res));
+router.post('/activation', (req, res) => licenseController.activate(req, res));
+router.post('/login', loginLimiter, (req, res) => authController.login(req, res));
+router.post('/logout', (req, res) => authController.logout(req, res));
+router.get('/settings', (req, res) => masterController.getSettings(req, res));
+router.post('/scan', (req, res, next) => {
+    console.log('[SCAN DEBUG] Rute /scan ditemukan');
+    attendanceController.scanRFID(req, res, next);
+});
+router.post('/reset-password', (req, res) => authController.resetPassword(req, res));
+router.get('/members/faces', (req, res) => masterController.getFaceMembers(req, res));
+
+// 2. PROTECTED ROUTES
+router.use(authGuard);
+
+// MONITORING EKSTRAKURIKULER
+router.get('/extracurriculars', (req, res) =>
+    extracurricularController.getAll(req, res)
+);
+router.post('/extracurriculars', roleGuard(['SuperAdmin']), (req, res) =>
+    extracurricularController.create(req, res)
+);
+
+router.get('/extracurriculars/attendance', (req, res) =>
+    extracurricularController.getAttendance(req, res)
+);
+router.post('/extracurriculars/attendance', (req, res) =>
+    extracurricularController.saveAttendance(req, res)
+);
+
+router.post('/extracurriculars/attendance/bulk', (req, res) =>
+    extracurricularController.saveAttendanceBulk(req, res)
+);
+
+router.get('/extracurriculars/journals', (req, res) =>
+    extracurricularController.getJournals(req, res)
+);
+
+router.get('/extracurriculars/members', (req, res) =>
+    extracurricularController.getExtracurricularMembers(req, res)
+);
+
+router.post('/extracurriculars/members', (req, res) =>
+    extracurricularController.saveExtracurricularMembers(req, res)
+);
+
+router.post('/extracurriculars/journals', (req, res) =>
+    extracurricularController.createJournal(req, res)
+);
+
+// TEST & INFO NOTIFIKASI TELEGRAM
+const { sendTelegram, getBotInfo } = require('../utils/notificationService');
+
+router.get('/notifications/bot-info', (req, res) => {
+    res.json(getBotInfo());
+});
+
+router.post('/notifications/test-telegram', async (req, res) => {
+    try {
+        const { bot_token, chat_id } = req.body;
+        if (!bot_token || !chat_id) {
+            return res.status(400).json({ success: false, message: "Bot Token dan Chat ID wajib diisi." });
+        }
+
+        const botId = String(bot_token).split(':')[0].trim();
+        const cleanChatId = String(chat_id).replace(/[^0-9-]/g, '').trim();
+
+        // Cegah jika pengguna memasukkan ID bot ke kolom chat_id
+        if (botId && cleanChatId === botId) {
+            return res.status(400).json({
+                success: false,
+                message: "Chat ID yang Anda masukkan adalah ID Bot Anda sendiri! Bot Telegram tidak bisa mengirim pesan ke dirinya sendiri. Masukkan Chat ID akun Telegram pribadi Anda atau ID Grup."
+            });
+        }
+
+        const result = await sendTelegram(
+            bot_token,
+            cleanChatId,
+            "🤖 <b>Koneksi Berhasil!</b>\n\nSistem Notifikasi Presensi telah terhubung dengan Bot Telegram Anda."
+        );
+        if (result.success) {
+            return res.json({ success: true, message: "Pesan uji coba berhasil terkirim ke Telegram!" });
+        } else {
+            let errorMsg = result.message || "Gagal mengirim ke Telegram.";
+            if (errorMsg.includes("bot can't send messages to the bot")) {
+                errorMsg = "Chat ID yang dimasukkan adalah ID Bot! Masukkan Chat ID akun Telegram pribadi Anda (orang) atau ID Grup. Buka bot Anda di Telegram dan ketik /start untuk melihat Chat ID Anda.";
+            } else if (errorMsg.includes("chat not found")) {
+                errorMsg = "Chat ID tidak ditemukan. Pastikan Anda sudah membuka bot Telegram tersebut dan menekan tombol START terlebih dahulu!";
+            } else if (errorMsg.includes("bot was blocked by the user")) {
+                errorMsg = "Bot diblokir oleh akun Telegram ini. Silakan buka blokir bot di Telegram Anda.";
+            }
+            return res.status(400).json({ success: false, message: errorMsg });
+        }
+    } catch (err) {
+        console.error("Test Telegram Route Error:", err);
+        return res.status(400).json({ success: false, message: "Gagal memproses tes: " + err.message });
+    }
+});
+
+router.put('/profile', (req, res) => authController.updateProfile(req, res));
+// CLOUD SYNC (Local-First Offline-Ready Engine)
+const cloudSyncController = require('../controllers/cloudSyncController');
+router.get('/cloud-sync/status', (req, res) => cloudSyncController.getStatus(req, res));
+router.post('/cloud-sync/trigger', (req, res) => cloudSyncController.triggerSync(req, res));
+router.post('/cloud-sync/settings', roleGuard(['SuperAdmin']), (req, res) => cloudSyncController.saveSettings(req, res));
+
+// ATTENDANCE
+router.get('/dashboard', (req, res) => attendanceController.getDashboardStats(req, res));
+router.get('/attendance/report', (req, res) => attendanceController.getReport(req, res));
+router.get('/attendance/daily', (req, res) => attendanceController.getDailyAttendance(req, res));
+router.post('/attendance/manual', (req, res) => attendanceController.manualAttendance(req, res));
+router.get('/attendance/unclosed-notifications', (req, res) => attendanceController.getUnclosedNotifications(req, res));
+
+
+// AKADEMIK - MATA PELAJARAN DAN JADWAL PEMBELAJARAN
+router.get('/subjects', (req, res) => academicController.getSubjects(req, res));
+router.post('/subjects', (req, res) => academicController.createSubject(req, res));
+router.put('/subjects/:id', (req, res) => academicController.updateSubject(req, res));
+router.patch('/subjects/:id/status', (req, res) => academicController.setSubjectStatus(req, res));
+router.delete('/subjects/:id', (req, res) => academicController.deleteSubject(req, res));
+router.get('/teaching-assignments', (req, res) => academicController.getTeachingAssignments(req, res));
+router.post('/teaching-assignments', (req, res) => academicController.createTeachingAssignment(req, res));
+router.patch('/teaching-assignments/:id/status', (req, res) => academicController.setTeachingAssignmentStatus(req, res));
+router.get('/teaching-schedules', (req, res) => jadwalMapelController.getSchedules(req, res));
+router.post('/teaching-schedules', (req, res) => jadwalMapelController.createSchedule(req, res));
+router.put('/teaching-schedules/:id', (req, res) => jadwalMapelController.updateSchedule(req, res));
+router.patch('/teaching-schedules/:id/status', (req, res) => jadwalMapelController.setScheduleStatus(req, res));
+
+// MASTER DATA MEMBERS
+router.get('/members', (req, res) => masterController.getAllMembers(req, res));
+router.post('/members', (req, res) => masterController.createMember(req, res));
+router.post('/members/import', upload.single('excel_file'), (req, res) => masterController.importMembers(req, res));
+router.put('/members/:id', (req, res) => masterController.updateMember(req, res));
+router.delete('/members/:id', (req, res) => masterController.deleteMember(req, res));
+router.post('/members/upload-photo', (req, res) => systemController.uploadPhotoBase64(req, res));
+
+// MASTER DATA DIVISIONS
+router.get('/divisions', (req, res) => masterController.getAllDivisions(req, res));
+router.post('/divisions', (req, res) => masterController.createDivision(req, res));
+router.put('/divisions/:id', (req, res) => masterController.updateDivision(req, res));
+router.delete('/divisions/:id', (req, res) => masterController.deleteDivision(req, res));
+
+// HOLIDAYS (Kalender Libur)
+router.get('/holidays', (req, res) => holidaysController.getHolidays(req, res));
+router.post('/holidays', roleGuard(['SuperAdmin']), (req, res) => holidaysController.addHoliday(req, res));
+router.delete('/holidays/:id', roleGuard(['SuperAdmin']), (req, res) => holidaysController.deleteHoliday(req, res));
+
+// SYSTEM (Hanya SuperAdmin)
+router.post('/settings', roleGuard(['SuperAdmin']), (req, res) => masterController.updateSettings(req, res));
+router.get('/backup', roleGuard(['SuperAdmin']), (req, res) => systemController.backupDatabase(req, res));
+router.post('/restore', roleGuard(['SuperAdmin']), upload.single('backup_file'), (req, res) => systemController.restoreDatabase(req, res));
+router.get('/audit-logs', roleGuard(['SuperAdmin']), (req, res) => systemController.getAuditLogs(req, res));
+
+// DEVICES (Hanya SuperAdmin)
+router.get('/devices', roleGuard(['SuperAdmin']), (req, res) => deviceController.getAllDevices(req, res));
+router.post('/devices', roleGuard(['SuperAdmin']), (req, res) => deviceController.addDevice(req, res));
+router.delete('/devices/:id', roleGuard(['SuperAdmin']), (req, res) => deviceController.deleteDevice(req, res));
+router.post('/devices/test', roleGuard(['SuperAdmin']), (req, res) => deviceController.testConnection(req, res));
+router.post('/devices/sync', roleGuard(['SuperAdmin']), (req, res) => deviceController.syncDeviceLogs(req, res));
+
+module.exports = router;

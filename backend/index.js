@@ -30,7 +30,7 @@ const app = express();
 const PORT = process.env.PORT || 6990;
 
 // Path frontend static untuk mode .exe standalone
-const FRONTEND_BUILD_PATH = path.join(process.cwd(), 'dist');
+const FRONTEND_BUILD_PATH = path.resolve(__dirname, '../dist');
 
 // --- 2. MIDDLEWARE KEAMANAN & OPTIMASI ---
 app.use(helmet({
@@ -64,7 +64,17 @@ app.use(express.json({ limit: '70mb' }));
 app.use(express.urlencoded({ limit: '70mb', extended: true }));
 
 // --- 4. ROUTING ---
-app.use('/api', strictGuard, apiRoutes);
+app.use('/api', (req, res, next) => {
+    if (req.path === '/scan') {
+        console.log('[SCAN DEBUG] Masuk ke middleware API');
+    }
+    next();
+}, strictGuard, (req, res, next) => {
+    if (req.path === '/scan') {
+        console.log('[SCAN DEBUG] Lolos strictGuard');
+    }
+    next();
+}, apiRoutes);
 app.use(express.static(FRONTEND_BUILD_PATH));
 
 // Fallback Route untuk Single Page Application

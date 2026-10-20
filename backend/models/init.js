@@ -66,6 +66,79 @@ const initSystem = async () => {
                 last_error TEXT
             );`);
 
+                        // 10. Master Ekstrakurikuler
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS extracurriculars (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) UNIQUE NOT NULL,
+                    supervisor_name VARCHAR(100),
+                    schedule VARCHAR(100),
+                    description TEXT,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
+            // Relasi opsional ke guru Pembina; data lama tetap dipertahankan.
+            try {
+                await client.query(`
+                    ALTER TABLE extracurriculars
+                    ADD COLUMN supervisor_id INTEGER
+                    REFERENCES members(id) ON DELETE SET NULL;
+                `);
+            } catch (e) {
+                if (!String(e.message || '').toLowerCase().includes('duplicate column')) {
+                    throw e;
+                }
+            }
+
+            // 11. Anggota dan Absensi Ekstrakurikuler
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS extracurricular_attendance (
+                    id SERIAL PRIMARY KEY,
+                    extracurricular_id INTEGER NOT NULL
+                        REFERENCES extracurriculars(id) ON DELETE CASCADE,
+                    member_id INTEGER NOT NULL
+                        REFERENCES members(id) ON DELETE CASCADE,
+                    attendance_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    status VARCHAR(20) NOT NULL DEFAULT 'Hadir',
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (extracurricular_id, member_id, attendance_date)
+                );
+            `);
+            
+            // 11b. Anggota Tetap Ekstrakurikuler
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS extracurricular_members (
+                    id SERIAL PRIMARY KEY,
+                    extracurricular_id INTEGER NOT NULL
+                        REFERENCES extracurriculars(id) ON DELETE CASCADE,
+                    member_id INTEGER NOT NULL
+                        REFERENCES members(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (extracurricular_id, member_id)
+                );
+            `);
+
+
+            // 12. Jurnal Kegiatan Ekstrakurikuler
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS extracurricular_journals (
+                    id SERIAL PRIMARY KEY,
+                    extracurricular_id INTEGER NOT NULL
+                        REFERENCES extracurriculars(id) ON DELETE CASCADE,
+                    activity_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    start_time TIME,
+                    end_time TIME,
+                    topic VARCHAR(200) NOT NULL,
+                    activity_description TEXT,
+                    attendance_count INTEGER DEFAULT 0,
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
             // Index Performa untuk Pencarian Cepat & Sinkronisasi Cloud
             try { await client.query(`CREATE INDEX IF NOT EXISTS idx_attendance_logs_lookup ON attendance_logs (member_id, date_log);`); } catch (e) { }
             try { await client.query(`CREATE INDEX IF NOT EXISTS idx_attendance_logs_sync ON attendance_logs (is_synced, date_log);`); } catch (e) { }
@@ -106,6 +179,144 @@ const initSystem = async () => {
                 }
             } catch (e) { }
 
+            // 13. Master Mata Pelajaran
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS subjects (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    code TEXT,
+                    is_active INTEGER NOT NULL DEFAULT 1
+                        CHECK (is_active IN (0, 1)),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
+            await client.query(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_subjects_code
+                ON subjects (code)
+                WHERE code IS NOT NULL AND TRIM(code) != '';
+            `);
+
+            // 14. Penugasan Guru per Kelas, Mapel, Tahun Ajaran, Semester
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS teaching_assignments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    teacher_id INTEGER NOT NULL
+                        REFERENCES members(id) ON DELETE RESTRICT,
+                    division_id INTEGER NOT NULL
+                        REFERENCES divisions(id) ON DELETE RESTRICT,
+                    subject_id INTEGER NOT NULL
+                        REFERENCES subjects(id) ON DELETE RESTRICT,
+                    academic_year TEXT NOT NULL,
+                    semester INTEGER NOT NULL
+                        CHECK (semester IN (1, 2)),
+                    is_active INTEGER NOT NULL DEFAULT 1
+                        CHECK (is_active IN (0, 1)),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (
+                        teacher_id,
+                        division_id,
+                        subject_id,
+                        academic_year,
+                        semester
+                    )
+                );
+            `);
+
+            await client.query(`
+                CREATE INDEX IF NOT EXISTS idx_teaching_assignments_teacher
+                ON teaching_assignments (teacher_id, academic_year, semester);
+            `);
+
+            await client.query(`
+                CREATE INDEX IF NOT EXISTS idx_teaching_assignments_class_subject
+                ON teaching_assignments (
+                    division_id, subject_id, academic_year, semester
+                );
+            `);
+
+            // Jadwal mingguan yang terhubung ke penugasan guru.
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS teaching_schedules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    assignment_id INTEGER NOT NULL
+                        REFERENCES teaching_assignments(id) ON DELETE RESTRICT,
+                    day_of_week TEXT NOT NULL
+                        CHECK (day_of_week IN ('Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu')),
+                    start_time TEXT NOT NULL,
+                    end_time TEXT NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1
+                        CHECK (is_active IN (0,1)),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CHECK (start_time >= '00:00' AND start_time <= '23:59'),
+                    CHECK (end_time >= '00:00' AND end_time <= '23:59'),
+                    CHECK (start_time < end_time)
+                );
+            `);
+
+            await client.query(`
+                CREATE INDEX IF NOT EXISTS idx_teaching_schedules_assignment
+                ON teaching_schedules(assignment_id, day_of_week, is_active);
+            `);
+
+
+            // Tabel tambahan jurnal pembelajaran; tabel lama tetap dipertahankan.
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS teacher_accounts (
+                    id SERIAL PRIMARY KEY,
+                    member_id INTEGER NOT NULL UNIQUE REFERENCES members(id) ON DELETE RESTRICT,
+                    username VARCHAR(80) NOT NULL UNIQUE,
+                    password_hash VARCHAR(255) NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS lesson_journals (
+                    id SERIAL PRIMARY KEY,
+                    schedule_id INTEGER NOT NULL REFERENCES teaching_schedules(id) ON DELETE RESTRICT,
+                    lesson_date DATE NOT NULL,
+                    assigned_teacher_id INTEGER NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+                    filled_by_teacher_id INTEGER NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+                    topic TEXT NOT NULL,
+                    materials TEXT,
+                    notes TEXT,
+                    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+                        CHECK (status IN ('DRAFT', 'SUBMITTED', 'CANCELLED')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (schedule_id, lesson_date)
+                );
+            `);
+
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS lesson_attendance (
+                    id SERIAL PRIMARY KEY,
+                    journal_id INTEGER NOT NULL REFERENCES lesson_journals(id) ON DELETE RESTRICT,
+                    student_id INTEGER NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+                    status VARCHAR(20) NOT NULL
+                        CHECK (status IN ('HADIR', 'IZIN', 'SAKIT', 'ALFA')),
+                    notes TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (journal_id, student_id)
+                );
+            `);
+
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS lesson_journal_audit (
+                    id SERIAL PRIMARY KEY,
+                    journal_id INTEGER NOT NULL REFERENCES lesson_journals(id) ON DELETE RESTRICT,
+                    actor_member_id INTEGER REFERENCES members(id) ON DELETE RESTRICT,
+                    action VARCHAR(50) NOT NULL,
+                    details TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            `);
+
             await client.query('COMMIT');
             console.log("✅ Struktur Database Siap & Local-First Columns Aktif.");
         } catch (e) {
@@ -120,7 +331,8 @@ const initSystem = async () => {
             await pool.query("INSERT INTO admins (username, password, nama_admin) VALUES ($1, $2, $3)", ['administrator', hash, 'Super Admin']);
         }
     } catch (err) {
-        console.error("❌ Init System Gagal:", err.message);
+        console.error("❌ Init System Gagal:", err);
+        throw err;
     }
 };
 

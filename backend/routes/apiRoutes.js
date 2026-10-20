@@ -10,6 +10,10 @@ const licenseController = require('../controllers/licenseController');
 const systemController = require('../controllers/systemController');
 const deviceController = require('../controllers/deviceController');
 const holidaysController = require('../controllers/holidaysController');
+const extracurricularController = require('../controllers/extracurricularController');
+const academicController = require('../controllers/academicController');
+const monitoringAkademikController = require('../controllers/monitoringAkademikController');
+const jadwalMapelController = require('../controllers/jadwalMapelController');
 
 // Middleware
 const upload = require('../middleware/upload');
@@ -28,12 +32,53 @@ router.post('/activation', (req, res) => licenseController.activate(req, res));
 router.post('/login', loginLimiter, (req, res) => authController.login(req, res));
 router.post('/logout', (req, res) => authController.logout(req, res));
 router.get('/settings', (req, res) => masterController.getSettings(req, res));
-router.post('/scan', (req, res) => attendanceController.scanRFID(req, res));
+router.post('/scan', (req, res, next) => {
+    console.log('[SCAN DEBUG] Rute /scan ditemukan');
+    attendanceController.scanRFID(req, res, next);
+});
 router.post('/reset-password', (req, res) => authController.resetPassword(req, res));
 router.get('/members/faces', (req, res) => masterController.getFaceMembers(req, res));
 
+// Route akun guru hanya dapat dibuat oleh SuperAdmin.
+
 // 2. PROTECTED ROUTES
 router.use(authGuard);
+
+// MONITORING EKSTRAKURIKULER
+router.get('/extracurriculars', (req, res) =>
+    extracurricularController.getAll(req, res)
+);
+router.post('/extracurriculars', roleGuard(['SuperAdmin']), (req, res) =>
+    extracurricularController.create(req, res)
+);
+
+router.get('/extracurriculars/attendance', (req, res) =>
+    extracurricularController.getAttendance(req, res)
+);
+router.post('/extracurriculars/attendance', (req, res) =>
+    extracurricularController.saveAttendance(req, res)
+);
+
+router.post('/extracurriculars/attendance/bulk', (req, res) =>
+    extracurricularController.saveAttendanceBulk(req, res)
+);
+
+router.get('/extracurriculars/journals', (req, res) =>
+    extracurricularController.getJournals(req, res)
+);
+
+router.get('/extracurriculars/members', (req, res) =>
+    extracurricularController.getExtracurricularMembers(req, res)
+);
+
+router.post('/extracurriculars/members', (req, res) =>
+    extracurricularController.saveExtracurricularMembers(req, res)
+);
+
+router.post('/extracurriculars/journals', (req, res) =>
+    extracurricularController.createJournal(req, res)
+);
+
 // TEST & INFO NOTIFIKASI TELEGRAM
 const { sendTelegram, getBotInfo } = require('../utils/notificationService');
 
@@ -96,6 +141,22 @@ router.get('/attendance/report', (req, res) => attendanceController.getReport(re
 router.get('/attendance/daily', (req, res) => attendanceController.getDailyAttendance(req, res));
 router.post('/attendance/manual', (req, res) => attendanceController.manualAttendance(req, res));
 router.get('/attendance/unclosed-notifications', (req, res) => attendanceController.getUnclosedNotifications(req, res));
+
+
+// AKADEMIK - MATA PELAJARAN DAN JADWAL PEMBELAJARAN
+router.get('/monitoring/academic', (req, res) => monitoringAkademikController.getAcademicMonitoring(req, res));
+router.get('/subjects', (req, res) => academicController.getSubjects(req, res));
+router.post('/subjects', (req, res) => academicController.createSubject(req, res));
+router.put('/subjects/:id', (req, res) => academicController.updateSubject(req, res));
+router.patch('/subjects/:id/status', (req, res) => academicController.setSubjectStatus(req, res));
+router.delete('/subjects/:id', (req, res) => academicController.deleteSubject(req, res));
+router.get('/teaching-assignments', (req, res) => academicController.getTeachingAssignments(req, res));
+router.post('/teaching-assignments', (req, res) => academicController.createTeachingAssignment(req, res));
+router.patch('/teaching-assignments/:id/status', (req, res) => academicController.setTeachingAssignmentStatus(req, res));
+router.get('/teaching-schedules', (req, res) => jadwalMapelController.getSchedules(req, res));
+router.post('/teaching-schedules', (req, res) => jadwalMapelController.createSchedule(req, res));
+router.put('/teaching-schedules/:id', (req, res) => jadwalMapelController.updateSchedule(req, res));
+router.patch('/teaching-schedules/:id/status', (req, res) => jadwalMapelController.setScheduleStatus(req, res));
 
 // MASTER DATA MEMBERS
 router.get('/members', (req, res) => masterController.getAllMembers(req, res));

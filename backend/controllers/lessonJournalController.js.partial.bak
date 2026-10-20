@@ -1,0 +1,17 @@
+const { pool } = require('../config/database');
+
+const VALID_ATTENDANCE = new Set(['HADIR', 'IZIN', 'SAKIT', 'ALFA']);
+const DAY_NAMES = [
+    'Minggu', 'Senin', 'Selasa', 'Rabu',
+    'Kamis', 'Jumat', 'Sabtu'
+];
+
+function teacherOnly(req, res) {
+        res.status(403).json({ message: 'Endpoint ini khusus akun guru.' });
+        return false;
+    }
+    return true;
+}
+
+function validDate(value) {
+    const date = new Date(

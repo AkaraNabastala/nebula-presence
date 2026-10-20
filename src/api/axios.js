@@ -27,7 +27,7 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 403) {
+    if (error.response?.status === 403 && error.response?.data?.isLocked === true) {
       window.dispatchEvent(new Event("licenseExpired"));
     }
     return Promise.reject(error);

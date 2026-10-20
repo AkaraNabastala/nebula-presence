@@ -277,7 +277,15 @@ exports.scanRFID = async (req, res) => {
     const io = req.app.get('io');
     const timeParam = req.body.scan_time || req.body.tanggal;
     const historicalDateObj = timeParam ? new Date(timeParam) : null;
-    const result = await exports.processScanCore(req.body.rfid_code, historicalDateObj, io);
+
+    console.log('[SCAN DEBUG] ID diterima:', req.body.rfid_code);
+
+    const result = await exports.processScanCore(
+        req.body.rfid_code,
+        historicalDateObj,
+        io
+    );
+
     if (result.success) {
         return res.json(result.data);
     } else {

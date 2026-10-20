@@ -1,0 +1,330 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { CalendarDays, Clock, Pencil, Power, Plus, RefreshCw } from 'lucide-react';
+import api from '../api/axios';
+
+const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+const EMPTY = {
+  assignment_id: '',
+  day_of_week: 'Senin',
+  start_time: '07:00',
+  end_time: '08:00',
+};
+
+function rowsOf(value) {
+  const result = value?.data ?? value;
+  return Array.isArray(result) ? result : [];
+}
+
+function errorMessage(error) {
+  return error?.response?.data?.message || error?.message || 'Terjadi kesalahan.';
+}
+
+export default function TeachingSchedules() {
+  const [assignments, setAssignments] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [dayFilter, setDayFilter] = useState('Semua');
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [assignmentResponse, scheduleResponse] = await Promise.all([
+        api.get('/teaching-assignments'),
+        api.get('/teaching-schedules'),
+      ]);
+      setAssignments(rowsOf(assignmentResponse).filter(item => Number(item.is_active) === 1));
+      setSchedules(rowsOf(scheduleResponse));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const selectedAssignment = assignments.find(
+    item => String(item.id) === String(form.assignment_id)
+  );
+
+  const resetForm = () => {
+    setForm(EMPTY);
+    setEditingId(null);
+  };
+
+  const save = async event => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    setNotice('');
+
+    try {
+      if (!form.assignment_id) {
+        throw new Error('Pilih penugasan guru terlebih dahulu.');
+      }
+      if (form.start_time >= form.end_time) {
+        throw new Error('Waktu selesai harus lebih akhir dari waktu mulai.');
+      }
+
+      const payload = {
+        assignment_id: Number(form.assignment_id),
+        day_of_week: form.day_of_week,
+        start_time: form.start_time,
+        end_time: form.end_time,
+      };
+
+      if (editingId) {
+        await api.put(`/teaching-schedules/${editingId}`, payload);
+        setNotice('Jadwal berhasil diperbarui.');
+      } else {
+        await api.post('/teaching-schedules', payload);
+        setNotice('Jadwal berhasil ditambahkan.');
+      }
+
+      resetForm();
+      await loadData();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const edit = item => {
+    setEditingId(item.id);
+    setForm({
+      assignment_id: String(item.assignment_id),
+      day_of_week: item.day_of_week,
+      start_time: item.start_time.slice(0, 5),
+      end_time: item.end_time.slice(0, 5),
+    });
+    setError('');
+    setNotice('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleStatus = async item => {
+    const nextStatus = Number(item.is_active) !== 1 ? 1 : 0;
+    const action = nextStatus ? 'mengaktifkan' : 'menonaktifkan';
+    if (!window.confirm(`Yakin ingin ${action} jadwal ini?`)) return;
+
+    setError('');
+    setNotice('');
+    try {
+      await api.patch(`/teaching-schedules/${item.id}/status`, {
+        is_active: nextStatus,
+      });
+      setNotice(`Jadwal berhasil ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`);
+      await loadData();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const visibleSchedules = schedules.filter(item =>
+    dayFilter === 'Semua' || item.day_of_week === dayFilter
+  );
+
+  return (
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Jadwal Mengajar</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Atur jadwal berdasarkan penugasan, hari, dan rentang waktu.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadData}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:hover:bg-gray-800"
+        >
+          <RefreshCw size={16} /> Muat ulang
+        </button>
+      </div>
+
+      {error && (
+        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-200">
+          {notice}
+        </div>
+      )}
+
+      <form onSubmit={save} className="space-y-4 rounded-xl border bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 md:p-5">
+        <div className="flex items-center gap-2">
+          {editingId ? <Pencil size={19} /> : <Plus size={19} />}
+          <h2 className="font-semibold">{editingId ? 'Edit Jadwal' : 'Tambah Jadwal'}</h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Penugasan Guru</span>
+            <select
+              required
+              value={form.assignment_id}
+              onChange={event => setForm({ ...form, assignment_id: event.target.value })}
+              className="w-full rounded-lg border bg-transparent p-2.5 dark:border-gray-600"
+            >
+              <option value="">Pilih guru, kelas, dan mapel</option>
+              {assignments.map(item => (
+                <option key={item.id} value={item.id}>
+                  {item.teacher_name} — {item.subject_name} — {item.division_name} ({item.academic_year}, Semester {item.semester})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Hari</span>
+            <select
+              value={form.day_of_week}
+              onChange={event => setForm({ ...form, day_of_week: event.target.value })}
+              className="w-full rounded-lg border bg-transparent p-2.5 dark:border-gray-600"
+            >
+              {DAYS.map(day => <option key={day} value={day}>{day}</option>)}
+            </select>
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Waktu Mulai</span>
+            <input
+              required type="time" value={form.start_time}
+              onChange={event => setForm({ ...form, start_time: event.target.value })}
+              className="w-full rounded-lg border bg-transparent p-2.5 dark:border-gray-600"
+            />
+          </label>
+
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Waktu Selesai</span>
+            <input
+              required type="time" value={form.end_time}
+              onChange={event => setForm({ ...form, end_time: event.target.value })}
+              className="w-full rounded-lg border bg-transparent p-2.5 dark:border-gray-600"
+            />
+          </label>
+        </div>
+
+        {selectedAssignment && (
+          <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            Jadwal ini untuk <strong>{selectedAssignment.teacher_name}</strong>, mata pelajaran{' '}
+            <strong>{selectedAssignment.subject_name}</strong> di kelas{' '}
+            <strong>{selectedAssignment.division_name}</strong>, tahun ajaran{' '}
+            <strong>{selectedAssignment.academic_year}</strong>, semester{' '}
+            <strong>{selectedAssignment.semester}</strong>.
+          </p>
+        )}
+
+        {assignments.length === 0 && !loading && (
+          <p className="text-sm text-amber-600">
+            Belum ada penugasan aktif. Buat atau aktifkan penugasan guru terlebih dahulu.
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={saving || loading || assignments.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            <CalendarDays size={16} />
+            {saving ? 'Menyimpan...' : editingId ? 'Simpan Perubahan' : 'Simpan Jadwal'}
+          </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} className="rounded-lg border px-4 py-2.5 text-sm">
+              Batal Edit
+            </button>
+          )}
+        </div>
+      </form>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Daftar Jadwal</h2>
+          <select
+            value={dayFilter}
+            onChange={event => setDayFilter(event.target.value)}
+            className="rounded-lg border bg-transparent px-3 py-2 text-sm dark:border-gray-600"
+            aria-label="Filter hari"
+          >
+            <option value="Semua">Semua hari</option>
+            {DAYS.map(day => <option key={day} value={day}>{day}</option>)}
+          </select>
+        </div>
+
+        {loading ? (
+          <p className="p-4 text-sm text-gray-500">Memuat jadwal...</p>
+        ) : visibleSchedules.length === 0 ? (
+          <div className="rounded-xl border p-8 text-center text-sm text-gray-500">
+            Belum ada jadwal pada pilihan hari ini.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="p-3">Hari / Waktu</th>
+                  <th className="p-3">Kelas / Mapel</th>
+                  <th className="p-3">Guru</th>
+                  <th className="p-3">Tahun / Semester</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleSchedules.map(item => {
+                  const active = Number(item.is_active) === 1;
+                  return (
+                    <tr key={item.id} className="border-t dark:border-gray-700">
+                      <td className="p-3">
+                        <div className="font-medium">{item.day_of_week}</div>
+                        <div className="mt-1 flex items-center gap-1 text-gray-500">
+                          <Clock size={14} />
+                          {String(item.start_time).slice(0, 5)}–{String(item.end_time).slice(0, 5)}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="font-medium">{item.division_name}</div>
+                        <div className="text-gray-500">{item.subject_name}</div>
+                      </td>
+                      <td className="p-3">{item.teacher_name}</td>
+                      <td className="p-3">
+                        {item.academic_year}
+                        <div className="text-gray-500">Semester {item.semester}</div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`rounded-full px-2 py-1 text-xs ${active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {active ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <button type="button" title="Edit jadwal" aria-label="Edit jadwal" onClick={() => edit(item)} className="rounded-lg border p-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <Pencil size={16} />
+                          </button>
+                          <button type="button" title={active ? 'Nonaktifkan jadwal' : 'Aktifkan jadwal'} aria-label={active ? 'Nonaktifkan jadwal' : 'Aktifkan jadwal'} onClick={() => toggleStatus(item)} className="rounded-lg border p-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <Power size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

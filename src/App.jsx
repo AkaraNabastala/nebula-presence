@@ -8,23 +8,30 @@ import MainLayout from './layouts/MainLayout';
 import LoadingScreen from './layouts/LoadingScreen';
 
 // --- LAZY LOAD PAGES ---
-const Absensi = React.lazy(() => import('./pages/Absensi')); 
-const Login = React.lazy(() => import('./pages/Login')); 
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const Classes = React.lazy(() => import('./pages/Classes'));
-const Students = React.lazy(() => import('./pages/Students'));
-const Settings = React.lazy(() => import('./pages/Settings'));
+const Absensi = React.lazy(() => import('./pages/Absensi.jsx')); 
+const Login = React.lazy(() => import('./pages/Login.jsx')); 
+const Dashboard = React.lazy(() => import('./pages/Dashboard.jsx'));
+const Classes = React.lazy(() => import('./pages/Classes.jsx'));
+const Students = React.lazy(() => import('./pages/Students.jsx'));
+const Settings = React.lazy(() => import('./pages/Settings.jsx'));
 const ManualAttendance = React.lazy(() => import('./pages/ManualAttendance'));
 const BackupPage = React.lazy(() => import('./pages/BackupPage'));
 const RestorePage = React.lazy(() => import('./pages/RestorePage'));
 const Laporan = React.lazy(() => import('./pages/Laporan'));
-const LaporanBulanan = React.lazy(() => import('./pages/Laporan/LaporanBulanan'));
+const LaporanBulanan = React.lazy(() => import('./pages/LaporanBulanan'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Database = React.lazy(() => import('./pages/Database'));
 const License = React.lazy(() => import('./pages/License')); 
 const Devices = React.lazy(() => import('./pages/Devices'));
 const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
 const Holidays = React.lazy(() => import('./pages/Holidays'));
+const Extracurricular = React.lazy(() => import('./pages/Extracurricular'));
+const PresensiEkskul = React.lazy(() => import('./pages/PresensiEkskul'));
+const JadwalPembelajaran = React.lazy(() => import('./pages/JadwalPembelajaran.jsx'));
+const Subjects = React.lazy(() => import('./pages/Subjects.jsx'));
+const MonitoringAkademik = React.lazy(
+    () => import('./pages/MonitoringAkademik.jsx')
+);
 
 import backgroundSekolah from './assets/gedung.jpg'; 
 
@@ -182,7 +189,7 @@ function App() {
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="members" element={<Students />} /> 
-            <Route path="divisions" element={<Classes />} /> 
+            <Route path="divisions" element={<Classes />} />
             <Route path="attendance-manual" element={<ManualAttendance />} />
             <Route path="reports" element={<Laporan />} />
             <Route path="reports-monthly" element={<LaporanBulanan />} />
@@ -195,6 +202,25 @@ function App() {
             <Route path="devices" element={<Devices />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="holidays" element={<Holidays />} />
+            <Route path="extracurricular" element={<Extracurricular />} />
+            <Route
+                path="presensi-ekskul"
+                element={
+                    <Navigate
+                        to="/admin/extracurricular"
+                        replace
+                    />
+                }
+            />
+
+            <Route
+                path="monitoring-akademik"
+                element={<MonitoringAkademik />}
+            />
+            <Route path="jadwal-pembelajaran" element={<JadwalPembelajaran />} />
+            <Route path="mata-pelajaran" element={<Subjects />} />
+            <Route path="monitoring-akademik" element={<MonitoringAkademik />} />
+          
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -1,0 +1,288 @@
+const { pool } = require('../config/database');
+
+const getErrorMessage = (error) =>
+    error.message || 'Terjadi kesalahan pada server.';
+
+exports.getSubjects = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT id, name, code, is_active, created_at, updated_at
+            FROM subjects
+            ORDER BY name ASC
+        `);
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Gagal mengambil mata pelajaran:', error);
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};
+
+exports.createSubject = async (req, res) => {
+    try {
+        const name = String(req.body.name || '').trim();
+        const code = String(req.body.code || '').trim() || null;
+
+        if (!name) {
+            return res.status(400).json({
+                message: 'Nama mata pelajaran wajib diisi.'
+            });
+        }
+
+        if (code) {
+            const existing = await pool.query(
+                'SELECT id FROM subjects WHERE code = $1',
+                [code]
+            );
+
+            if (existing.rows.length > 0) {
+                return res.status(409).json({
+                    message: 'Kode mata pelajaran sudah digunakan.'
+                });
+            }
+        }
+
+        const result = await pool.query(`
+            INSERT INTO subjects (name, code)
+            VALUES ($1, $2)
+            RETURNING id, name, code, is_active, created_at, updated_at
+        `, [name, code]);
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Gagal menambahkan mata pelajaran:', error);
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};
+
+exports.updateSubject = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const name = String(req.body.name || '').trim();
+        const code = String(req.body.code || '').trim() || null;
+
+        if (!Number.isInteger(id) || id < 1 || !name) {
+            return res.status(400).json({
+                message: 'ID dan nama mata pelajaran harus valid.'
+            });
+        }
+
+        if (code) {
+            const existing = await pool.query(
+                'SELECT id FROM subjects WHERE code = $1 AND id != $2',
+                [code, id]
+            );
+
+            if (existing.rows.length > 0) {
+                return res.status(409).json({
+                    message: 'Kode mata pelajaran sudah digunakan.'
+                });
+            }
+        }
+
+        const result = await pool.query(`
+            UPDATE subjects
+            SET name = $1, code = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+            RETURNING id, name, code, is_active, created_at, updated_at
+        `, [name, code, id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: 'Mata pelajaran tidak ditemukan.'
+            });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Gagal memperbarui mata pelajaran:', error);
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};
+
+exports.setSubjectStatus = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const isActive = req.body.is_active;
+
+        if (!Number.isInteger(id) || id < 1 ||
+            ![true, false, 1, 0].includes(isActive)) {
+            return res.status(400).json({
+                message: 'ID atau status mata pelajaran tidak valid.'
+            });
+        }
+
+        const result = await pool.query(`
+            UPDATE subjects
+            SET is_active = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING id, name, code, is_active, updated_at
+        `, [Number(Boolean(isActive)), id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: 'Mata pelajaran tidak ditemukan.'
+            });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Gagal mengubah status mata pelajaran:', error);
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};
+
+exports.getTeachingAssignments = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                ta.id,
+                ta.teacher_id,
+                teacher.full_name AS teacher_name,
+                ta.division_id,
+                d.name AS division_name,
+                ta.subject_id,
+                s.name AS subject_name,
+                s.code AS subject_code,
+                ta.academic_year,
+                ta.semester,
+                ta.is_active,
+                ta.created_at,
+                ta.updated_at
+            FROM teaching_assignments ta
+            JOIN members teacher ON teacher.id = ta.teacher_id
+            JOIN divisions d ON d.id = ta.division_id
+            JOIN subjects s ON s.id = ta.subject_id
+            ORDER BY ta.academic_year DESC, ta.semester, d.name, s.name,
+                     teacher.full_name
+        `);
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Gagal mengambil penugasan guru:', error);
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};
+
+exports.createTeachingAssignment = async (req, res) => {
+    try {
+        const teacherId = Number(req.body.teacher_id);
+        const divisionId = Number(req.body.division_id);
+        const subjectId = Number(req.body.subject_id);
+        const academicYear = String(req.body.academic_year || '').trim();
+        const semester = Number(req.body.semester);
+
+        if (
+            !Number.isInteger(teacherId) || teacherId < 1 ||
+            !Number.isInteger(divisionId) || divisionId < 1 ||
+            !Number.isInteger(subjectId) || subjectId < 1 ||
+            !academicYear ||
+            ![1, 2].includes(semester)
+        ) {
+            return res.status(400).json({
+                message: 'Guru, kelas, mata pelajaran, tahun ajaran, dan semester wajib valid.'
+            });
+        }
+
+        const teacher = await pool.query(
+            'SELECT id FROM members WHERE id = $1 AND role = $2',
+            [teacherId, 'guru']
+        );
+
+        if (teacher.rows.length === 0) {
+            return res.status(400).json({
+                message: 'Anggota yang dipilih bukan guru yang valid.'
+            });
+        }
+
+        const division = await pool.query(
+            'SELECT id FROM divisions WHERE id = $1',
+            [divisionId]
+        );
+
+        if (division.rows.length === 0) {
+            return res.status(400).json({
+                message: 'Kelas tidak ditemukan.'
+            });
+        }
+
+        const subject = await pool.query(
+            'SELECT id FROM subjects WHERE id = $1 AND is_active = 1',
+            [subjectId]
+        );
+
+        if (subject.rows.length === 0) {
+            return res.status(400).json({
+                message: 'Mata pelajaran tidak ditemukan atau tidak aktif.'
+            });
+        }
+
+        const duplicate = await pool.query(`
+            SELECT id
+            FROM teaching_assignments
+            WHERE teacher_id = $1
+              AND division_id = $2
+              AND subject_id = $3
+              AND academic_year = $4
+              AND semester = $5
+        `, [teacherId, divisionId, subjectId, academicYear, semester]);
+
+        if (duplicate.rows.length > 0) {
+            return res.status(409).json({
+                message: 'Penugasan yang sama sudah terdaftar untuk tahun ajaran dan semester tersebut.'
+            });
+        }
+
+        const result = await pool.query(`
+            INSERT INTO teaching_assignments (
+                teacher_id, division_id, subject_id, academic_year, semester
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `, [teacherId, divisionId, subjectId, academicYear, semester]);
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error('Gagal menambahkan penugasan guru:', error);
+
+        if (String(error.message).includes('UNIQUE constraint failed')) {
+            return res.status(409).json({
+                message: 'Penugasan tersebut sudah terdaftar.'
+            });
+        }
+
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};
+
+exports.setTeachingAssignmentStatus = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        const isActive = req.body.is_active;
+
+        if (!Number.isInteger(id) || id < 1 ||
+            ![true, false, 1, 0].includes(isActive)) {
+            return res.status(400).json({
+                message: 'ID atau status penugasan tidak valid.'
+            });
+        }
+
+        const result = await pool.query(`
+            UPDATE teaching_assignments
+            SET is_active = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `, [Number(Boolean(isActive)), id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: 'Penugasan guru tidak ditemukan.'
+            });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Gagal mengubah status penugasan:', error);
+        res.status(500).json({ message: getErrorMessage(error) });
+    }
+};

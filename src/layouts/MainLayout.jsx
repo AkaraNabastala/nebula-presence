@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Settings,
+  LayoutDashboard, ClipboardList, Settings, GraduationCap,
   LogOut, Menu, X, ChevronDown, Bell,
   Database, Users, Building2,
   AlertTriangle, ShieldCheck, Sun, Moon,
@@ -182,6 +182,16 @@ const MainLayout = () => {
       color: 'text-blue-500', activeBg: 'bg-blue-50 dark:bg-blue-900/30', activeText: 'text-blue-700 dark:text-blue-400'
     },
     {
+      name: 'Kegiatan', key: 'kegiatan', icon: GraduationCap,
+      color: 'text-amber-500', activeBg: 'bg-amber-50 dark:bg-amber-900/30',
+      activeText: 'text-amber-700 dark:text-amber-400',
+      subMenu: [
+        { name: 'Monitoring Ekskul', path: '/admin/extracurricular' },
+        { name: 'Jadwal Pembelajaran', path: '/admin/jadwal-pembelajaran' },
+        { name: 'Mata Pelajaran', path: '/admin/mata-pelajaran' },
+      ]
+    },  
+    {
       name: 'Data Master', key: 'master', icon: Database,
       color: 'text-violet-500', activeBg: 'bg-violet-50 dark:bg-violet-900/30', activeText: 'text-violet-700 dark:text-violet-400',
       subMenu: [
@@ -197,7 +207,8 @@ const MainLayout = () => {
         { name: 'Log Kehadiran', path: '/admin/attendance-manual' },
         { name: 'Laporan Harian', path: '/admin/reports' },
         { name: 'Laporan Bulanan', path: '/admin/reports-monthly' },
-      ]
+        { name: 'Monitoring Jurnal & Mapel', path: '/admin/monitoring-akademik' },
+              ]
     },
     {
       name: 'Pengaturan', key: 'system', icon: Settings,
@@ -238,6 +249,12 @@ const MainLayout = () => {
     if (path.includes('/holidays')) return { title: 'Kalender Libur', category: 'Data Master' };
     if (path.includes('/attendance-manual')) return { title: 'Log Kehadiran', category: 'Presensi' };
     if (path.includes('/reports-monthly')) return { title: 'Laporan Bulanan', category: 'Presensi' };
+    if (path.includes('/monitoring-akademik')) {
+  return {
+    title: 'Monitoring Jurnal & Mapel',
+    category: 'Presensi',
+  };
+}
     if (path.includes('/reports')) return { title: 'Laporan Harian', category: 'Presensi' };
     if (path.includes('/settings')) return { title: 'Pengaturan Sistem', category: 'Pengaturan' };
     if (path.includes('/database') || path.includes('/backup') || path.includes('/restore')) return { title: 'Manajemen Database', category: 'Pengaturan' };
@@ -250,7 +267,7 @@ const MainLayout = () => {
   };
 
   const pageInfo = getPageInfo();
-
+ 
   return (
     <div className="flex h-screen bg-slate-100 font-sans overflow-hidden text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300">
 
@@ -513,7 +530,7 @@ const MainLayout = () => {
                 })
               )}
             </div>
-
+            
             <div className="pt-3 border-t border-slate-100 dark:border-slate-700 text-center">
               <Link
                 to="/admin/reports"
