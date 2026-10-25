@@ -275,6 +275,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             }
         } catch (pullErr) {
             // Pertahankan cursor agar pembaruan remote dapat dicoba lagi pada siklus berikutnya.
+            pullSucceeded = false;
             console.warn("[Cloud Sync Pull Error]:", pullErr.message);
         }
 
