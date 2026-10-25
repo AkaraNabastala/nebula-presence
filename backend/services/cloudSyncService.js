@@ -282,9 +282,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const now = new Date();
         const nowStr = now.toISOString();
         const nowSql = nowStr.slice(0, 19).replace('T', ' ');
+        const syncStatus = pullSucceeded ? 'synced' : 'partial';
         await pool.query(
-            "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', 'synced'), ('cloud_sync_last_time', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
-            [nowStr]
+            "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', $1), ('cloud_sync_last_time', $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
+            [syncStatus, nowStr]
         );
 
         if (pullSucceeded) {
@@ -294,12 +295,20 @@ const performCloudSync = async (pool, io, isManual = false) => {
             );
         }
 
-        if (io) io.emit('cloud_sync_status', { state: 'synced', lastTime: nowStr, pushed: pushSuccessCount });
+        if (io) io.emit('cloud_sync_status', {
+            state: syncStatus,
+            lastTime: nowStr,
+            pushed: pushSuccessCount,
+            pullSucceeded
+        });
 
         return {
-            success: true,
-            message: `Berhasil sinkronisasi: ${pushSuccessCount} log terkirim ke Cloud.`,
-            pushed: pushSuccessCount
+            success: pullSucceeded,
+            message: pullSucceeded
+                ? `Berhasil sinkronisasi: ${pushSuccessCount} log terkirim ke Cloud dan pembaruan portal berhasil diperiksa.`
+                : `Sebagian sinkronisasi berhasil: ${pushSuccessCount} log telah diproses untuk dikirim, tetapi penarikan pembaruan portal belum berhasil. Data akan dicoba kembali.`,
+            pushed: pushSuccessCount,
+            pullSucceeded
         };
     } catch (err) {
         console.warn("[Cloud Sync Offline/Error]:", err.message);
