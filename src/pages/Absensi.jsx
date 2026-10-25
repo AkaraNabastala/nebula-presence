@@ -2,20 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import attendanceService from '../services/attendanceService';
-import { saveOfflineScan, getOfflineScans, removeOfflineScan } from '../api/indexedDB';
 import {
-  MapPin, Fingerprint, Keyboard, X,
-  Clock, Calendar as CalendarIcon,
-  ScanLine, QrCode, UserCircle,
-  AlertTriangle, CheckCircle, Info,
-  Camera
+  Clock, Scan, CheckCircle2,
+  AlertCircle, Sparkles, UserCheck, ShieldCheck,
+  Radio, LogIn, Calendar, Eye, ArrowRight
 } from 'lucide-react';
-import { io } from 'socket.io-client';
-
-// Scanner & Aset
-
-import CameraQrScanner from '../components/CameraQrScanner';
-import CameraFaceScanner from '../components/CameraFaceScanner';
 import logoDefault from '../assets/logo-nabastala.png';
 import bgDefault from '../assets/gedung.jpg';
 
@@ -24,602 +15,519 @@ const Absensi = () => {
 
   // --- STATE ---
   const [time, setTime] = useState(new Date());
-  const [notification, setNotification] = useState(null);
-  const [showManualInput, setShowManualInput] = useState(false);
-  const [manualId, setManualId] = useState("");
+  const [lastScanResult, setLastScanResult] = useState(null);
+  const [manualCode, setManualCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [recentLogs, setRecentLogs] = useState([]);
   
-
-  // --- REFS ---
-  const rfidBuffer = useRef("");
-  const lastKeyTime = useRef(Date.now());
-  const inputRef = useRef(null);
-  const queueRef = useRef([]);
-  const processingRef = useRef(false);
-
-  // STATE CONFIG
+  // App Config
   const [appConfig, setAppConfig] = useState({
-    nama_instansi: 'Memuat...',
-    alamat_instansi: '',
+    nama_instansi: 'SMK Negeri 1 Nebula',
+    alamat_instansi: 'Jl. Raya Pendidikan No. 42, Surabaya',
     metode_absensi: 'RFID',
     timezone: 'Asia/Jakarta',
     logo_instansi: '',
     background_absensi: '',
     jam_masuk: '07:00',
-    jam_pulang: '16:00'
+    jam_pulang: '16:00',
   });
 
-  const [membersList, setMembersList] = useState([]);
+  const inputRef = useRef(null);
 
-  // Ambil data anggota berwajah saat mode WAJAH aktif
-  useEffect(() => {
-    if (appConfig.metode_absensi === 'WAJAH') {
-      attendanceService.getFaceMembers().then(res => {
-        const list = res.data?.data || res.data || [];
-        console.log("Loaded face members count:", list.length);
-        setMembersList(list);
-      }).catch(() => {
-        // Fallback
-        attendanceService.getMembers().then(res => {
-          setMembersList(res.data?.data || res.data || []);
-        }).catch(err => console.error("Gagal load data wajah:", err));
-      });
-    }
-  }, [appConfig.metode_absensi]);
+  // Web Audio chime feedback
+  const playChime = useCallback((isSuccess = true) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
 
-  // --- 1. LOAD CONFIG & JADWAL DINAMIS ---
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const res = await api.get('/settings');
-        if (res.data) {
-          const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-          const todayName = days[new Date().getDay()];
-
-          let dynamicIn = '07:00';
-          let dynamicOut = '16:00';
-
-          if (res.data.jadwal_sekolah) {
-            const fullSchedule = JSON.parse(res.data.jadwal_sekolah);
-            const todaySchedule = fullSchedule.find(s => s.day === todayName);
-            if (todaySchedule && todaySchedule.active) {
-              dynamicIn = todaySchedule.in;
-              dynamicOut = todaySchedule.out;
-            }
-          }
-
-          let fallbackName = res.data.nama_sekolah || '';
-          if (!fallbackName) {
-            try {
-              const licRes = await api.get('/license-status');
-              if (licRes.data && licRes.data.owner) {
-                fallbackName = licRes.data.owner;
-              }
-            } catch {
-              // ignore
-            }
-          }
-
-          setAppConfig(prev => ({
-            ...prev,
-            nama_instansi: fallbackName || 'Nebula Smart Presence',
-            alamat_instansi: res.data.alamat_sekolah || '',
-            metode_absensi: res.data.metode_absensi || 'RFID',
-            timezone: res.data.timezone || 'Asia/Jakarta',
-            logo_instansi: res.data.logo_sekolah || '',
-            background_absensi: res.data.background_absensi || '',
-            jam_masuk: dynamicIn,
-            jam_pulang: dynamicOut
-          }));
-        }
-      } catch (error) {
-        console.error("Gagal sinkronisasi data:", error);
+      if (isSuccess) {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.14, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } else {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(260, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.32);
       }
-    };
-    fetchConfig();
+    } catch {
+      /* ignore audio error */
+    }
   }, []);
 
-  // --- 2. JAM BERJALAN ---
+  // 1. Load initial data
+  const loadInitialData = useCallback(async () => {
+    try {
+      const setRes = await api.get('/settings');
+      if (setRes.data) {
+        setAppConfig(prev => ({
+          ...prev,
+          nama_instansi: setRes.data.nama_sekolah || setRes.data.nama_instansi || prev.nama_instansi,
+          alamat_instansi: setRes.data.alamat_sekolah || prev.alamat_instansi,
+          logo_instansi: setRes.data.logo_sekolah || setRes.data.logo_instansi || '',
+          background_absensi: setRes.data.background_absensi || '',
+          jam_masuk: setRes.data.jam_masuk || prev.jam_masuk,
+          jam_pulang: setRes.data.jam_pulang || prev.jam_pulang,
+        }));
+      }
+
+      const dashRes = await api.get('/dashboard');
+      if (dashRes.data && Array.isArray(dashRes.data.logs)) {
+        setRecentLogs(dashRes.data.logs.slice(0, 8));
+      }
+    } catch {
+      /* Handled by local fallback adapter */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // 2. Real-Time Clock
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- 3. AUTO FOCUS INPUT ---
+  // 3. Keep Input Focused
   useEffect(() => {
-    if (showManualInput && inputRef.current) {
-      setTimeout(() => inputRef.current.focus(), 150);
-    }
-  }, [showManualInput]);
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 200);
+    return () => clearTimeout(focusTimer);
+  }, [lastScanResult]);
 
-  // --- 4. ZKTECO REAL-TIME LISTENER (SOCKET.IO) ---
-  useEffect(() => {
-    const SOCKET_URL = import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin;
-    const socket = io.connect(SOCKET_URL);
+  // Process Attendance Scan
+  const handleProcessScan = useCallback(async (codeToScan) => {
+    const cleanCode = String(codeToScan || manualCode || '').trim();
+    if (!cleanCode || isLoading) return;
 
-    const getNotificationDuration = () => {
-      try {
-        const localTimeStr = new Date().toLocaleTimeString('en-GB', {
-          timeZone: appConfig.timezone || 'Asia/Jakarta', hour12: false
-        });
-        const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
-
-        const [masukHour, masukMinute] = (appConfig.jam_masuk || '07:00').split(':').map(Number);
-        const [pulangHour, pulangMinute] = (appConfig.jam_pulang || '16:00').split(':').map(Number);
-
-        const currentMinutes = currentHour * 60 + currentMinute;
-        const masukMinutes = masukHour * 60 + masukMinute;
-        const pulangMinutes = pulangHour * 60 + pulangMinute;
-
-        const isJamMasukSibuk = currentMinutes >= (masukMinutes - 60) && currentMinutes <= (masukMinutes + 60);
-        const isJamPulangSibuk = currentMinutes >= (pulangMinutes - 60) && currentMinutes <= (pulangMinutes + 60);
-
-        if (isJamMasukSibuk || isJamPulangSibuk) {
-          return 1000;
-        }
-      } catch (e) {
-        console.warn("Gagal menghitung jam sibuk:", e);
-      }
-      return 3000;
-    };
-
-    const processQueue = () => {
-      if (processingRef.current) {
-        if (Date.now() - (processingRef.lastTime || 0) > 4000) {
-          processingRef.current = false;
-        } else {
-          return;
-        }
-      }
-      if (queueRef.current.length === 0) return;
-
-      processingRef.current = true;
-      processingRef.lastTime = Date.now();
-
-      const nextNotif = queueRef.current.shift();
-      setNotification(nextNotif);
-
-      const duration = getNotificationDuration();
-
-      setTimeout(() => {
-        setNotification(null);
-        processingRef.current = false;
-        processQueue();
-      }, duration);
-    };
-
-    socket.on('new_scan', (data) => {
-      let pesanBawah = "TERIMA KASIH";
-      let statusText = data.status;
-
-      if (data.mode === 'PULANG') {
-        pesanBawah = "HATI-HATI DI JALAN";
-        statusText = data.status || "PULANG";
-      } else if (data.status === 'TERLAMBAT') {
-        pesanBawah = "JANGAN TERLAMBAT LAGI";
-      } else if (data.status === 'HADIR') {
-        pesanBawah = "SELAMAT BERAKTIVITAS";
-      }
-
-      const notifPayload = {
-        nama: data.nama,
-        status: statusText,
-        pesan: pesanBawah,
-        waktu: data.waktu || new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        id_user: data.info_id,
-        info: data.divisi || "Pengguna Aktif",
-        foto: data.foto,
-        type: 'SUCCESS'
-      };
-
-      queueRef.current.push(notifPayload);
-      processQueue();
-    });
-
-    socket.on('scan_error', (data) => {
-      const notifPayload = {
-        nama: "Gagal Absensi",
-        status: "ERROR",
-        pesan: data.message || "ID Tidak Terdaftar",
-        type: 'ERROR'
-      };
-
-      queueRef.current.push(notifPayload);
-      processQueue();
-    });
-
-    return () => socket.disconnect();
-  }, []);
-
-  const getStatusDisplay = () => {
-    const localTimeStr = time.toLocaleTimeString('en-GB', {
-      timeZone: appConfig.timezone, hour12: false
-    });
-    const [currentHour, currentMinute] = localTimeStr.split(':').map(Number);
-    const [masukHour, masukMinute] = (appConfig.jam_masuk).split(':').map(Number);
-    const [pulangHour, pulangMinute] = (appConfig.jam_pulang).split(':').map(Number);
-
-    const isAfterPulang = currentHour > pulangHour || (currentHour === pulangHour && currentMinute >= pulangMinute);
-    const isAfterMasuk = currentHour > masukHour || (currentHour === masukHour && currentMinute > masukMinute);
-
-    if (isAfterPulang) return { text: 'Waktu Pulang', color: 'text-blue-400', border: 'border-blue-500/50 bg-blue-500/10', indicator: 'bg-blue-500 shadow-[0_0_10px_#3b82f6]' };
-    else if (isAfterMasuk) return { text: 'Terlambat', color: 'text-orange-400', border: 'border-orange-500/50 bg-orange-500/10', indicator: 'bg-orange-500 shadow-[0_0_10px_#f97316]' };
-    else return { text: 'Tepat Waktu', color: 'text-emerald-400', border: 'border-emerald-500/50 bg-emerald-500/10', indicator: 'bg-emerald-500 shadow-[0_0_10px_#10b981]' };
-  };
-  const statusDisplay = getStatusDisplay();
-
-  const processAbsensi = useCallback(async (identifier) => {
-    if (!identifier || isLoading) return;
     setIsLoading(true);
-
-    // OFFLINE FALLBACK
-    if (!navigator.onLine) {
-      try {
-        await saveOfflineScan(identifier.trim());
-        setNotification({
-          nama: "Koneksi Terputus",
-          status: "OFFLINE",
-          pesan: "Data Tersimpan Sementara di Perangkat",
-          waktu: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-          id_user: identifier.trim(),
-          info: "Akan disinkronisasi otomatis",
-          foto: null,
-          type: 'WARNING'
-        });
-      } catch {
-        setNotification({ nama: "Gagal", status: "ERROR", pesan: "Penyimpanan Offline Gagal", type: 'ERROR' });
-      }
-      setIsLoading(false);
-      setTimeout(() => { setNotification(null); setShowManualInput(false); setManualId(""); }, 3000);
-      return;
-    }
-
     try {
-      const data = await attendanceService.scan(identifier);
+      const res = await attendanceService.scan(cleanCode);
 
-      let pesanBawah = "TERIMA KASIH";
-      let statusText = data.status;
-      if (data.mode === 'PULANG') { pesanBawah = "HATI-HATI DI JALAN"; statusText = "PULANG"; }
-      else if (data.status === 'TERLAMBAT') { pesanBawah = "JANGAN TERLAMBAT LAGI"; }
-      else if (data.status === 'HADIR') { pesanBawah = "SELAMAT BERAKTIVITAS"; }
+      if (res.data?.success) {
+        playChime(true);
+        const scanPayload = res.data.data || res.data;
+        
+        const newLog = {
+          id: Date.now(),
+          nama_lengkap: scanPayload.nama || scanPayload.nama_lengkap || 'Siswa',
+          kelas: scanPayload.kelas || scanPayload.divisi || '-',
+          status: scanPayload.status || 'HADIR',
+          scan_time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+          method: 'RFID/BARCODE'
+        };
 
-      setNotification({
-        nama: data.nama,
-        status: statusText,
-        pesan: pesanBawah,
-        waktu: time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        id_user: data.info_id || data.nisn || identifier.trim(),
-        info: data.divisi || data.kelas || "Pengguna Aktif",
-        foto: data.foto,
-        type: 'SUCCESS'
-      });
-    } catch (error) {
-      const serverMsg = error.response?.data?.message || "ID Tidak Terdaftar";
-      console.warn("[Absensi] Respon Server 400/Error:", serverMsg);
-      setNotification({
-        nama: "Gagal Absensi",
-        status: "ERROR",
-        pesan: serverMsg,
-        type: 'ERROR'
+        setLastScanResult({
+          success: true,
+          status: newLog.status,
+          nama: newLog.nama_lengkap,
+          kelas: newLog.kelas,
+          nisn: scanPayload.nisn || scanPayload.identity_number || cleanCode,
+          time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          foto: scanPayload.foto || null,
+          message: res.data.message || 'Presensi berhasil dicatat.'
+        });
+
+        setRecentLogs(prev => [newLog, ...prev.filter(item => item.id !== newLog.id)].slice(0, 8));
+      } else {
+        playChime(false);
+        setLastScanResult({
+          success: false,
+          message: res.data?.message || 'Identitas kartu tidak dikenali atau tidak terdaftar.'
+        });
+      }
+    } catch (err) {
+      playChime(false);
+      setLastScanResult({
+        success: false,
+        message: err.response?.data?.message || 'Gagal memproses absensi. Cek koneksi lokal.'
       });
     } finally {
       setIsLoading(false);
-      setTimeout(() => { setNotification(null); setShowManualInput(false); setManualId(""); }, 3000);
+      setManualCode('');
+      setTimeout(() => {
+        setLastScanResult(null);
+      }, 5000);
     }
-  }, [isLoading, time]);
+  }, [manualCode, isLoading, playChime]);
 
-  // --- AUTO SYNC OFFLINE SCANS ---
-  useEffect(() => {
-    const syncOfflineData = async () => {
-      if (!navigator.onLine) return;
-      try {
-        const scans = await getOfflineScans();
-        if (scans && scans.length > 0) {
-          console.log(`Syncing ${scans.length} offline scans...`);
-          for (const scan of scans) {
-            try {
-              await api.post('/scan', { rfid_code: scan.rfid_code });
-              await removeOfflineScan(scan.id);
-            } catch {
-              console.error("Gagal sync scan:", scan.rfid_code);
-            }
-          }
-          setNotification({
-            nama: "Sinkronisasi Selesai",
-            status: "SYNC",
-            pesan: `${scans.length} absen offline berhasil diunggah`,
-            type: 'SUCCESS'
-          });
-          setTimeout(() => setNotification(null), 3000);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    window.addEventListener('online', syncOfflineData);
-    if (navigator.onLine) {
-      syncOfflineData();
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (manualCode.trim()) {
+      handleProcessScan(manualCode);
     }
-
-    return () => window.removeEventListener('online', syncOfflineData);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (showManualInput) return;
-      const currentTime = Date.now();
-      if (currentTime - lastKeyTime.current > 100) rfidBuffer.current = "";
-      lastKeyTime.current = currentTime;
-
-      if (e.key === 'Enter') {
-        if (rfidBuffer.current.length > 0) {
-          processAbsensi(rfidBuffer.current);
-          rfidBuffer.current = "";
-        }
-      } else if (e.key.length === 1) {
-        rfidBuffer.current += e.key;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showManualInput, processAbsensi]);
-
-  const renderScanInstruction = () => {
-    const metode = appConfig.metode_absensi;
-    const iconProps = { size: 32, className: "text-white/90 drop-shadow-md" };
-    if (metode === 'BARCODE') return { title: "Scan Barcode", text: "Arahkan Barcode ID", icon: <QrCode {...iconProps} /> };
-    if (metode === 'FINGERPRINT') return { title: "Tempel Jari", text: "Letakkan jari pada sensor", icon: <Fingerprint {...iconProps} /> };
-    if (metode === 'MANUAL') return { title: "Input ID", text: "Ketik ID Pengguna", icon: <Keyboard {...iconProps} /> };
-    if (metode === 'QR_CODE') {
-      return { title: "Kamera QR Code", text: "Arahkan QR Code ke Lensa Kamera", icon: <Camera {...iconProps} /> };
-    }
-    if (metode === 'WAJAH') {
-      return { title: "Pengenalan Wajah", text: "Arahkan Wajah ke Lensa Kamera", icon: <UserCircle {...iconProps} /> };
-    }
-    return { title: "Tempel Kartu", text: "Silakan Tap Kartu ID", icon: <ScanLine {...iconProps} /> };
   };
-  const instruction = renderScanInstruction();
+
+  const formattedDate = time.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  const formattedHours = time.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const formattedSeconds = time.toLocaleTimeString('id-ID', {
+    second: '2-digit'
+  });
+
+  const activeLogo = appConfig.logo_instansi || logoDefault;
+  const activeBg = appConfig.background_absensi || bgDefault;
 
   return (
-    <div className="min-h-[100dvh] w-full bg-slate-900 flex flex-col lg:flex-row items-center justify-center antialiased font-sans font-normal relative overflow-hidden select-none">
-
-      {/* BACKGROUND */}
-      <div className="fixed inset-0 z-0">
+    <div className="h-screen w-screen bg-[#fbf8f0] text-[#111827] flex flex-col justify-between font-['Poppins'] selection:bg-amber-400/30 relative overflow-hidden p-3 md:p-5">
+      
+      {/* 1. ATMOSPHERIC WATERMARK DENGAN WARM AMBER GLOW */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <img
-          src={appConfig.background_absensi || bgDefault}
-          alt="Background"
-          className="w-full h-full object-cover scale-105 animate-in fade-in duration-1000"
+          src={activeBg}
+          alt="Latar Belakang Sekolah"
+          className="w-full h-full object-cover scale-105 opacity-[0.05] filter blur-[1px] mix-blend-multiply"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-900/70 to-slate-900/50 backdrop-blur-[2px]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-amber-300/20 rounded-full blur-[140px]" />
+        <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-[140px]" />
+        <div className="absolute -bottom-40 right-1/3 w-[500px] h-[500px] bg-amber-400/15 rounded-full blur-[140px]" />
       </div>
 
-      {/* HEADER */}
-      <div className="absolute top-0 w-full p-4 lg:p-8 flex justify-between items-center z-30 pointer-events-none">
-        <div className="flex items-center gap-2 lg:gap-3 group cursor-pointer pointer-events-auto" onClick={() => navigate('/login')}>
-          <div className="w-10 h-10 lg:w-14 lg:h-14 flex items-center justify-center drop-shadow-xl hover:scale-105 transition-transform duration-300">
-            <img src={appConfig.logo_instansi || logoDefault} alt="Logo" className="w-full h-full object-contain" />
+      {/* 2. TOP BRANDING SECTION */}
+      <header className="w-full max-w-7xl mx-auto flex items-center justify-between z-10 shrink-0 pb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 md:w-11 md:h-11 rounded-2xl bg-white p-1.5 shadow-sm border border-amber-200/80 flex items-center justify-center shrink-0">
+            <img src={activeLogo} alt="Logo" className="w-full h-full object-contain" />
           </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="text-sm lg:text-xl font-black text-white uppercase tracking-tight drop-shadow-md leading-none">
-              {appConfig.nama_instansi}
-            </h1>
-            <p className="text-[8px] lg:text-[10px] font-bold text-blue-300 uppercase tracking-[0.2em] mt-0.5 lg:mt-1 opacity-90">
-              Nebula Smart Presence
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-black text-[#111827] text-sm md:text-base tracking-tight">
+                {appConfig.nama_instansi}
+              </span>
+              <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[#1b5bf5]"></span>
+              <span className="hidden sm:inline-block text-[11px] font-bold text-[#1b5bf5] uppercase tracking-wider">
+                Presensi Mandiri
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium truncate max-w-xs sm:max-w-md">
+              {appConfig.alamat_instansi || 'Nebula Smart Presence System'}
             </p>
           </div>
         </div>
-      </div>
 
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center relative z-10 px-4 lg:px-10 mt-16 lg:mt-0">
-
-        {/* JAM (KIRI) */}
-        <div className="lg:col-span-7 flex flex-col justify-center text-center lg:text-left space-y-1 lg:order-1 order-1">
-          <div className="flex items-center justify-center lg:justify-start gap-2 lg:gap-3 text-blue-200 font-bold uppercase tracking-[0.2em] text-[10px] lg:text-xs lg:pl-1">
-            <CalendarIcon size={14} className="lg:w-4 lg:h-4" />
-            {time.toLocaleDateString('id-ID', { timeZone: appConfig.timezone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        <div className="flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-100/70 border border-amber-300/60 rounded-full text-[11px] text-amber-900 font-bold shadow-sm">
+            <Radio size={12} className="text-amber-600 animate-pulse" />
+            <span>Kiosk Siaga Offline</span>
           </div>
 
-          <div className="flex items-baseline justify-center lg:justify-start gap-2 lg:gap-5 text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.3)]">
-            <div className="flex font-bold tracking-tighter leading-none tabular-nums">
-              <span className="text-7xl sm:text-8xl lg:text-[12rem]">{time.toLocaleTimeString('en-GB', { timeZone: appConfig.timezone, hour: '2-digit', hour12: false })}</span>
-              <span className="text-7xl sm:text-8xl lg:text-[12rem] text-blue-500 animate-pulse pb-1 lg:pb-4">:</span>
-              <span className="text-7xl sm:text-8xl lg:text-[12rem]">{time.toLocaleTimeString('en-GB', { timeZone: appConfig.timezone, minute: '2-digit' })}</span>
+          <button
+            onClick={() => navigate('/login')}
+            className="flex items-center gap-2 text-xs font-bold text-white bg-[#1b5bf5] hover:bg-[#1349d4] px-4 py-2 rounded-full transition-all shadow-md shadow-blue-500/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            title="Masuk ke Konsol Operator"
+          >
+            <span>Konsol Operator</span>
+            <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#1b5bf5]">
+              <LogIn size={10} />
             </div>
-            <div className="flex flex-col justify-end pb-2 lg:pb-8">
-              <span className="text-3xl sm:text-4xl lg:text-7xl font-bold text-blue-500 underline decoration-4 decoration-blue-500/50 underline-offset-4 lg:underline-offset-8 tabular-nums">
-                {time.toLocaleTimeString('en-GB', { timeZone: appConfig.timezone, second: '2-digit' })}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap justify-center lg:justify-start gap-3 lg:gap-4 mt-4 lg:mt-0">
-            <div className={`flex items-center gap-2 lg:gap-3 border px-4 lg:px-5 py-2 lg:py-3 rounded-full backdrop-blur-md transition-all ${statusDisplay.border}`}>
-              <div className={`w-6 h-6 lg:w-8 lg:h-8 rounded-full flex items-center justify-center ${statusDisplay.color} bg-black/20`}>
-                <Clock size={12} className="lg:w-4 lg:h-4" />
-              </div>
-              <div className="text-left">
-                <p className="text-[8px] lg:text-[9px] text-white/40 font-bold uppercase tracking-wider">Status Waktu</p>
-                <div className="flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusDisplay.indicator}`}></span>
-                  <p className={`text-[10px] lg:text-xs font-bold ${statusDisplay.color}`}>{statusDisplay.text}</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 lg:gap-3 bg-white/5 border border-white/10 px-4 lg:px-5 py-2 lg:py-2 rounded-full backdrop-blur-md">
-              <div className="w-6 h-6 lg:w-8 lg:h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
-                <MapPin size={12} className="lg:w-4 lg:h-4" />
-              </div>
-              <div className="text-left">
-                <p className="text-[8px] lg:text-[9px] text-white/40 font-bold uppercase tracking-wider">Lokasi</p>
-                <p className="text-white text-[10px] lg:text-xs font-bold truncate max-w-[120px] lg:max-w-[200px]">{appConfig.alamat_instansi}</p>
-              </div>
-            </div>
-          </div>
+          </button>
         </div>
+      </header>
 
-        {/* SCANNER CARD (KANAN) */}
-        <div className="lg:col-span-5 flex justify-center lg:justify-end pb-24 lg:pb-0 lg:order-2 order-2 w-full">
-          <div className="relative w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[380px]">
-            <div className="w-full aspect-[3/4] bg-slate-900/40 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 lg:p-6 shadow-2xl relative flex flex-col items-center justify-center overflow-hidden ring-1 ring-white/5 transition-all duration-300">
+      {/* 3. MAIN SPLIT STAGE (FULL SCREEN FIT, NO SCROLL) */}
+      <main className="flex-1 max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-stretch min-h-0 z-10 py-1">
+        
+        {/* LEFT COLUMN: HERO CLOCK + SCANNER */}
+        <section className="lg:col-span-7 flex flex-col gap-4 justify-between min-h-0">
+          
+          {/* HERO CLOCK CARD */}
+          <div className="bg-gradient-to-br from-[#ffd043] via-[#fbb034] to-[#f59e0b] rounded-[2rem] p-5 md:p-6 text-[#111827] shadow-lg shadow-amber-500/15 relative overflow-hidden flex flex-col justify-between shrink-0 border border-amber-300/40">
+            <div className="flex items-center justify-between gap-2 z-10">
+              <div className="flex items-center gap-2 text-[#111827]">
+                <Calendar size={15} className="text-[#1b5bf5]" />
+                <span className="text-xs md:text-sm font-extrabold">{formattedDate}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#1b5bf5] px-3 py-1 rounded-full shadow-sm">
+                <Clock size={12} />
+                <span>Masuk: {appConfig.jam_masuk}</span>
+                <span className="opacity-60">·</span>
+                <span>Pulang: {appConfig.jam_pulang}</span>
+              </div>
+            </div>
 
-              {!notification && !showManualInput && appConfig.metode_absensi !== 'QR_CODE' && appConfig.metode_absensi !== 'WAJAH' && (
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/10 to-transparent h-[100%] w-full animate-[scan_3s_ease-in-out_infinite] pointer-events-none"></div>
-              )}
+            {/* TABULAR CLOCK */}
+            <div className="text-center py-1 select-none z-10">
+              <div className="flex items-baseline justify-center gap-1">
+                <span className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight text-[#111827] drop-shadow-sm tabular-nums font-['Poppins']">
+                  {formattedHours}
+                </span>
+                <span className="text-xl sm:text-2xl md:text-3xl font-black text-[#1b5bf5] font-mono tabular-nums">
+                  :{formattedSeconds}
+                </span>
+              </div>
+              <p className="text-[11px] text-[#111827]/80 font-bold">
+                Waktu Indonesia Barat (WIB) · Sinkronisasi Mesin Lokal
+              </p>
+            </div>
 
-              {/* 1. NOTIFIKASI HASIL SCAN (Untuk mode selain WAJAH) */}
-              {notification && appConfig.metode_absensi !== 'WAJAH' ? (
-                <div className="w-full h-full flex flex-col items-center justify-center text-center animate-in zoom-in-95 duration-300 relative z-10">
-                  <div className="relative mb-4 lg:mb-6">
-                    <div className={`w-28 h-36 lg:w-36 lg:h-44 p-1 rounded-2xl border-2 ${notification.type === 'ERROR' ? 'border-rose-500 shadow-rose-500/20' :
-                      notification.status === 'TERLAMBAT' ? 'border-yellow-500 shadow-yellow-500/20' :
-                        'border-emerald-500 shadow-emerald-500/20'
-                      } bg-black/40 overflow-hidden shadow-2xl relative`}>
+            {/* Bottom 3 metrics */}
+            <div className="grid grid-cols-3 pt-2.5 border-t border-dashed border-[#111827]/20 text-center z-10">
+              <div className="border-r border-dashed border-[#111827]/20 pr-1">
+                <p className="text-[9px] uppercase font-bold text-[#111827]/70">Batas Masuk</p>
+                <p className="text-sm font-black font-['Poppins']">{appConfig.jam_masuk} WIB</p>
+              </div>
+              <div className="border-r border-dashed border-[#111827]/20 px-1">
+                <p className="text-[9px] uppercase font-bold text-[#111827]/70">Toleransi</p>
+                <p className="text-sm font-black font-['Poppins']">15 Menit</p>
+              </div>
+              <div className="pl-1">
+                <p className="text-[9px] uppercase font-bold text-[#111827]/70">Status</p>
+                <p className="text-sm font-black font-['Poppins'] text-[#1b5bf5]">Siaga Scan</p>
+              </div>
+            </div>
+          </div>
 
-                      {notification.foto ? (
-                        <img src={notification.foto} alt="Profile" className="w-full h-full object-cover rounded-xl" />
+          {/* SCANNER CONSOLE CARD */}
+          <div className="flex-1 bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-amber-100 flex flex-col justify-between min-h-0">
+            {lastScanResult ? (
+              <div className={`p-4 md:p-5 rounded-2xl border transition-all animate-in fade-in zoom-in-95 duration-200 my-auto ${
+                lastScanResult.success
+                  ? lastScanResult.status === 'TERLAMBAT'
+                    ? 'bg-amber-50 border-amber-200 text-amber-900 shadow-sm'
+                    : 'bg-blue-50 border-blue-200 text-blue-900 shadow-sm'
+                  : 'bg-rose-50 border-rose-200 text-rose-900 shadow-sm'
+              }`}>
+                {lastScanResult.success ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0 shadow-md">
+                      {lastScanResult.foto ? (
+                        <img src={lastScanResult.foto} alt="Siswa" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-slate-800 rounded-xl text-white/20">
-                          <UserCircle size={48} className="lg:w-16 lg:h-16" />
+                        <div className="w-full h-full bg-[#ffc837] text-[#111827] font-black text-2xl flex items-center justify-center">
+                          {lastScanResult.nama.charAt(0)}
                         </div>
                       )}
                     </div>
 
-                    <div className={`absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full font-bold text-[9px] lg:text-[10px] text-white uppercase tracking-wider shadow-lg border border-slate-900 ${notification.type === 'ERROR' ? 'bg-rose-600' :
-                      notification.status === 'TERLAMBAT' ? 'bg-yellow-500' :
-                        'bg-emerald-600'
-                      }`}>
-                      {notification.status}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                        <span className={`px-3 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase shadow-sm ${
+                          lastScanResult.status === 'TERLAMBAT'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-[#1b5bf5] text-white'
+                        }`}>
+                          {lastScanResult.status === 'TERLAMBAT' ? 'Terlambat' : 'Hadir Tepat Waktu'}
+                        </span>
+                        <span className="text-xs text-slate-500 font-semibold">
+                          Pukul {lastScanResult.time} WIB
+                        </span>
+                      </div>
+
+                      <h2 className="text-xl font-black text-[#111827] truncate tracking-tight">
+                        {lastScanResult.nama}
+                      </h2>
+                      <p className="text-xs text-slate-600 font-medium mt-0.5">
+                        {lastScanResult.kelas} <span className="text-slate-300 mx-1.5">·</span> NISN: <span className="font-bold text-[#111827]">{lastScanResult.nisn}</span>
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 hidden sm:block">
+                      <CheckCircle2 size={36} className={lastScanResult.status === 'TERLAMBAT' ? 'text-amber-500' : 'text-[#1b5bf5]'} />
                     </div>
                   </div>
-
-                  <h3 className="text-lg lg:text-xl font-bold text-white tracking-wide uppercase mb-1 drop-shadow-md line-clamp-1 w-full px-2 mt-1">
-                    {notification.nama}
-                  </h3>
-
-                  <div className="flex gap-2 justify-center mt-1 mb-4 lg:mb-6">
-                    <span className="text-[9px] lg:text-[10px] font-mono text-white/50 bg-white/5 px-2 py-0.5 rounded border border-white/5">{notification.id_user}</span>
-                    <span className="text-[9px] lg:text-[10px] font-bold text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{notification.info}</span>
-                  </div>
-
-                  <div className={`w-full py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-white/5 border border-white/10 font-bold uppercase tracking-widest text-[10px] lg:text-xs animate-pulse shadow-inner ${notification.type === 'ERROR' ? 'text-rose-400 bg-rose-500/10' :
-                    notification.status === 'TERLAMBAT' ? 'text-yellow-400 bg-yellow-500/10' :
-                      'text-emerald-400 bg-emerald-500/10'
-                    }`}>
-                    {notification.pesan}
-                  </div>
-                </div>
-              ) : showManualInput ? (
-                /* 2. FORM INPUT MANUAL */
-                <div className="w-full h-full flex flex-col justify-center animate-in slide-in-from-right duration-300 relative z-[50]">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowManualInput(false);
-                      setManualId("");
-                    }}
-                    className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-rose-500 text-white rounded-full transition-all cursor-pointer z-[100] border border-white/10 active:scale-95 shadow-lg pointer-events-auto"
-                  >
-                    <X size={20} />
-                  </button>
-                  <div className="text-center mb-6 lg:mb-8">
-                    <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-3 lg:mb-4 text-blue-400 border border-white/10 shadow-lg">
-                      <Keyboard size={24} className="lg:w-7 lg:h-7" />
+                ) : (
+                  <div className="flex items-center gap-3.5 text-rose-800">
+                    <AlertCircle size={32} className="shrink-0 text-rose-500" />
+                    <div>
+                      <p className="font-bold text-sm text-rose-900">Presensi Ditolak</p>
+                      <p className="text-xs text-rose-700 font-medium">{lastScanResult.message}</p>
                     </div>
-                    <h3 className="text-base lg:text-lg font-bold text-white uppercase tracking-wide">Manual Entry</h3>
-                    <p className="text-white/40 text-[9px] lg:text-[10px] mt-1">Masukkan ID Pengguna</p>
                   </div>
-                  <form onSubmit={(e) => { e.preventDefault(); processAbsensi(manualId); }} className="space-y-4 w-full px-1">
-                    <input
-                      ref={inputRef}
-                      id="manualId"
-                      name="manualId"
-                      type="text"
-                      placeholder="Ketik ID..."
-                      className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-4 font-mono font-bold text-base lg:text-lg text-white text-center outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-white/10 tracking-widest shadow-inner pointer-events-auto"
-                      value={manualId}
-                      onChange={(e) => setManualId(e.target.value)}
-                      disabled={isLoading}
-                      autoComplete="off"
-                    />
-                    <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-2xl py-4 lg:py-3.5 font-bold uppercase tracking-widest text-[10px] shadow-lg transition-transform active:scale-95 border-t border-white/10 touch-manipulation flex items-center justify-center gap-2 pointer-events-auto">
-                      {isLoading ? "Memproses..." : "Verifikasi"}
-                    </button>
-                  </form>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-2 text-center my-auto">
+                <div className="relative mb-2.5">
+                  <div className="w-16 h-16 rounded-full bg-[#fef3c7] border-2 border-amber-300 flex items-center justify-center text-[#1b5bf5] shadow-sm">
+                    <Scan size={30} className={isLoading ? 'animate-spin' : 'animate-pulse'} />
+                  </div>
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#1b5bf5] rounded-full border-2 border-white animate-ping" />
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#1b5bf5] rounded-full border-2 border-white" />
                 </div>
-              ) : appConfig.metode_absensi === 'WAJAH' ? (
-                /* 3. TAMPILAN KAMERA PENGENALAN WAJAH AKTIF (Kamera Tetap Menyala) */
-                <div className="w-full h-full flex flex-col items-center justify-between p-1 relative z-10 animate-in fade-in duration-300">
-                  <div className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-white/10">
-                    <CameraFaceScanner
-                      onScanSuccess={processAbsensi}
-                      isLoading={isLoading}
-                      members={membersList}
-                      notification={notification}
-                    />
-                  </div>
-                  <button
-                    onClick={() => setShowManualInput(true)}
-                    className="mt-3 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all shadow-md active:scale-95 touch-manipulation pointer-events-auto"
-                  >
-                    Input Manual
-                  </button>
+                <h3 className="text-base font-black text-[#111827] tracking-tight">Sensor Presensi Siaga</h3>
+                <p className="text-[11px] text-slate-500 max-w-sm mt-0.5 font-medium">
+                  Tempelkan kartu RFID pada scanner atau arahkan barcode kartu identitas
+                </p>
+              </div>
+            )}
+
+            {/* SCAN INPUT & DEMO BUTTONS */}
+            <div className="pt-2 border-t border-slate-100 shrink-0">
+              <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                    placeholder="Scan kartu atau ketik NISN manual..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-full px-4 py-2 text-xs text-[#111827] placeholder:text-slate-400 focus:outline-none focus:border-[#1b5bf5] focus:bg-white transition-all font-['Poppins'] shadow-sm"
+                    disabled={isLoading}
+                    autoComplete="off"
+                  />
                 </div>
-              ) : appConfig.metode_absensi === 'QR_CODE' ? (
-                /* 4. TAMPILAN KAMERA QR AKTIF */
-                <div className="w-full h-full flex flex-col items-center justify-between p-1 relative z-10 animate-in fade-in duration-300">
-                  <div className="w-full flex-1 rounded-2xl overflow-hidden shadow-inner border border-white/10">
-                    <CameraQrScanner onScanSuccess={processAbsensi} isLoading={isLoading} />
-                  </div>
-                  <button
-                    onClick={() => setShowManualInput(true)}
-                    className="mt-3 px-5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all shadow-md active:scale-95 touch-manipulation pointer-events-auto"
-                  >
-                    Input Manual
-                  </button>
+                <button
+                  type="submit"
+                  disabled={isLoading || !manualCode.trim()}
+                  className="bg-[#1b5bf5] hover:bg-[#1349d4] disabled:opacity-40 text-white font-bold text-xs px-4 py-2 rounded-full transition-all shadow-md shadow-blue-500/20 cursor-pointer whitespace-nowrap active:scale-[0.98]"
+                >
+                  {isLoading ? 'Memproses...' : 'Proses Tap'}
+                </button>
+              </form>
+
+              {/* DEMO TAP CHIPS */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-slate-500 text-[10px] font-bold mr-1 flex items-center gap-1">
+                  <Sparkles size={11} className="text-[#f59e0b]" />
+                  Uji Coba:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleProcessScan('1234567890')}
+                  className="bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors border border-amber-200 cursor-pointer"
+                >
+                  Ahmad (1234567890)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleProcessScan('9876543210')}
+                  className="bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors border border-amber-200 cursor-pointer"
+                >
+                  Siti (9876543210)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleProcessScan('5566778899')}
+                  className="bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] px-2.5 py-1 rounded-full text-[10px] font-bold transition-colors border border-amber-200 cursor-pointer"
+                >
+                  Dewi (5566778899)
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* RIGHT COLUMN: PRESENSI TERKINI */}
+        <section className="lg:col-span-5 bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-amber-100 flex flex-col justify-between min-h-0">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#fef3c7] flex items-center justify-center text-[#d97706]">
+                  <UserCheck size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-[#111827] text-sm tracking-tight">Presensi Terkini</h3>
+                  <p className="text-[10px] text-slate-500 font-medium">Log aktivitas masuk siswa hari ini</p>
+                </div>
+              </div>
+              <span className="text-[11px] text-[#92400e] font-black bg-[#fef3c7] border border-amber-200 px-3 py-1 rounded-full">
+                {recentLogs.length} Terdata
+              </span>
+            </div>
+
+            {/* Attendance Logs List (Scrollable inside card only if needed) */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-0 custom-scrollbar">
+              {recentLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center py-6">
+                  <Clock size={28} className="opacity-30 mb-1.5" />
+                  <p className="text-xs font-medium">Belum ada rekaman kehadiran hari ini</p>
                 </div>
               ) : (
-                /* 5. TAMPILAN STANDAR (RFID / BARCODE / FINGERPRINT) */
-                <div className="w-full h-full flex flex-col items-center justify-center text-center animate-in fade-in duration-500 relative z-10">
-                  <div className="relative mb-6 lg:mb-8 group cursor-default">
-                    <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full animate-pulse opacity-50"></div>
-                    <div className="w-20 h-20 lg:w-24 lg:h-24 bg-gradient-to-b from-white/10 to-white/5 rounded-3xl flex items-center justify-center shadow-2xl relative z-10 border border-white/10 backdrop-blur-sm group-hover:scale-105 transition-transform duration-500">
-                      {instruction.icon}
+                recentLogs.map((log, idx) => {
+                  const name = log.nama_lengkap || log.full_name || 'Siswa';
+                  const divName = log.kelas || log.division_name || '-';
+                  const timeStr = (log.scan_time || '').split(' ')[1]?.slice(0, 5) || '07:00';
+                  const isLate = log.status === 'TERLAMBAT';
+
+                  const avatarBgs = [
+                    'bg-[#fde68a] text-[#92400e]',
+                    'bg-[#dbeafe] text-[#1e40af]',
+                    'bg-[#fbcfe8] text-[#be185d]',
+                    'bg-[#bbf7d0] text-[#15803d]',
+                    'bg-[#fed7aa] text-[#c2410c]'
+                  ];
+                  const avatarColor = avatarBgs[idx % avatarBgs.length];
+
+                  return (
+                    <div
+                      key={log.id || idx}
+                      className="p-2.5 hover:bg-amber-50/40 rounded-xl flex items-center justify-between gap-2.5 transition-colors border border-transparent hover:border-amber-100"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl ${avatarColor} flex items-center justify-center font-bold text-xs shrink-0 shadow-sm`}>
+                          {name.charAt(0)}
+                        </div>
+                        <div className="min-w-0 truncate">
+                          <p className="font-bold text-[#111827] text-xs truncate">
+                            {name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
+                            {divName}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                          isLate
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-blue-100 text-[#1b5bf5]'
+                        }`}>
+                          {isLate ? '↓ Terlambat' : '↑ Hadir'}
+                        </span>
+                        <p className="text-[11px] font-bold text-slate-700 mt-0.5 tabular-nums">
+                          {timeStr} WIB
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <h3 className="text-lg lg:text-xl font-bold text-white tracking-wide uppercase mb-1 lg:mb-2">{instruction.title}</h3>
-                  <p className="text-white/40 text-[10px] lg:text-xs max-w-[200px] leading-relaxed mb-6 lg:mb-8 border-b border-white/5 pb-4">{instruction.text}</p>
-                  <button onClick={() => setShowManualInput(true)} className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95 touch-manipulation pointer-events-auto">
-                    Input Manual
-                  </button>
-                </div>
+                  );
+                })
               )}
             </div>
           </div>
-        </div>
-      </div>
-      {/* FOOTER */}
-      <a
-        href="https://akaranabastala.github.io/portofolio_dicha/"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute bottom-4 lg:bottom-6 left-1/2 -translate-x-1/2 lg:translate-x-0 lg:left-8 z-20 opacity-60 hover:opacity-100 transition-opacity w-fit text-center lg:text-left cursor-pointer pointer-events-auto"
-      >
-        <div className="flex items-center justify-center lg:justify-start gap-3 group">
-          <div className="w-5 h-5 lg:w-6 lg:h-6 flex items-center justify-center">
-            <img
-              src={logoDefault}
-              alt="Creator"
-              className="w-full h-full object-contain filter drop-shadow-md grayscale group-hover:grayscale-0 transition-all"
-            />
+
+          {/* Bottom Card Helper */}
+          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+            <span className="flex items-center gap-1.5 font-medium">
+              <ShieldCheck size={13} className="text-[#1b5bf5]" />
+              Tervalidasi Lokal & Terproteksi
+            </span>
+            <span className="font-bold text-[#111827]">v2.6 Kiosk</span>
           </div>
-          <div className="h-4 w-[1px] bg-white/20 mx-1"></div>
-          <p className="text-white/80 text-[8px] lg:text-[10px] font-medium tracking-[0.2em] group-hover:text-white transition-colors">
-            POWERED BY NABASTALA
-          </p>
-        </div>
-      </a>
+        </section>
+
+      </main>
+
+      {/* 4. FOOTER MINIMALIS */}
+      <footer className="w-full text-center py-1 text-[11px] text-slate-500 z-10 font-medium shrink-0">
+        Nebula Presence · Sistem Absensi Mandiri Offline Terpadu
+      </footer>
+
     </div>
   );
 };

@@ -77,7 +77,7 @@ export default function Extracurricular() {
         return matchesMonth && matchesExtracurricular;
     });
 
-    const downloadMonthlyJournal = () => {
+    const downloadMonthlyJournal = async () => {
         if (!filteredJournals.length) {
             return Swal.fire(
                 'Tidak ada data',
@@ -86,54 +86,55 @@ export default function Extracurricular() {
             );
         }
 
-        const escapeCsv = (value) =>
-            `"${String(value ?? '').replace(/"/g, '""')}"`;
+        const XLSX = await import("xlsx-js-style");
 
-        const rows = [
-            [
-                'Tanggal',
-                'Ekstrakurikuler',
-                'Topik Kegiatan',
-                'Waktu Mulai',
-                'Waktu Selesai',
-                'Jumlah Peserta',
-                'Deskripsi Kegiatan',
-                'Catatan'
-            ],
-            ...filteredJournals.map((journal) => [
-                String(journal.activity_date || '').slice(0, 10),
-                journal.extracurricular_name || '',
-                journal.topic || '',
-                journal.start_time || '',
-                journal.end_time || '',
-                journal.attendance_count ?? 0,
-                journal.activity_description || '',
-                journal.notes || ''
-            ])
+        const headers = [
+            'Tanggal',
+            'Ekstrakurikuler',
+            'Topik Kegiatan',
+            'Waktu Mulai',
+            'Waktu Selesai',
+            'Jumlah Peserta',
+            'Deskripsi Kegiatan',
+            'Catatan'
         ];
 
-        // BOM membantu Excel mengenali UTF-8.
-        const csv = '\uFEFF' + rows
-            .map(row => row.map(escapeCsv).join(';'))
-            .join('\r\n');
+        const rows = filteredJournals.map((journal) => [
+            String(journal.activity_date || '').slice(0, 10),
+            journal.extracurricular_name || '',
+            journal.topic || '',
+            journal.start_time || '',
+            journal.end_time || '',
+            journal.attendance_count ?? 0,
+            journal.activity_description || '',
+            journal.notes || ''
+        ]);
 
-        const blob = new Blob([csv], {
-            type: 'text/csv;charset=utf-8;'
-        });
+        const wsData = [headers, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
+        // Styling header
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "059669" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            };
+        }
+
+        ws['!cols'] = headers.map(() => ({ wch: 22 }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Jurnal Ekskul');
+
         const selectedName =
             items.find(item => String(item.id) === String(journalExtracurricular))?.name
             || 'Semua-Ekskul';
 
-        link.href = url;
-        link.download = `Jurnal-${selectedName.replace(/[^a-z0-9-_]/gi, '-')}-${journalMonth || 'Semua-Bulan'}.csv`;
-
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        XLSX.writeFile(wb, `Jurnal-${selectedName.replace(/[^a-z0-9-_]/gi, '-')}-${journalMonth || 'Semua-Bulan'}.xlsx`);
     };
     const loadExtracurriculars = async () => {
         try {
@@ -711,7 +712,7 @@ export default function Extracurricular() {
                                 className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                             >
                                 <Download size={16} />
-                                Download Jurnal
+                                Download Excel (.xlsx)
                             </button>
                         </div>
 

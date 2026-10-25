@@ -93,7 +93,7 @@ export default function MonitoringAkademik() {
         loadReport();
     }, [month, classId, subjectId, teacherId]);
 
-    const exportCsv = () => {
+    const exportCsv = async () => {
         const isJournal = tab === 'jurnal';
         const data = isJournal ? journals : attendance;
 
@@ -101,43 +101,52 @@ export default function MonitoringAkademik() {
             return Swal.fire('Tidak ada data', 'Tidak ada data untuk diunduh.', 'info');
         }
 
-        const columns = isJournal
+        const XLSX = await import("xlsx-js-style");
+
+        const headers = isJournal
+            ? ['Tanggal', 'Kelas', 'Mata Pelajaran', 'Guru', 'Jurnal', 'Catatan']
+            : ['Tanggal', 'Kelas', 'Mata Pelajaran', 'Guru', 'Siswa', 'Status', 'Catatan'];
+
+        const rows = data.map(row => isJournal
             ? [
-                ['Tanggal', 'activity_date'],
-                ['Kelas', 'class_name'],
-                ['Mata Pelajaran', 'subject_name'],
-                ['Guru', 'teacher_name'],
-                ['Jurnal', 'journal'],
-                ['Catatan', 'notes']
+                row.activity_date || '',
+                row.class_name || '',
+                row.subject_name || '',
+                row.teacher_name || '',
+                row.journal || '',
+                row.notes || ''
             ]
             : [
-                ['Tanggal', 'attendance_date'],
-                ['Kelas', 'class_name'],
-                ['Mata Pelajaran', 'subject_name'],
-                ['Guru', 'teacher_name'],
-                ['Siswa', 'student_name'],
-                ['Status', 'status'],
-                ['Catatan', 'notes']
-            ];
-
-        const csv = '\uFEFF' + [
-            columns.map(([label]) => csvEscape(label)).join(';'),
-            ...data.map(row =>
-                columns.map(([, key]) => csvEscape(row[key])).join(';')
-            )
-        ].join('\r\n');
-
-        const url = URL.createObjectURL(
-            new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+                row.attendance_date || '',
+                row.class_name || '',
+                row.subject_name || '',
+                row.teacher_name || '',
+                row.student_name || '',
+                row.status || '',
+                row.notes || ''
+            ]
         );
 
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Monitoring-${isJournal ? 'Jurnal' : 'Kehadiran'}-${month}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        const wsData = [headers, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Styling header
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!ws[cellAddress]) continue;
+            ws[cellAddress].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "4F46E5" } },
+                alignment: { horizontal: "center", vertical: "center" }
+            };
+        }
+
+        ws['!cols'] = headers.map(() => ({ wch: 22 }));
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, isJournal ? 'Jurnal Guru' : 'Kehadiran Siswa');
+        XLSX.writeFile(wb, `Monitoring-${isJournal ? 'Jurnal' : 'Kehadiran'}-${month}.xlsx`);
     };
 
     const data = tab === 'jurnal' ? journals : attendance;
@@ -248,7 +257,7 @@ export default function MonitoringAkademik() {
                     onClick={exportCsv}
                     className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-white"
                 >
-                    <Download size={16} /> Download CSV
+                    <Download size={16} /> Download Excel (.xlsx)
                 </button>
             </div>
 

@@ -1,23 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, ClipboardList, Settings, GraduationCap,
-  LogOut, Menu, X, ChevronDown, Bell,
-  Database, Users, Building2,
-  AlertTriangle, ShieldCheck, Sun, Moon,
-  Cloud, CloudOff, RefreshCw, ChevronRight
+  LayoutDashboard, Users, FileText, Settings,
+  LogOut, Menu, X, ArrowLeft,
+  Clock, ChevronDown, ChevronRight,
+  Database, HardDrive, Calendar, BookOpen,
+  Award, Key, Activity, User, Laptop,
+  Bell, AlertTriangle, Cloud, CloudOff, RefreshCw, Sun, Moon
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
-
 import logoNabastala from '../assets/logo-nabastala.png';
 
 const MainLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentLogo, setCurrentLogo] = useState(logoNabastala);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [openMenus, setOpenMenus] = useState({});
+  const [openSections, setOpenSections] = useState({
+    kegiatan: true,
+    master: true,
+    presensi: true,
+    perangkat: true,
+  });
+
+  const [institutionName, setInstitutionName] = useState('SMK Negeri 1 Nebula');
+  const [institutionLogo, setInstitutionLogo] = useState(logoNabastala);
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
 
@@ -39,7 +47,11 @@ const MainLayout = () => {
     }
   };
 
-  const [userData, setUserData] = useState(getSafeUser());
+  const [userData, setUserData] = useState(getSafeUser() || {
+    nama_admin: 'Operator Nebula',
+    username: 'administrator',
+    role: 'SuperAdmin'
+  });
   const [appMode, setAppMode] = useState('edukasi');
   const [labels, setLabels] = useState({ label_pengguna: 'Siswa', label_kelompok: 'Kelas' });
 
@@ -61,7 +73,9 @@ const MainLayout = () => {
         const savedCleared = JSON.parse(localStorage.getItem('clearedNotifIds') || '[]');
         const filtered = rawNotifs.filter(n => !savedCleared.includes(`${n.id}_${n.date_log}`));
         setNotifications(filtered);
-      } catch (e) { }
+      } catch {
+        /* ignore error */
+      }
     };
     fetchNotifications();
   }, [location.pathname]);
@@ -81,490 +95,446 @@ const MainLayout = () => {
     setNotifications([]);
   };
 
-  // 2. Fetch Status Cloud Sync
+  // 2. Fetch Pengaturan Branding & Sinkronisasi Cloud
   useEffect(() => {
-    const fetchCloudStatus = async () => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get('/settings');
+        if (res.data) {
+          const isEdu = (res.data.app_mode || 'edukasi') === 'edukasi';
+          setAppMode(res.data.app_mode || 'edukasi');
+          setLabels({
+            label_pengguna: res.data.labels?.label_pengguna || (isEdu ? 'Siswa' : 'Karyawan'),
+            label_kelompok: res.data.labels?.label_kelompok || (isEdu ? 'Kelas' : 'Divisi')
+          });
+          if (res.data.nama_sekolah || res.data.nama_instansi) {
+            setInstitutionName(res.data.nama_sekolah || res.data.nama_instansi);
+          }
+          if (res.data.logo_sekolah || res.data.logo_instansi) {
+            setInstitutionLogo(res.data.logo_sekolah || res.data.logo_instansi);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const fetchSyncStatus = async () => {
       try {
         const res = await api.get('/cloud-sync/status');
         if (res.data?.success && res.data?.data) {
-          setCloudSyncStatus({
-            enabled: !!res.data.data.enabled,
-            pendingCount: res.data.data.pending_count || 0,
-            lastStatus: res.data.data.last_sync_status || 'idle'
-          });
+          setCloudSyncStatus(res.data.data);
         }
-      } catch (err) {
-        // Mode offline/fallback
+      } catch {
+        /* ignore */
       }
     };
 
-    fetchCloudStatus();
-    const interval = setInterval(fetchCloudStatus, 20000);
+    fetchSettings();
+    fetchSyncStatus();
 
-    const socketUrl = import.meta.env.DEV
-      ? (import.meta.env.VITE_API_URL || 'http://localhost:6990')
-      : window.location.origin;
-    const socket = io(socketUrl);
-
-    socket.on('cloud_sync_update', (data) => {
-      if (data) {
-        setCloudSyncStatus({
-          enabled: !!data.enabled,
-          pendingCount: data.pendingCount ?? data.pending_count ?? 0,
-          lastStatus: data.status || 'idle'
-        });
-      }
-    });
-
-    socket.on('new_scan', () => {
-      fetchCloudStatus();
-    });
-
-    return () => {
-      clearInterval(interval);
-      socket.disconnect();
-    };
+    // Socket.IO Listener
+    try {
+      const socket = io(import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin, {
+        reconnectionAttempts: 2,
+        timeout: 3000
+      });
+      socket.on('cloud_sync_status', (data) => {
+        setCloudSyncStatus(prev => ({
+          ...prev,
+          pendingCount: data.pendingCount ?? prev.pendingCount,
+          lastStatus: data.state || prev.lastStatus
+        }));
+      });
+      return () => socket.disconnect();
+    } catch {
+      /* ignore socket */
+    }
   }, []);
 
-  // 3. Handle Dark Mode Class
-  useEffect(() => {
-    if (isDarkMode) {
+  const toggleDarkMode = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    if (newTheme) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [isDarkMode]);
-
-  // 4. Fetch Pengaturan Instansi
-  useEffect(() => {
-    const handleUserUpdate = () => setUserData(getSafeUser());
-    const fetchSettings = async () => {
-      try {
-        const res = await api.get('/settings');
-        const logo = res.data?.logo_sekolah || res.data?.logo_instansi;
-        if (logo && logo.trim() !== "") setCurrentLogo(logo);
-        const mode = res.data?.app_mode || 'edukasi';
-        setAppMode(mode);
-        const isEdu = mode.toLowerCase() === 'edukasi';
-        if (res.data?.labels) {
-          setLabels({
-            label_pengguna: res.data.labels.label_pengguna || (isEdu ? 'Siswa' : 'Karyawan'),
-            label_kelompok: res.data.labels.label_kelompok || (isEdu ? 'Kelas' : 'Divisi')
-          });
-        } else {
-          setLabels({
-            label_pengguna: isEdu ? 'Siswa' : 'Karyawan',
-            label_kelompok: isEdu ? 'Kelas' : 'Divisi'
-          });
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    fetchSettings();
-    window.addEventListener("userUpdated", handleUserUpdate);
-    return () => window.removeEventListener("userUpdated", handleUserUpdate);
-  }, []);
-
-  const userDisplay = {
-    name: userData?.nama || userData?.nama_admin || 'Administrator',
-    role: 'Pengelola Presence',
-    photo: userData?.foto || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData?.nama || 'Admin')}&background=c7d2fe&color=3730a3&bold=true`
   };
 
-  // --- MENU NAVIGASI DENGAN AKSEN WARNA ---
-  const menuItems = [
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+    } catch {
+      /* ignore */
+    }
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const toggleSection = (key) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const memberLabel = labels.label_pengguna || (appMode === 'edukasi' ? 'Siswa' : 'Karyawan');
+  const divisionLabel = labels.label_kelompok || (appMode === 'edukasi' ? 'Kelas' : 'Divisi');
+
+  // STRUKTUR LENGKAP MENU YANG TELAH DISEPAKATI (100% UTUH)
+  const menuGroups = [
     {
-      name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard,
-      color: 'text-blue-500', activeBg: 'bg-blue-50 dark:bg-blue-900/30', activeText: 'text-blue-700 dark:text-blue-400'
-    },
-    {
-      name: 'Kegiatan', key: 'kegiatan', icon: GraduationCap,
-      color: 'text-amber-500', activeBg: 'bg-amber-50 dark:bg-amber-900/30',
-      activeText: 'text-amber-700 dark:text-amber-400',
-      subMenu: [
-        { name: 'Monitoring Ekskul', path: '/admin/extracurricular' },
-        { name: 'Jadwal Pembelajaran', path: '/admin/jadwal-pembelajaran' },
-        { name: 'Mata Pelajaran', path: '/admin/mata-pelajaran' },
+      groupTitle: 'Kegiatan & Akademik',
+      groupKey: 'kegiatan',
+      items: [
+        { name: 'Monitoring Ekskul', path: '/admin/extracurricular', icon: Award },
+        { name: 'Jadwal Pembelajaran', path: '/admin/jadwal-pembelajaran', icon: Calendar },
+        { name: 'Mata Pelajaran', path: '/admin/mata-pelajaran', icon: BookOpen },
       ]
-    },  
+    },
     {
-      name: 'Data Master', key: 'master', icon: Database,
-      color: 'text-violet-500', activeBg: 'bg-violet-50 dark:bg-violet-900/30', activeText: 'text-violet-700 dark:text-violet-400',
-      subMenu: [
-        { name: appMode === 'edukasi' ? 'Siswa & Guru' : (labels.label_pengguna || 'Karyawan'), path: '/admin/members' },
-        { name: labels.label_kelompok || (appMode === 'edukasi' ? 'Kelas' : 'Divisi'), path: '/admin/divisions' },
-        { name: 'Kalender Libur', path: '/admin/holidays' },
+      groupTitle: 'Data Master',
+      groupKey: 'master',
+      items: [
+        { name: `${memberLabel} & Guru`, path: '/admin/members', icon: Users },
+        { name: divisionLabel, path: '/admin/divisions', icon: Database },
+        { name: 'Kalender Libur', path: '/admin/holidays', icon: Calendar },
       ]
     },
     {
-      name: 'Presensi', key: 'absensi', icon: ClipboardList,
-      color: 'text-emerald-500', activeBg: 'bg-emerald-50 dark:bg-emerald-900/30', activeText: 'text-emerald-700 dark:text-emerald-400',
-      subMenu: [
-        { name: 'Log Kehadiran', path: '/admin/attendance-manual' },
-        { name: 'Laporan Harian', path: '/admin/reports' },
-        { name: 'Laporan Bulanan', path: '/admin/reports-monthly' },
-        { name: 'Monitoring Jurnal & Mapel', path: '/admin/monitoring-akademik' },
-              ]
+      groupTitle: 'Presensi',
+      groupKey: 'presensi',
+      items: [
+        { name: 'Log Kehadiran', path: '/admin/attendance-manual', icon: FileText },
+        { name: 'Laporan Harian', path: '/admin/reports', icon: Calendar },
+        { name: 'Laporan Bulanan', path: '/admin/reports-monthly', icon: FileText },
+        { name: 'Monitoring Jurnal & Mapel', path: '/admin/monitoring-akademik', icon: BookOpen },
+      ]
     },
     {
-      name: 'Pengaturan', key: 'system', icon: Settings,
-      color: 'text-slate-500', activeBg: 'bg-slate-100 dark:bg-slate-700', activeText: 'text-slate-800 dark:text-slate-200',
+      groupTitle: 'Pengaturan & Perangkat',
+      groupKey: 'perangkat',
       role: 'SuperAdmin',
-      subMenu: [
-        { name: 'Profil Akun', path: '/admin/profile' },
-        { name: 'Sistem Aplikasi', path: '/admin/settings' },
-        { name: 'Manajemen Database', path: '/admin/database' },
-        { name: 'Lisensi & Aktivasi', path: '/admin/license' },
-        { name: 'Mesin Kehadiran', path: '/admin/devices' },
-        { name: 'Log Aktivitas', path: '/admin/audit-logs' },
+      items: [
+        { name: 'Profil Akun', path: '/admin/profile', icon: User },
+        { name: 'Sistem Aplikasi', path: '/admin/settings', icon: Settings },
+        { name: 'Manajemen Database', path: '/admin/database', icon: Database },
+        { name: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key },
+        { name: 'Mesin Kehadiran', path: '/admin/devices', icon: Laptop },
+        { name: 'Log Aktivitas', path: '/admin/audit-logs', icon: Activity },
       ]
     }
-  ].filter(menu => !menu.role || menu.role === (userData?.role || 'SuperAdmin'));
+  ].filter(group => !group.role || group.role === (userData?.role || 'SuperAdmin'));
 
-  const toggleMenu = (key) => setOpenMenus(prev => ({ ...prev, [key]: !prev[key] }));
-  const confirmLogout = () => { localStorage.removeItem('user'); window.location.href = '/'; };
-  const isActive = (path) => location.pathname === path;
-  const isGroupActive = (subMenu) => subMenu?.some(item => location.pathname === item.path);
-
-  useEffect(() => {
-    const activeMenu = menuItems.find(menu => menu.subMenu && isGroupActive(menu.subMenu));
-    if (activeMenu) setOpenMenus(prev => ({ ...prev, [activeMenu.key]: true }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
-
-  // Informasi Halaman Dinamis untuk Topbar yang Menyatu
-  const getPageInfo = () => {
+  const getPageTitle = () => {
     const path = location.pathname;
-    const isEdu = appMode === 'edukasi';
-    const memberLabel = labels.label_pengguna || (isEdu ? 'Siswa & Guru' : 'Karyawan');
-    const divisionLabel = labels.label_kelompok || (isEdu ? 'Kelas' : 'Divisi');
-
-    if (path.includes('/dashboard')) return { title: 'Dashboard', category: 'Beranda' };
+    if (path.includes('/dashboard')) return { title: 'Dashboard Ringkasan', category: 'Beranda' };
     if (path.includes('/members')) return { title: `Direktori ${memberLabel}`, category: 'Data Master' };
     if (path.includes('/divisions')) return { title: `Daftar ${divisionLabel}`, category: 'Data Master' };
     if (path.includes('/holidays')) return { title: 'Kalender Libur', category: 'Data Master' };
-    if (path.includes('/attendance-manual')) return { title: 'Log Kehadiran', category: 'Presensi' };
-    if (path.includes('/reports-monthly')) return { title: 'Laporan Bulanan', category: 'Presensi' };
-    if (path.includes('/monitoring-akademik')) {
-  return {
-    title: 'Monitoring Jurnal & Mapel',
-    category: 'Presensi',
-  };
-}
-    if (path.includes('/reports')) return { title: 'Laporan Harian', category: 'Presensi' };
+    if (path.includes('/attendance-manual')) return { title: 'Log & Koreksi Kehadiran', category: 'Presensi' };
+    if (path.includes('/reports-monthly')) return { title: 'Laporan Presensi Bulanan', category: 'Presensi' };
+    if (path.includes('/reports')) return { title: 'Laporan Presensi Harian', category: 'Presensi' };
+    if (path.includes('/monitoring-akademik')) return { title: 'Monitoring Jurnal & Mapel', category: 'Kegiatan' };
+    if (path.includes('/jadwal-pembelajaran')) return { title: 'Jadwal Pembelajaran', category: 'Kegiatan' };
+    if (path.includes('/mata-pelajaran')) return { title: 'Mata Pelajaran', category: 'Kegiatan' };
+    if (path.includes('/extracurricular')) return { title: 'Monitoring Ekstrakurikuler', category: 'Kegiatan' };
     if (path.includes('/settings')) return { title: 'Pengaturan Sistem', category: 'Pengaturan' };
     if (path.includes('/database') || path.includes('/backup') || path.includes('/restore')) return { title: 'Manajemen Database', category: 'Pengaturan' };
     if (path.includes('/license')) return { title: 'Lisensi & Aktivasi', category: 'Pengaturan' };
     if (path.includes('/devices')) return { title: 'Mesin Kehadiran', category: 'Pengaturan' };
-    if (path.includes('/audit-logs')) return { title: 'Log Aktivitas', category: 'Pengaturan' };
+    if (path.includes('/audit-logs')) return { title: 'Log Aktivitas Sistem', category: 'Pengaturan' };
     if (path.includes('/profile')) return { title: 'Profil Akun', category: 'Pengaturan' };
-
     return { title: 'Presensi Terpadu', category: 'Sistem' };
   };
 
-  const pageInfo = getPageInfo();
- 
+  const pageInfo = getPageTitle();
+
   return (
-    <div className="flex h-screen bg-slate-100 font-sans overflow-hidden text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300">
-
-      {/* OVERLAY MOBILE */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* --- SIDEBAR --- */}
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-50 w-[275px] shrink-0 bg-white border-r border-slate-200/80 shadow-xl shadow-slate-200/40 dark:bg-slate-800 dark:border-slate-700 dark:shadow-slate-900/50
-          transform transition-transform duration-300 ease-in-out flex flex-col h-full
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:relative'} 
-        `}
-      >
-        {/* LOGO AREA */}
-        <div className="pt-7 pb-6 px-7 flex items-center gap-3.5 shrink-0 border-b border-slate-100 dark:border-slate-700/60">
-          <img src={currentLogo} alt="Logo" className="w-10 h-10 object-contain drop-shadow-sm" />
-          <div className="flex flex-col">
-            <span className="text-[20px] font-black text-slate-800 tracking-tight leading-none dark:text-white text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">NABASTALA</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5 dark:text-slate-500">Nebula Presence</span>
+    <div className="min-h-screen bg-[#ede8e1] dark:bg-slate-900 text-[#111625] dark:text-slate-100 flex font-['Poppins']">
+      
+      {/* 1. DISTINCTIVE DARK OBSIDIAN SIDEBAR */}
+      <aside className={`
+        fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-64 bg-[#101626] text-white flex flex-col justify-between transition-transform duration-200 ease-in-out h-screen shadow-2xl
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar p-5">
+          
+          {/* Top Logo Mark */}
+          <div className="flex items-center justify-between pb-5 border-b border-white/10 mb-4">
+            <Link to="/admin/dashboard" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center p-1.5 shadow-sm">
+                <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="min-w-0">
+                <span className="font-bold text-sm text-white tracking-tight block truncate">Nebula Presence</span>
+                <span className="text-[10px] text-cyan-400 font-medium tracking-wide uppercase block truncate">{institutionName}</span>
+              </div>
+            </Link>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10"
+            >
+              <X size={18} />
+            </button>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-auto text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-            <X size={22} />
-          </button>
+
+          {/* Quick Nav: Dashboard & Kiosk */}
+          <div className="space-y-1 mb-4">
+            <Link
+              to="/admin/dashboard"
+              onClick={() => setIsSidebarOpen(false)}
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                location.pathname === '/admin/dashboard'
+                  ? 'bg-white/15 text-white font-semibold shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard size={16} className={location.pathname === '/admin/dashboard' ? 'text-cyan-400' : 'text-slate-400'} />
+                <span>Dashboard</span>
+              </div>
+              {location.pathname === '/admin/dashboard' && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+            </Link>
+
+            <Link
+              to="/"
+              className="flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <ArrowLeft size={16} className="text-slate-400" />
+                <span>Layar Kiosk Absensi</span>
+              </div>
+            </Link>
+          </div>
+
+          {/* Structured Menu Groups */}
+          <div className="space-y-3.5">
+            {menuGroups.map((group) => {
+              const isOpen = openSections[group.groupKey] ?? true;
+
+              return (
+                <div key={group.groupKey} className="space-y-1">
+                  <button
+                    onClick={() => toggleSection(group.groupKey)}
+                    className="w-full flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 py-1 hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    <span>{group.groupTitle}</span>
+                    {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                  </button>
+
+                  {isOpen && (
+                    <div className="space-y-0.5">
+                      {group.items.map((item) => {
+                        const active = location.pathname === item.path;
+                        const Icon = item.icon;
+
+                        return (
+                          <Link
+                            key={item.path}
+                            to={item.path}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium transition-all ${
+                              active
+                                ? 'bg-white/15 text-white font-semibold shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Icon size={14} className={active ? 'text-cyan-400' : 'text-slate-400'} />
+                              <span className="truncate">{item.name}</span>
+                            </div>
+                            {active && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
         </div>
 
-        {/* NAVIGATION */}
-        <nav className="flex-1 overflow-y-auto custom-scrollbar px-4 space-y-1.5 py-4">
-          {menuItems.map((menu) => {
-            const groupActive = isGroupActive(menu.subMenu);
-
-            return (
-              <div key={menu.name}>
-                {!menu.subMenu ? (
-                  <Link
-                    to={menu.path} onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3.5 px-3.5 py-3 rounded-2xl transition-all duration-200 font-bold text-[14px] ${isActive(menu.path)
-                      ? `${menu.activeBg} ${menu.activeText} shadow-sm`
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
-                      }`}
-                  >
-                    <menu.icon size={20} className={menu.color} />
-                    {menu.name}
-                  </Link>
-                ) : (
-                  <div className="mb-1.5">
-                    <button
-                      onClick={() => toggleMenu(menu.key)}
-                      className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl transition-all duration-200 font-bold text-[14px] ${groupActive
-                        ? `${menu.activeBg} ${menu.activeText}`
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/50 dark:hover:text-slate-200'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3.5">
-                        <menu.icon size={20} className={menu.color} />
-                        <span>{menu.name}</span>
-                      </div>
-                      <ChevronDown size={16} className={`transition-transform duration-300 ${openMenus[menu.key] ? 'rotate-180' : ''} ${groupActive ? menu.activeText : 'text-slate-400'}`} />
-                    </button>
-
-                    <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openMenus[menu.key] ? 'max-h-64 opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
-                      <div className="ml-5 pl-4 border-l-2 border-slate-100 dark:border-slate-700 space-y-1 py-1">
-                        {menu.subMenu.map(sub => (
-                          <Link
-                            key={sub.name} to={sub.path} onClick={() => setIsSidebarOpen(false)}
-                            className={`relative flex items-center gap-2.5 px-3.5 py-2 rounded-xl transition-all duration-200 text-[13px] font-semibold ${isActive(sub.path)
-                              ? `${menu.activeText} bg-white dark:bg-slate-700/80 shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-600`
-                              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700/40'
-                              }`}
-                          >
-                            <div className={`w-2 h-2 rounded-full transition-all ${isActive(sub.path) ? `scale-110 ${menu.color.replace('text-', 'bg-')}` : 'bg-slate-300 dark:bg-slate-600'}`}></div>
-                            {sub.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+        {/* Bottom Profile & Logout Footer */}
+        <div className="p-4 border-t border-white/10 bg-[#0c1220] flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 p-0.5 shadow-md shrink-0">
+              <div className="w-full h-full rounded-full bg-[#101626] flex items-center justify-center font-bold text-xs text-white">
+                {userData.nama_admin ? userData.nama_admin.charAt(0) : 'A'}
               </div>
-            );
-          })}
-        </nav>
+            </div>
+            <div className="min-w-0 truncate">
+              <p className="text-xs font-semibold text-white truncate leading-tight">
+                {userData.nama_admin || userData.username || 'Administrator'}
+              </p>
+              <p className="text-[10px] text-slate-400 font-normal">
+                {userData.role || 'Operator'}
+              </p>
+            </div>
+          </div>
 
-        {/* LOGOUT BUTTON */}
-        <div className="px-4 pb-5 pt-3 mt-auto border-t border-slate-100 dark:border-slate-700/60">
           <button
             onClick={() => setShowLogoutModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-3 w-full rounded-2xl bg-white dark:bg-slate-800 border-2 border-rose-100 dark:border-rose-900/50 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500 transition-all font-bold text-[14px]"
+            className="text-slate-400 hover:text-rose-400 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+            title="Keluar dari Konsol"
           >
-            <LogOut size={18} />
-            Keluar Aplikasi
+            <LogOut size={16} />
           </button>
         </div>
       </aside>
 
-      {/* --- KONTEN UTAMA --- */}
-      <main className="flex-1 flex flex-col h-full min-w-0 relative w-full overflow-hidden bg-slate-50/60 dark:bg-slate-900">
-
-        {/* NAVBAR SOLID DENGAN BREADCRUMB & STATUS BAR */}
-        <header className="px-5 md:px-8 py-3.5 flex justify-between items-center shrink-0 min-h-[70px] bg-white dark:bg-slate-800 border-b border-slate-200/80 dark:border-slate-700 shadow-sm z-20">
+      {/* 2. MAIN CONTENT VIEWPORT */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        
+        {/* TOPBAR HEADER */}
+        <header className="h-16 bg-[#ede8e1] dark:bg-slate-900 border-b border-stone-300 dark:border-slate-800 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl md:hidden transition-colors dark:bg-slate-700 dark:text-slate-300">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-slate-700 dark:text-slate-300 hover:bg-stone-200 dark:hover:bg-slate-800 rounded-xl"
+            >
               <Menu size={20} />
             </button>
-
-            {/* BREADCRUMB DINAMIS (MENYATU DENGAN HALAMAN YANG DIBUKA) */}
-            <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 tracking-wide uppercase">
-                <span>{pageInfo.category}</span>
-                <ChevronRight size={12} className="text-slate-300 dark:text-slate-600" />
-                <span className="text-blue-600 dark:text-blue-400 font-extrabold">{pageInfo.title}</span>
-              </div>
-              <h2 className="text-[17px] md:text-[19px] font-black text-slate-800 dark:text-white tracking-tight leading-tight mt-0.5">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-stone-500 dark:text-slate-400 tracking-wider">
+                {pageInfo.category}
+              </span>
+              <h2 className="text-sm md:text-base font-bold text-stone-900 dark:text-white leading-tight">
                 {pageInfo.title}
               </h2>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-
-            {/* BADGE CLOUD SYNC LIVE */}
-            {cloudSyncStatus.enabled ? (
-              cloudSyncStatus.pendingCount > 0 ? (
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 shadow-xs" title="Data scan tersimpan lokal dan mengantre sync ke Cloud">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                  <Cloud size={14} className="text-amber-500" />
-                  <span>{cloudSyncStatus.pendingCount} Tertunda</span>
-                </span>
-              ) : (
-                <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 shadow-xs" title="Aplikasi tersinkronisasi penuh dengan server Cloud">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <Cloud size={14} className="text-emerald-500" />
-                  <span>Cloud Online</span>
-                </span>
-              )
-            ) : (
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300 border border-slate-200 dark:border-slate-600" title="Aplikasi berjalan dalam mode Lokal Mandiri (Offline-First)">
-                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                <CloudOff size={14} className="text-slate-400" />
-                <span>Lokal Mandiri</span>
-              </span>
+          {/* Topbar Actions: Cloud Sync, Notifications, Dark Mode, Kiosk Button */}
+          <div className="flex items-center gap-2">
+            
+            {/* Status Cloud Sync */}
+            {cloudSyncStatus.enabled && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 text-xs">
+                {cloudSyncStatus.lastStatus === 'syncing' ? (
+                  <>
+                    <RefreshCw size={13} className="text-blue-500 animate-spin" />
+                    <span className="text-blue-600 dark:text-blue-400 font-medium">Sinkronisasi...</span>
+                  </>
+                ) : cloudSyncStatus.pendingCount > 0 ? (
+                  <>
+                    <CloudOff size={13} className="text-amber-500" />
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">{cloudSyncStatus.pendingCount} antrean</span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud size={13} className="text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Cloud Sinkron</span>
+                  </>
+                )}
+              </div>
             )}
 
-            {/* NOTIFIKASI BELL */}
-            <button
-              onClick={() => setShowNotifDropdown(true)}
-              className="p-2 rounded-full text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all relative active:scale-95"
-              title="Peringatan Absensi"
-            >
-              <Bell size={19} />
-              {notifications.length > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[17px] h-4 px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse border-2 border-white dark:border-slate-800 shadow-sm">
-                  {notifications.length > 9 ? '9+' : notifications.length}
-                </span>
+            {/* Dropdown Notifikasi */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+                className="relative p-2 rounded-xl bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-700 transition-colors"
+                title="Notifikasi"
+              >
+                <Bell size={16} />
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-pulse">
+                    {notifications.length > 9 ? '9+' : notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifDropdown && (
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-stone-200 dark:border-slate-700 p-3 z-50">
+                  <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-slate-700">
+                    <span className="text-xs font-bold text-stone-800 dark:text-white">Pemberitahuan Presensi</span>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={handleClearAllNotifs}
+                        className="text-[10px] text-cyan-600 dark:text-cyan-400 hover:underline"
+                      >
+                        Bersihkan Semua
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-60 overflow-y-auto divide-y divide-stone-100 dark:divide-slate-700 py-1">
+                    {notifications.length === 0 ? (
+                      <p className="text-xs text-stone-500 dark:text-slate-400 py-3 text-center">Tidak ada peringatan baru.</p>
+                    ) : (
+                      notifications.map(n => {
+                        const itemKey = `${n.id}_${n.date_log}`;
+                        return (
+                          <div key={itemKey} className="py-2 flex items-start justify-between gap-2 text-xs">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-stone-800 dark:text-white truncate">{n.nama_siswa || n.name}</p>
+                              <p className="text-[11px] text-stone-500 dark:text-slate-400">{n.message || `Belum tap pulang pada ${n.date_log}`}</p>
+                            </div>
+                            <button
+                              onClick={() => handleClearNotifItem(itemKey)}
+                              className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 p-0.5"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
-
-            {/* DARK MODE TOGGLE */}
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-              title="Toggle Dark Mode"
-            >
-              {isDarkMode ? <Sun size={19} /> : <Moon size={19} />}
-            </button>
-
-            {/* PROFIL PENGGUNA */}
-            <div className="flex items-center gap-3 border-l border-slate-200 dark:border-slate-700 pl-3">
-              <div className="text-right hidden md:block">
-                <p className="text-[13px] font-extrabold text-slate-800 dark:text-white leading-none capitalize">{userDisplay.name}</p>
-                <p className="text-[10.5px] text-blue-500 font-bold mt-1">{userDisplay.role}</p>
-              </div>
-              <Link to="/admin/profile" className="w-9 h-9 rounded-full overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-700 hover:scale-105 transition-transform duration-200 shrink-0">
-                <img src={userDisplay.photo} alt="Profile" className="w-full h-full object-cover" />
-              </Link>
             </div>
+
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-700 transition-colors"
+              title={isDarkMode ? 'Mode Terang' : 'Mode Gelap'}
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+
+            {/* Kiosk Screen Shortcut */}
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#101626] hover:bg-[#18223a] text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
+            >
+              <span>Layar Kiosk</span>
+            </Link>
           </div>
         </header>
 
-        {/* AREA KONTEN (SEAMLESS CANVAS TANPA DOUBLE CLAMPING) */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 lg:px-10 py-6 scroll-smooth custom-scrollbar">
-          <div className="w-full min-h-full flex flex-col fade-in">
-            <Outlet />
-          </div>
-        </div>
-      </main>
+        {/* Content canvas */}
+        <main className="p-4 md:p-8 lg:p-10 max-w-[1440px] w-full mx-auto flex-1">
+          <Outlet />
+        </main>
+      </div>
 
-      {/* --- POP-UP NOTIFIKASI PERINGATAN SCAN --- */}
-      {showNotifDropdown && (
-        <>
-          <div
-            className="fixed inset-0 z-[9998] bg-transparent"
-            onClick={() => setShowNotifDropdown(false)}
-          />
-
-          <div className="fixed top-[70px] right-4 md:right-8 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 dark:border-slate-700/80 p-5 z-[9999] animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-700">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-amber-50 dark:bg-amber-900/30 text-amber-500 rounded-xl shrink-0">
-                  <AlertTriangle size={18} />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm text-slate-800 dark:text-white leading-tight">Peringatan Absensi</h4>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">Belum melakukan scan</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black px-2.5 py-1 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-full border border-rose-200/50 dark:border-rose-800 shrink-0">
-                  {notifications.length} Orang
-                </span>
-                {notifications.length > 0 && (
-                  <button
-                    onClick={handleClearAllNotifs}
-                    className="text-[10px] font-bold text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-2 py-1 rounded-lg transition-colors"
-                    title="Hapus Semua Notifikasi"
-                  >
-                    Clear Semua
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="max-h-72 overflow-y-auto custom-scrollbar my-3 space-y-2 pr-1">
-              {notifications.length === 0 ? (
-                <div className="py-8 text-center">
-                  <ShieldCheck size={32} className="mx-auto text-emerald-400 opacity-60 mb-2" />
-                  <p className="text-xs text-slate-400 font-semibold">Tidak ada notifikasi aktif (Semua telah dibersihkan).</p>
-                </div>
-              ) : (
-                notifications.map((n) => {
-                  const itemKey = `${n.id}_${n.date_log}`;
-                  return (
-                    <div key={itemKey} className="p-3 bg-slate-50/80 dark:bg-slate-700/40 hover:bg-slate-100/80 dark:hover:bg-slate-700/70 transition-colors rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col gap-1 relative group">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate pr-6">{n.full_name}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/40 px-2 py-0.5 rounded-lg">{n.date_log}</span>
-                          <button
-                            onClick={() => handleClearNotifItem(itemKey)}
-                            className="text-slate-400 hover:text-rose-500 p-0.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/40 transition-colors"
-                            title="Hapus Notifikasi Ini"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        <span className="font-medium truncate max-w-[140px]">{n.division_name || (appMode === 'edukasi' ? 'Tanpa Kelas' : 'Tanpa Divisi')}</span>
-                        <span className="font-mono text-[11px]">
-                          Masuk: <b className="text-emerald-600 dark:text-emerald-400">{n.scan_time ? n.scan_time.substring(11, 16) : '-'}</b> | Pulang: <b className="text-rose-500">-</b>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-700 text-center">
-              <Link
-                to="/admin/reports"
-                onClick={() => setShowNotifDropdown(false)}
-                className="text-xs font-extrabold text-blue-600 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-1 transition-all hover:translate-x-1"
-              >
-                Lihat Laporan Kehadiran Lengkap →
-              </Link>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* --- MODAL LOGOUT --- */}
+      {/* MODAL LOGOUT KONFIRMASI */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-8 max-w-sm w-full shadow-2xl text-center transform animate-in zoom-in-95 duration-200">
-            <div className="w-20 h-20 bg-rose-50 dark:bg-rose-900/30 text-rose-500 dark:text-rose-400 rounded-3xl flex items-center justify-center mx-auto mb-6 rotate-3">
-              <AlertTriangle size={36} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 dark:border-slate-700">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center mx-auto mb-4">
+              <LogOut size={24} />
             </div>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Keluar Sekarang?</h3>
-            <p className="text-[14px] text-slate-500 dark:text-slate-400 mt-3 mb-8 font-medium leading-relaxed">
-              Pastikan pekerjaan Anda sudah tersimpan. Anda akan diarahkan ke halaman login.
+            <h3 className="text-base font-bold text-stone-900 dark:text-white text-center">Keluar dari Konsol?</h3>
+            <p className="text-xs text-stone-500 dark:text-slate-400 text-center mt-1 mb-6">
+              Sesi login Anda akan diakhiri dan dialihkan ke halaman masuk.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setShowLogoutModal(false)}
-                className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                className="flex-1 py-2.5 rounded-xl border border-stone-200 dark:border-slate-700 text-stone-700 dark:text-slate-300 text-xs font-semibold hover:bg-stone-50 dark:hover:bg-slate-700 transition-colors"
               >
                 Batal
               </button>
               <button
-                onClick={confirmLogout}
-                className="flex-1 py-3.5 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-600 shadow-md shadow-rose-200 transition-all active:scale-95"
+                type="button"
+                onClick={handleLogout}
+                className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold transition-colors shadow-sm"
               >
                 Ya, Keluar
               </button>
@@ -572,6 +542,7 @@ const MainLayout = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
