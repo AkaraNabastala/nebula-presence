@@ -228,8 +228,12 @@ const performCloudSync = async (pool, io, isManual = false) => {
         }
 
         // 2. PULL: Tarik data Izin / Sakit yang diinput Wali Kelas dari web portal
-        const lastPullTime = settings['cloud_sync_last_time'] || '';
+        // Cursor pull dipisahkan dari waktu sinkronisasi UI. Cursor hanya maju
+        // setelah portal menjawab sukses dan semua pembaruan dapat diproses.
+        // Format SQL UTC dipakai agar cocok dengan CURRENT_TIMESTAMP pada SQLite portal.
+        const lastPullTime = settings['cloud_sync_last_pull_time'] || '2000-01-01 00:00:00';
         const pullEndpoint = `${syncUrl}/pull-remote-updates?since=${encodeURIComponent(lastPullTime)}`;
+        let pullSucceeded = false;
 
         try {
             const pullRes = await makeSyncRequest(pullEndpoint, {
@@ -238,41 +242,56 @@ const performCloudSync = async (pool, io, isManual = false) => {
             });
 
             if (pullRes.status === 200 && Array.isArray(pullRes.data?.updates)) {
+                pullSucceeded = true;
                 for (const update of pullRes.data.updates) {
-                    // Cek apakah member terdaftar
+                    // Jika anggota belum dikenal, jangan majukan cursor agar update dicoba lagi.
+                    const memberIdentity = update.nipd || update.nisn;
                     const memRes = await pool.query(
                         "SELECT id FROM members WHERE identity_number = $1 OR identity_reference = $1 LIMIT 1",
-                        [update.nipd || update.nisn]
+                        [memberIdentity]
                     );
-                    if (memRes.rows.length > 0) {
-                        const mId = memRes.rows[0].id;
-                        const existLog = await pool.query(
-                            "SELECT id FROM attendance_logs WHERE member_id = $1 AND date_log = $2",
-                            [mId, update.date_log]
+                    if (memRes.rows.length === 0) {
+                        pullSucceeded = false;
+                        continue;
+                    }
+
+                    const mId = memRes.rows[0].id;
+                    const existLog = await pool.query(
+                        "SELECT id FROM attendance_logs WHERE member_id = $1 AND date_log = $2",
+                        [mId, update.date_log]
+                    );
+                    if (existLog.rows.length > 0) {
+                        await pool.query(
+                            "UPDATE attendance_logs SET status = $1, source = 'cloud', is_synced = 1 WHERE id = $2",
+                            [update.status, existLog.rows[0].id]
                         );
-                        if (existLog.rows.length > 0) {
-                            await pool.query(
-                                "UPDATE attendance_logs SET status = $1, source = 'cloud', is_synced = 1 WHERE id = $2",
-                                [update.status, existLog.rows[0].id]
-                            );
-                        } else {
-                            await pool.query(
-                                "INSERT INTO attendance_logs (member_id, status, date_log, scan_time, sync_id, is_synced, source) VALUES ($1, $2, $3, $4, $5, 1, 'cloud')",
-                                [mId, update.status, update.date_log, `${update.date_log} 07:00:00`, update.sync_id || require('crypto').randomUUID()]
-                            );
-                        }
+                    } else {
+                        await pool.query(
+                            "INSERT INTO attendance_logs (member_id, status, date_log, scan_time, sync_id, is_synced, source) VALUES ($1, $2, $3, $4, $5, 1, 'cloud')",
+                            [mId, update.status, update.date_log, `${update.date_log} 07:00:00`, update.sync_id || require('crypto').randomUUID()]
+                        );
                     }
                 }
             }
         } catch (pullErr) {
-            // Abaikan jika endpoint pull belum siap di web
+            // Pertahankan cursor agar pembaruan remote dapat dicoba lagi pada siklus berikutnya.
+            console.warn("[Cloud Sync Pull Error]:", pullErr.message);
         }
 
-        const nowStr = new Date().toISOString();
+        const now = new Date();
+        const nowStr = now.toISOString();
+        const nowSql = nowStr.slice(0, 19).replace('T', ' ');
         await pool.query(
             "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', 'synced'), ('cloud_sync_last_time', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
             [nowStr]
         );
+
+        if (pullSucceeded) {
+            await pool.query(
+                "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_pull_time', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
+                [nowSql]
+            );
+        }
 
         if (io) io.emit('cloud_sync_status', { state: 'synced', lastTime: nowStr, pushed: pushSuccessCount });
 
