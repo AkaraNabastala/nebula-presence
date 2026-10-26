@@ -414,19 +414,19 @@ const MainLayout = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto" onScroll={handleContentScroll}>
         
         {/* TOPBAR HEADER */}
-        <header className={`min-h-16 bg-[#e8f1ff]/95 dark:bg-[#0b1730]/96 border-b border-blue-200 dark:border-blue-900/70 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-[0_8px_28px_rgba(11,23,48,0.08)] transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+        <header className={`min-h-16 bg-gradient-to-r from-[#101c30] via-[#172943] to-[#174a70] border-b border-sky-400/40 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-[0_8px_28px_rgba(11,23,48,0.08)] transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-[#0b1730] dark:text-slate-100 hover:bg-blue-100 dark:hover:bg-white/10 rounded-xl"
+              className="lg:hidden p-2 text-sky-100 hover:bg-white/10 rounded-xl"
             >
               <Menu size={20} />
             </button>
             <div>
-              <span className="text-[10px] uppercase font-bold text-blue-800 dark:text-sky-300 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-sky-300 tracking-wider">
                 {pageInfo.category}
               </span>
-              <h2 className="text-sm md:text-base font-bold text-[#0b1730] dark:text-white leading-tight">
+              <h2 className="text-sm md:text-base font-bold text-white leading-tight">
                 {pageInfo.title}
               </h2>
             </div>
