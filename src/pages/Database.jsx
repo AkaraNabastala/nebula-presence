@@ -10,12 +10,13 @@ const Database = () => {
   const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [backupDialog, setBackupDialog] = useState(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   const handleBackup = async () => {
     setDownloading(true);
-    toast.info('Menyiapkan salinan database…');
+    setBackupDialog({ status: 'processing', message: 'Membuat salinan database dan menyiapkan unduhan.' });
     try {
       const response = await api.get('/backup', { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -27,8 +28,11 @@ const Database = () => {
       link.remove();
       window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       toast.success('Backup database berhasil diunduh.');
+      setBackupDialog({ status: 'success', message: 'Salinan database berhasil dibuat dan unduhan telah dimulai.' });
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Gagal mengunduh backup database.');
+      const message = error.response?.data?.message || 'Gagal mengunduh backup database.';
+      toast.error(message);
+      setBackupDialog({ status: 'error', message });
     } finally {
       setDownloading(false);
     }
@@ -49,7 +53,6 @@ const Database = () => {
   const handleRestore = async () => {
     if (!file) return;
     setLoading(true);
-    setConfirmOpen(false);
     const formData = new FormData();
     formData.append('backup_file', file);
     try {
@@ -77,7 +80,7 @@ const Database = () => {
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">Perlindungan Data</span>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Manajemen Database</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Backup dan restore tetap berada di halaman khusus ini, terpisah dari pengaturan aplikasi dan perangkat.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Kelola perlindungan data dari satu pusat pemeliharaan. Konfirmasi dan proses unduh maupun pemulihan ditampilkan melalui modal khusus.</p>
           </div>
         </div>
       </section>
@@ -89,7 +92,7 @@ const Database = () => {
             <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[10px] font-extrabold text-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300">EXPORT</span>
           </div>
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"><HardDrive size={18} className="shrink-0 text-slate-500" /><div><p className="text-xs font-bold text-slate-800 dark:text-slate-200">Format file .sqlite</p><p className="mt-0.5 text-[11px] text-slate-500">Salinan database lengkap</p></div></div>
-          <button type="button" onClick={handleBackup} disabled={downloading || loading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-900/15 transition hover:brightness-110 disabled:opacity-50">{downloading ? <RefreshCw size={16} className="animate-spin" /> : <DownloadCloud size={16} />}{downloading ? 'Menyiapkan backup…' : 'Unduh Backup Database'}</button>
+          <button type="button" onClick={() => setBackupDialog({ status: 'ready', message: 'Buat salinan database lokal sebelum pembaruan atau pemulihan.' })} disabled={downloading || loading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-900/15 transition hover:brightness-110 disabled:opacity-50">{downloading ? <RefreshCw size={16} className="animate-spin" /> : <DownloadCloud size={16} />}{downloading ? 'Menyiapkan backup…' : 'Unduh Backup Database'}</button>
         </section>
 
         <section className="rounded-[1.75rem] border border-orange-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
