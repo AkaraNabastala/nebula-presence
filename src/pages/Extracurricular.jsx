@@ -13,8 +13,8 @@ import {
 import api from '../api/axios';
 import { toast } from 'react-toastify';
 
-const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white";
-const cardClass = "bg-white rounded-2xl border border-slate-100 shadow-sm p-5 dark:bg-slate-800 dark:border-slate-700";
+const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:focus:ring-blue-950";
+const cardClass = "bg-white rounded-2xl border border-blue-100/80 shadow-sm p-5 sm:p-6 dark:bg-slate-900 dark:border-slate-800";
 const currentMonth = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -436,8 +436,8 @@ export default function Extracurricular() {
     ];
 
     return (
-        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-            <div className={`${cardClass} flex flex-wrap items-center justify-between gap-4`}>
+        <div className="mx-auto max-w-7xl space-y-6 pb-8">
+            <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#0b1730] via-[#123b82] to-[#2563eb] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8"><div className="pointer-events-none absolute -right-10 -top-16 h-52 w-52 rounded-full bg-sky-300/20 blur-3xl" /><div className="relative flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
                         Monitoring Ekstrakurikuler
@@ -447,7 +447,7 @@ export default function Extracurricular() {
                     </p>
                 </div>
                 <button onClick={refresh} disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">
+                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white backdrop-blur transition hover:bg-white/20 disabled:opacity-50">
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     Muat Ulang
                 </button>
@@ -471,9 +471,9 @@ export default function Extracurricular() {
             <div className="flex gap-2 overflow-x-auto">
                 {tabs.map(({ id, label, icon: Icon }) => (
                     <button key={id} onClick={() => setTab(id)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium whitespace-nowrap ${
+                        className={`flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-bold whitespace-nowrap transition ${
                             tab === id
-                                ? 'bg-blue-600 text-white'
+                                ? 'bg-gradient-to-r from-blue-950 to-blue-600 text-white shadow-md shadow-blue-900/15'
                                 : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                         }`}>
                         <Icon size={18} /> {label}
@@ -542,7 +542,7 @@ export default function Extracurricular() {
                         Daftar Ekskul
                     </h2>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
+                        <table className="w-full min-w-[640px] text-sm text-left">
                             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
                                 <tr>
                                     <th className="p-3">Nama</th>
@@ -553,7 +553,7 @@ export default function Extracurricular() {
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                 {items.map(item => (
-                                    <tr key={item.id}>
+                                    <tr key={item.id} className="transition hover:bg-blue-50/60 dark:hover:bg-slate-800/60">
                                         <td className="p-3 font-medium text-slate-800 dark:text-white">{item.name}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.assigned_supervisor_name || item.supervisor_name || '-'}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.schedule || '-'}</td>
