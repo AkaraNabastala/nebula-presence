@@ -266,8 +266,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                FROM attendance_logs a
                JOIN members m ON a.member_id = m.id
                LEFT JOIN divisions d ON m.division_id = d.id
-               ORDER BY a.id ASC
-               LIMIT 200`
+               ORDER BY a.id ASC`
             : `SELECT a.id, a.sync_id, a.status, a.date_log, a.scan_time, a.scan_out, a.shift_name, a.source,
                       m.identity_number as nipd, m.identity_reference as nisn, m.full_name, m.role,
                       d.name as division_name
@@ -279,36 +278,47 @@ const performCloudSync = async (pool, io, isManual = false) => {
                LIMIT 100`;
 
         const pendingLogs = await pool.query(logQuery);
-
+        const attendanceBatchSize = 200;
         let pushSuccessCount = 0;
-        if (pendingLogs.rows.length > 0) {
-            const pushEndpoint = `${syncUrl}/push-attendance`;
-            const pushRes = await makeSyncRequest(pushEndpoint, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${syncToken}` }
-            }, { logs: pendingLogs.rows });
 
-            if (pushRes.status === 200 && Array.isArray(pushRes.data?.synced_ids)) {
+        // Manual sync sends all records in bounded batches. Automatic sync only
+        // sends pending records. Never treat an unacknowledged row as delivered.
+        for (let offset = 0; offset < pendingLogs.rows.length; offset += attendanceBatchSize) {
+            const batch = pendingLogs.rows.slice(offset, offset + attendanceBatchSize);
+            try {
+                const pushRes = await makeSyncRequest(`${syncUrl}/push-attendance`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${syncToken}` }
+                }, { logs: batch });
+
+                if (pushRes.status !== 200 || pushRes.data?.success !== true || !Array.isArray(pushRes.data?.synced_ids)) {
+                    syncErrors.push(`Log presensi batch gagal dikirim (HTTP ${pushRes.status}).`);
+                    break;
+                }
+
                 const syncedIds = pushRes.data.synced_ids;
-                if (syncedIds.length > 0) {
-                    for (const sId of syncedIds) {
-                        try {
-                            await pool.query(
-                                "UPDATE attendance_logs SET is_synced = 1 WHERE sync_id = $1 OR id = $2",
-                                [sId, sId]
-                            );
-                        } catch (errSync) {
-                            syncErrors.push(`Gagal menandai log ${sId} sebagai terkirim: ${errSync.message}`);
-                            console.error("Gagal update status is_synced di attendance_logs:", errSync.message);
-                        }
+                for (const sId of syncedIds) {
+                    try {
+                        await pool.query(
+                            "UPDATE attendance_logs SET is_synced = 1 WHERE sync_id = $1 OR id = $2",
+                            [sId, sId]
+                        );
+                    } catch (errSync) {
+                        syncErrors.push(`Gagal menandai log sebagai terkirim: ${errSync.message}`);
+                        console.error("Gagal update status is_synced di attendance_logs:", errSync.message);
                     }
-                    pushSuccessCount = syncedIds.length;
                 }
-                if (syncedIds.length < pendingLogs.rows.length) {
-                    syncErrors.push(`Log presensi: ${pendingLogs.rows.length - syncedIds.length} dari ${pendingLogs.rows.length} log belum dikonfirmasi Portal.`);
+                pushSuccessCount += syncedIds.length;
+
+                if (syncedIds.length < batch.length) {
+                    syncErrors.push(`Log presensi: ${batch.length - syncedIds.length} dari ${batch.length} log batch ini belum dikonfirmasi Portal.`);
+                    // Stop here so unresolved records are not skipped by later batches.
+                    break;
                 }
-            } else {
-                syncErrors.push(`Log presensi gagal dikirim (HTTP ${pushRes.status}).`);
+            } catch (pushErr) {
+                syncErrors.push(`Log presensi: ${pushErr.message}`);
+                console.warn("[Cloud Sync Attendance Error]:", pushErr.message);
+                break;
             }
         }
 
