@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
 
 const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white";
 const cardClass = "bg-white rounded-2xl border border-slate-100 shadow-sm p-5 dark:bg-slate-800 dark:border-slate-700";
@@ -79,11 +80,7 @@ export default function Extracurricular() {
 
     const downloadMonthlyJournal = async () => {
         if (!filteredJournals.length) {
-            return Swal.fire(
-                'Tidak ada data',
-                'Tidak ada jurnal pada filter bulan dan ekskul yang dipilih.',
-                'info'
-            );
+            return toast.info('Tidak ada jurnal pada filter bulan dan ekskul yang dipilih.');
         }
 
         const XLSX = await import("xlsx-js-style");
@@ -135,6 +132,7 @@ export default function Extracurricular() {
             || 'Semua-Ekskul';
 
         XLSX.writeFile(wb, `Jurnal-${selectedName.replace(/[^a-z0-9-_]/gi, '-')}-${journalMonth || 'Semua-Bulan'}.xlsx`);
+        toast.success('File jurnal ekstrakurikuler berhasil disiapkan.');
     };
     const loadExtracurriculars = async () => {
         try {
