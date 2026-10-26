@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { CalendarDays, Clock, Pencil, Power, Plus, RefreshCw, X, Download, Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
+import { CalendarDays, Clock, Pencil, Power, Plus, X, Download, Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
 
@@ -472,15 +472,7 @@ export default function TeachingSchedules() {
             <Download size={15} /><span>Template</span>
           </button>
 
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-stone-50 dark:hover:bg-slate-700 shadow-sm transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-            <span>Muat ulang</span>
-          </button>
+
           </div>
         </div>
       </section>
