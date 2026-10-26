@@ -119,7 +119,7 @@ export default function Subjects() {
             onChange={e => setForm({ ...form, code: e.target.value })}
             className="mt-1 block w-full rounded-lg border border-slate-300 bg-transparent px-3 py-2 font-normal" />
         </label>
-        <button disabled={saving} className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-white disabled:opacity-50">
+        <button disabled={saving} className="mt-auto inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
           <Plus size={16} /> {saving ? 'Menyimpan…' : editingId ? 'Simpan perubahan' : 'Tambah'}
         </button>
         {editingId && <button type="button" onClick={reset} className="mt-auto rounded-lg border px-4 py-2">Batal</button>}
