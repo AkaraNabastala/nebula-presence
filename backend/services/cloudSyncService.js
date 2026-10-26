@@ -127,7 +127,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
             if (schoolData.nama_sekolah || schoolData.logo_sekolah) {
                 const infoEndpoint = `${syncUrl}/push-school-info`;
-                await makeSyncRequest(infoEndpoint, {
+                const infoPush = await makeSyncRequest(infoEndpoint, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${syncToken}` }
                 }, {
@@ -135,8 +135,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     school_address: schoolData.alamat_sekolah || '',
                     school_logo: schoolData.logo_sekolah || ''
                 });
+                if (infoPush.status !== 200 || !infoPush.data?.success) syncErrors.push(`Identitas sekolah gagal dikirim (HTTP ${infoPush.status}).`);
             }
         } catch (infoErr) {
+            syncErrors.push(`Identitas sekolah: ${infoErr.message}`);
             console.warn("[Cloud Sync School Info Error]:", infoErr.message);
         }
 
@@ -148,10 +150,19 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 const admin = adminRes.rows[0];
                 if (admin?.username && admin?.password_hash) {
                     const accountRes = await makeSyncRequest(`${syncUrl}/push-admin-account`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { username: admin.username, password_hash: admin.password_hash });
-                    if (accountRes.status !== 200 || !accountRes.data?.success) console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
+                    if (accountRes.status !== 200 || !accountRes.data?.success) {
+                        syncErrors.push(`Akun administrator gagal dikirim (HTTP ${accountRes.status}).`);
+                        console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
+                    }
                 }
-            } else console.warn('[Cloud Sync Admin Error]: Admin credential sync requires HTTPS; account hash was not sent.');
-        } catch (adminErr) { console.warn('[Cloud Sync Admin Error]:', adminErr.message); }
+            } else {
+                syncErrors.push('Akun administrator tidak dikirim karena koneksi bukan HTTPS.');
+                console.warn('[Cloud Sync Admin Error]: Admin credential sync requires HTTPS; account hash was not sent.');
+            }
+        } catch (adminErr) {
+            syncErrors.push(`Akun administrator: ${adminErr.message}`);
+            console.warn('[Cloud Sync Admin Error]:', adminErr.message);
+        }
 
         // 0.5. PUSH DIVISIONS: Kirim data rombel / kelas beserta wali kelas (supervisor_name)
         emitStage('divisions', 'Mengirim data kelas...', { progress: 28 });
@@ -159,14 +170,14 @@ const performCloudSync = async (pool, io, isManual = false) => {
             const divRes = await pool.query(
                 "SELECT d.id, d.name, d.supervisor_name FROM divisions d ORDER BY d.id ASC"
             );
-            if (divRes.rows.length > 0) {
-                const divEndpoint = `${syncUrl}/push-divisions`;
-                await makeSyncRequest(divEndpoint, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${syncToken}` }
-                }, { divisions: divRes.rows });
-            }
+            const divEndpoint = `${syncUrl}/push-divisions`;
+            const divPush = await makeSyncRequest(divEndpoint, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${syncToken}` }
+            }, { divisions: divRes.rows });
+            if (divPush.status !== 200 || !divPush.data?.success) syncErrors.push(`Data kelas gagal dikirim (HTTP ${divPush.status}).`);
         } catch (divErr) {
+            syncErrors.push(`Data kelas: ${divErr.message}`);
             console.warn("[Cloud Sync Divisions Error]:", divErr.message);
         }
 
@@ -191,7 +202,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
             const pendingMembers = await pool.query(memberQuery);
 
-            if (pendingMembers.rows.length > 0) {
+            if (pendingMembers.rows.length > 0 || isManual || portalNeedsBootstrap) {
                 const memEndpoint = `${syncUrl}/push-members`;
                 const memRes = await makeSyncRequest(memEndpoint, {
                     method: 'POST',
@@ -202,9 +213,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     for (const row of pendingMembers.rows) {
                         await pool.query("UPDATE members SET is_synced = 1 WHERE id = $1", [row.id]);
                     }
-                }
+                } else syncErrors.push(`Data siswa/guru gagal dikirim (HTTP ${memRes.status}).`);
             }
         } catch (memErr) {
+            syncErrors.push(`Data siswa/guru: ${memErr.message}`);
             console.warn("[Cloud Sync Member Error]:", memErr.message);
         }
 
@@ -339,6 +351,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         } catch (pullErr) {
             // Pertahankan cursor agar pembaruan remote dapat dicoba lagi pada siklus berikutnya.
             pullSucceeded = false;
+            syncErrors.push(`Pembaruan Portal: ${pullErr.message}`);
             console.warn("[Cloud Sync Pull Error]:", pullErr.message);
         }
 
