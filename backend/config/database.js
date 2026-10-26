@@ -84,4 +84,13 @@ const mockPool = {
     }
 };
 
-module.exports = { pool: mockPool, logDir, frontendPath, userDataPath, uploadDir };
+// SQLite online backup API menghasilkan snapshot konsisten, termasuk perubahan yang
+// masih berada di WAL; menyalin database.sqlite secara langsung bisa kehilangan data.
+const createConsistentBackup = (destination) => new Promise((resolve, reject) => {
+    db.backup(destination, (err) => {
+        if (err) return reject(err);
+        resolve(destination);
+    });
+});
+
+module.exports = { pool: mockPool, logDir, frontendPath, userDataPath, uploadDir, createConsistentBackup };
