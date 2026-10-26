@@ -37,7 +37,8 @@ describe('System & Settings API Tests', () => {
         // Verifikasi update
         const getRes = await request(app).get('/api/settings');
         expect(getRes.body.app_mode).toBe('edukasi');
-        expect(getRes.body.labels.label_kelompok).toBe('Kelompok'); // Logika dinamis edukasi diganti default Kelompok
+        // Mode edukasi memakai label "Kelas" sesuai getDynamicLabels pada masterController.
+        expect(getRes.body.labels.label_kelompok).toBe('Kelas');
     });
 
     it('Harus bisa mengambil log aktivitas (Audit Logs)', async () => {
