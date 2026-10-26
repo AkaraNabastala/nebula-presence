@@ -7,7 +7,7 @@ const inputClass =
     'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-800 dark:bg-slate-700 dark:border-slate-600 dark:text-white';
 
 const cardClass =
-    'rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700';
+    'rounded-2xl border border-sky-100 bg-white p-5 shadow-sm dark:bg-slate-900 dark:border-slate-800';
 
 const currentMonth = () => {
     const d = new Date();
@@ -144,24 +144,23 @@ export default function MonitoringAkademik() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 pb-8">
-            <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#0b1730] via-[#123b82] to-[#2563eb] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8">
-                <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-                        Monitoring Akademik
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-blue-100">
-                        Rekap jurnal guru dan kehadiran siswa per kelas dan mata pelajaran.
-                    </p>
+            <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+                <div className="pointer-events-none absolute -right-8 -top-10 h-44 w-44 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
+                <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-4">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg"><ClipboardCheck size={22} /></span>
+                        <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">RINGKASAN PEMBELAJARAN</span>
+                            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Monitoring Akademik</h1>
+                            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Telusuri jurnal guru dan kehadiran siswa menggunakan filter periode, kelas, mapel, dan pengajar.</p>
+                        </div>
+                    </div>
+                    <button type="button" onClick={loadReport} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white/90 px-4 py-3 text-xs font-bold text-blue-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700">
+                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Perbarui Data
+                    </button>
                 </div>
-                <button
-                    onClick={loadReport}
-                    disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/20 disabled:opacity-50"
-                >
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    Muat Ulang
-                </button>
-            </div>
+            </section>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className={cardClass}>
@@ -256,7 +255,7 @@ export default function MonitoringAkademik() {
                 <p className="mb-4 text-sm text-slate-500">
                     {loading ? 'Memuat laporan...' : `${data.length} baris laporan`}
                 </p>
-                <table className="w-full min-w-[750px] text-left text-sm">
+                <div className="hidden overflow-x-auto lg:block"><table className="w-full min-w-[750px] text-left text-sm">
                     <thead className="bg-slate-50 dark:bg-slate-900">
                         {tab === 'jurnal' ? (
                             <tr>
@@ -312,7 +311,28 @@ export default function MonitoringAkademik() {
                             </tr>
                         )}
                     </tbody>
-                </table>
+                </table></div>
+                <div className="grid gap-3 lg:hidden">
+                    {data.map((row, index) => (
+                        <article key={row.id ?? index} className="rounded-2xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/60 p-4 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="break-words font-bold text-slate-900 dark:text-white">{tab === 'jurnal' ? (row.journal || 'Jurnal pembelajaran') : (row.student_name || 'Data kehadiran')}</p>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{tab === 'jurnal' ? (row.activity_date || '-') : (row.attendance_date || '-')}</p>
+                                </div>
+                                {tab === 'kehadiran' && <span className="shrink-0 rounded-full bg-sky-100 px-2.5 py-1 text-[10px] font-bold text-blue-800 dark:bg-blue-950 dark:text-sky-300">{row.status || '—'}</span>}
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-3 border-t border-sky-100 pt-3 text-xs dark:border-slate-800">
+                                <div><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Kelas</p><p className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{row.class_name || '-'}</p></div>
+                                <div><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Mata pelajaran</p><p className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{row.subject_name || '-'}</p></div>
+                                <div className="col-span-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Guru</p><p className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{row.teacher_name || '-'}</p></div>
+                                {tab === 'jurnal' && <div className="col-span-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Catatan</p><p className="mt-1 whitespace-pre-wrap text-slate-600 dark:text-slate-300">{row.notes || 'Tidak ada catatan.'}</p></div>}
+                                {tab === 'kehadiran' && <div className="col-span-2"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Catatan</p><p className="mt-1 text-slate-600 dark:text-slate-300">{row.notes || 'Tidak ada catatan.'}</p></div>}
+                            </div>
+                        </article>
+                    ))}
+                    {!data.length && <div className="rounded-2xl border border-dashed border-sky-200 p-8 text-center text-sm text-slate-500 dark:border-slate-700">Tidak ada data untuk filter ini.</div>}
+                </div>
             </div>
         </div>
     );
