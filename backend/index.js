@@ -154,6 +154,33 @@ const startServer = async () => {
         // Setup database lokal & index
         await initSystem();
 
+        // Backup SQLite otomatis setiap hari pukul 02.00 waktu lokal.
+        // File dibatasi hanya untuk user OS saat ini dan backup otomatis lama dipangkas.
+        const fs = require('fs');
+        const { createConsistentBackup, userDataPath } = require('./config/database');
+        const backupDir = path.join(userDataPath, 'backups');
+        fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+        cron.schedule('0 2 * * *', async () => {
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const backupPath = path.join(backupDir, `auto-backup-${stamp}.sqlite`);
+            try {
+                await createConsistentBackup(backupPath);
+                try { fs.chmodSync(backupPath, 0o600); } catch {}
+                const backups = fs.readdirSync(backupDir)
+                    .filter(name => /^auto-backup-.*\.sqlite$/.test(name))
+                    .sort()
+                    .reverse();
+                for (const oldName of backups.slice(14)) {
+                    try { fs.unlinkSync(path.join(backupDir, oldName)); } catch (cleanupErr) {
+                        console.warn('[Database Backup] Gagal menghapus backup lama:', cleanupErr.message);
+                    }
+                }
+                console.log('[Database Backup] Backup otomatis berhasil:', path.basename(backupPath));
+            } catch (backupErr) {
+                console.error('[Database Backup] Backup otomatis gagal:', backupErr.message);
+            }
+        });
+
         // Start Cron Jobs (Auto Alfa)
         initAutoAlfa();
 
