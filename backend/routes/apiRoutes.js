@@ -159,6 +159,10 @@ router.post('/teaching-schedules', (req, res) => jadwalMapelController.createSch
 router.put('/teaching-schedules/:id', (req, res) => jadwalMapelController.updateSchedule(req, res));
 router.patch('/teaching-schedules/:id/status', (req, res) => jadwalMapelController.setScheduleStatus(req, res));
 
+// AKUN LOGIN GURU (dikelola dari aplikasi desktop, lalu dikirim melalui cloud sync)
+router.get('/teacher-accounts', roleGuard(['SuperAdmin']), (req, res) => masterController.getTeacherAccounts(req, res));
+router.put('/teacher-accounts/:memberId', roleGuard(['SuperAdmin']), (req, res) => masterController.upsertTeacherAccount(req, res));
+
 // MASTER DATA MEMBERS
 router.get('/members', (req, res) => masterController.getAllMembers(req, res));
 router.post('/members', (req, res) => masterController.createMember(req, res));
