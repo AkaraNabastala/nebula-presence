@@ -159,7 +159,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
         let portalNeedsBootstrap = false;
         try {
             const handshake = await makeSyncRequest(`${syncBaseUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
-            if (handshake.status === 200 && handshake.data?.success) portalNeedsBootstrap = handshake.data?.bootstrap_required === true;
+            if (handshake.status === 200 && handshake.data?.success) {
+                portalNeedsBootstrap = handshake.data?.bootstrap_required === true;
+                console.info(`[Cloud Sync Portal] Handshake berhasil; bootstrap=${portalNeedsBootstrap ? 'ya' : 'tidak'}.`);
+            }
             else syncErrors.push(`Handshake Portal gagal (POST ${syncBaseUrl}/handshake, HTTP ${handshake.status}${responseHint(handshake)}).`);
         } catch (handshakeErr) {
             syncErrors.push(`Handshake Portal: ${handshakeErr.message}`);
@@ -227,6 +230,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 headers: { 'Authorization': `Bearer ${syncToken}` }
             }, { divisions: divRes.rows });
             if (divPush.status !== 200 || !divPush.data?.success) syncErrors.push(`Data kelas gagal dikirim (POST ${divEndpoint}, HTTP ${divPush.status}${responseHint(divPush)}).`);
+            else console.info(`[Cloud Sync Portal] Data kelas terkirim: ${divRes.rows.length} kelas.`);
         } catch (divErr) {
             syncErrors.push(`Data kelas: ${divErr.message}`);
             console.warn("[Cloud Sync Divisions Error]:", divErr.message);
@@ -266,6 +270,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 }, { members: pendingMembers.rows });
 
                 if (memRes.status === 200 && Array.isArray(memRes.data?.synced_ids)) {
+                    console.info(`[Cloud Sync Portal] Data anggota diterima: ${memRes.data.synced_ids.length} anggota; dilewati=${memRes.data.skipped || 0}.`);
                     const acknowledgedIds = new Set(memRes.data.synced_ids.map(id => String(id)));
                     for (const row of pendingMembers.rows) {
                         if (acknowledgedIds.has(String(row.id))) {
@@ -368,6 +373,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     }
                 }
                 pushSuccessCount += syncedIds.length;
+                console.info(`[Cloud Sync Portal] Log presensi terkirim: ${syncedIds.length} dari ${batch.length} pada batch ini.`);
 
                 if (syncedIds.length < batch.length) {
                     syncErrors.push(`Log presensi: ${batch.length - syncedIds.length} dari ${batch.length} log batch ini belum dikonfirmasi Portal.`);
@@ -398,6 +404,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
             if (pullRes.status === 200 && Array.isArray(pullRes.data?.updates)) {
                 pullSucceeded = true;
+                console.info(`[Cloud Sync Portal] Pembaruan dari Portal diterima: ${pullRes.data.updates.length} item.`);
                 for (const update of pullRes.data.updates) {
                     // Jika anggota belum dikenal, jangan majukan cursor agar update dicoba lagi.
                     const memberIdentity = update.nipd || update.nisn;
