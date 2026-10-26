@@ -101,14 +101,23 @@ const performCloudSync = async (pool, io, isManual = false) => {
         }
 
         isSyncing = true;
-        if (io) io.emit('cloud_sync_status', { state: 'syncing' });
+        const syncErrors = [];
+        const emitStage = (stage, message, details = {}) => {
+            if (io) io.emit('cloud_sync_status', { state: 'syncing', stage, message, ...details });
+        };
+        emitStage('connecting', 'Menghubungkan ke Portal...', { progress: 5 });
         let portalNeedsBootstrap = false;
         try {
             const handshake = await makeSyncRequest(`${syncUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
-            portalNeedsBootstrap = handshake.status === 200 && handshake.data?.success && handshake.data?.bootstrap_required === true;
-        } catch (handshakeErr) { console.warn('[Cloud Sync Handshake Error]:', handshakeErr.message); }
+            if (handshake.status === 200 && handshake.data?.success) portalNeedsBootstrap = handshake.data?.bootstrap_required === true;
+            else syncErrors.push(`Handshake Portal gagal (HTTP ${handshake.status}).`);
+        } catch (handshakeErr) {
+            syncErrors.push(`Handshake Portal: ${handshakeErr.message}`);
+            console.warn('[Cloud Sync Handshake Error]:', handshakeErr.message);
+        }
 
         // 0. PUSH SCHOOL INFO: Kirim identitas & branding sekolah ke Web Portal
+        emitStage('school', 'Mengirim identitas sekolah...', { progress: 12 });
         try {
             const schoolRes = await pool.query(
                 "SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN ('nama_sekolah', 'alamat_sekolah', 'logo_sekolah')"
@@ -132,6 +141,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         }
 
         // 0.25. PUSH ADMIN ACCOUNT: hanya hash bcrypt dan hanya melalui HTTPS.
+        emitStage('admin', 'Memeriksa sinkronisasi akun administrator...', { progress: 20 });
         try {
             if (new URL(syncUrl).protocol === 'https:') {
                 const adminRes = await pool.query("SELECT username, password AS password_hash FROM admins WHERE role = 'SuperAdmin' ORDER BY id ASC LIMIT 1");
@@ -144,6 +154,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         } catch (adminErr) { console.warn('[Cloud Sync Admin Error]:', adminErr.message); }
 
         // 0.5. PUSH DIVISIONS: Kirim data rombel / kelas beserta wali kelas (supervisor_name)
+        emitStage('divisions', 'Mengirim data kelas...', { progress: 28 });
         try {
             const divRes = await pool.query(
                 "SELECT d.id, d.name, d.supervisor_name FROM divisions d ORDER BY d.id ASC"
@@ -160,6 +171,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         }
 
         // 1. PUSH MEMBERS: Kirim data siswa & guru beserta foto ke Web Portal
+        emitStage('members', 'Mengirim data siswa dan guru...', { progress: 38 });
         try {
             const memberQuery = (isManual || portalNeedsBootstrap)
                 ? `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
@@ -196,7 +208,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
             console.warn("[Cloud Sync Member Error]:", memErr.message);
         }
 
-        // 1.5. PUSH TEACHING SCHEDULES: kirim jadwal, mapel, kelas, dan identitas guru.
+        // 1.5. PUSH TEACHING SCHEDULES: snapshot penuh agar Portal tidak menyimpan jadwal usang.
+        emitStage('schedules', 'Mengirim dan mencocokkan jadwal pelajaran...', { progress: 55 });
         try {
             const scheduleRes = await pool.query(`
                 SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
@@ -212,14 +225,23 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 ORDER BY ts.id ASC
             `);
             const schedulePush = await makeSyncRequest(`${syncUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
-            if (schedulePush.status !== 200 || !schedulePush.data?.success) {
-                console.warn('[Cloud Sync Schedules Error]:', schedulePush.data?.message || `HTTP ${schedulePush.status}`);
-            } else if (Number(schedulePush.data.skipped || 0) > 0) {
-                console.warn('[Cloud Sync Schedules Warning]:', `${schedulePush.data.skipped} jadwal dilewati karena guru belum terpetakan atau data belum lengkap.`);
+            if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
+                const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
+                syncErrors.push(`Jadwal tidak tersinkron sempurna: ${detail}`);
+                console.warn('[Cloud Sync Schedules Error]:', detail);
             }
-        } catch (scheduleErr) { console.warn('[Cloud Sync Schedules Error]:', scheduleErr.message); }
+            emitStage('schedules', schedulePush.data?.message || 'Jadwal selesai diproses.', {
+                progress: 65, total: scheduleRes.rows.length,
+                processed: Number(schedulePush.data?.synced || 0),
+                skipped: Number(schedulePush.data?.skipped || 0)
+            });
+        } catch (scheduleErr) {
+            syncErrors.push(`Jadwal pelajaran: ${scheduleErr.message}`);
+            console.warn('[Cloud Sync Schedules Error]:', scheduleErr.message);
+        }
 
         // 2. PUSH ATTENDANCE: Ambil log presensi yang belum terkirim
+        emitStage('attendance', 'Mengirim log presensi...', { progress: 72 });
         const logQuery = isManual
             ? `SELECT a.id, a.sync_id, a.status, a.date_log, a.scan_time, a.scan_out, a.shift_name, a.source,
                       m.identity_number as nipd, m.identity_reference as nisn, m.full_name, m.role,
@@ -268,6 +290,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         }
 
         // 2. PULL: Tarik data Izin / Sakit yang diinput Wali Kelas dari web portal
+        emitStage('pull', 'Memeriksa pembaruan dari Portal...', { progress: 85 });
         // Cursor pull dipisahkan dari waktu sinkronisasi UI. Cursor hanya maju
         // setelah portal menjawab sukses dan semua pembaruan dapat diproses.
         // Format SQL UTC dipakai agar cocok dengan CURRENT_TIMESTAMP pada SQLite portal.
@@ -322,7 +345,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const now = new Date();
         const nowStr = now.toISOString();
         const nowSql = nowStr.slice(0, 19).replace('T', ' ');
-        const syncStatus = pullSucceeded ? 'synced' : 'partial';
+        const syncStatus = pullSucceeded && syncErrors.length === 0 ? 'synced' : 'partial';
         await pool.query(
             "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', $1), ('cloud_sync_last_time', $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
             [syncStatus, nowStr]
@@ -336,19 +359,17 @@ const performCloudSync = async (pool, io, isManual = false) => {
         }
 
         if (io) io.emit('cloud_sync_status', {
-            state: syncStatus,
-            lastTime: nowStr,
-            pushed: pushSuccessCount,
-            pullSucceeded
+            state: syncStatus, stage: 'complete', progress: 100,
+            message: syncStatus === 'synced' ? 'Semua tahap sinkronisasi berhasil.' : 'Sinkronisasi selesai dengan sebagian data gagal.',
+            errors: syncErrors, lastTime: nowStr, pushed: pushSuccessCount, pullSucceeded
         });
 
         return {
-            success: pullSucceeded,
-            message: pullSucceeded
-                ? `Berhasil sinkronisasi: ${pushSuccessCount} log terkirim ke Cloud dan pembaruan portal berhasil diperiksa.`
-                : `Sebagian sinkronisasi berhasil: ${pushSuccessCount} log telah diproses untuk dikirim, tetapi penarikan pembaruan portal belum berhasil. Data akan dicoba kembali.`,
-            pushed: pushSuccessCount,
-            pullSucceeded
+            success: syncStatus === 'synced',
+            message: syncStatus === 'synced'
+                ? `Sinkronisasi selesai: ${pushSuccessCount} log presensi terkirim dan semua tahap berhasil.`
+                : `Sinkronisasi parsial: ${syncErrors.length} masalah terdeteksi. ${syncErrors.slice(0, 3).join(' ')}`,
+            pushed: pushSuccessCount, pullSucceeded, errors: syncErrors
         };
     } catch (err) {
         console.warn("[Cloud Sync Offline/Error]:", err.message);
