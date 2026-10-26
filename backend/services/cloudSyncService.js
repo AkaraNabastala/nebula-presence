@@ -102,6 +102,11 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
         isSyncing = true;
         if (io) io.emit('cloud_sync_status', { state: 'syncing' });
+        let portalNeedsBootstrap = false;
+        try {
+            const handshake = await makeSyncRequest(`${syncUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
+            portalNeedsBootstrap = handshake.status === 200 && handshake.data?.success && handshake.data?.bootstrap_required === true;
+        } catch (handshakeErr) { console.warn('[Cloud Sync Handshake Error]:', handshakeErr.message); }
 
         // 0. PUSH SCHOOL INFO: Kirim identitas & branding sekolah ke Web Portal
         try {
@@ -126,6 +131,18 @@ const performCloudSync = async (pool, io, isManual = false) => {
             console.warn("[Cloud Sync School Info Error]:", infoErr.message);
         }
 
+        // 0.25. PUSH ADMIN ACCOUNT: hanya hash bcrypt dan hanya melalui HTTPS.
+        try {
+            if (new URL(syncUrl).protocol === 'https:') {
+                const adminRes = await pool.query("SELECT username, password AS password_hash FROM admins WHERE role = 'SuperAdmin' ORDER BY id ASC LIMIT 1");
+                const admin = adminRes.rows[0];
+                if (admin?.username && admin?.password_hash) {
+                    const accountRes = await makeSyncRequest(`${syncUrl}/push-admin-account`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { username: admin.username, password_hash: admin.password_hash });
+                    if (accountRes.status !== 200 || !accountRes.data?.success) console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
+                }
+            } else console.warn('[Cloud Sync Admin Error]: Admin credential sync requires HTTPS; account hash was not sent.');
+        } catch (adminErr) { console.warn('[Cloud Sync Admin Error]:', adminErr.message); }
+
         // 0.5. PUSH DIVISIONS: Kirim data rombel / kelas beserta wali kelas (supervisor_name)
         try {
             const divRes = await pool.query(
@@ -144,7 +161,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
         // 1. PUSH MEMBERS: Kirim data siswa & guru beserta foto ke Web Portal
         try {
-            const memberQuery = isManual
+            const memberQuery = (isManual || portalNeedsBootstrap)
                 ? `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
                           d.name as division_name, d.supervisor_name
@@ -178,6 +195,25 @@ const performCloudSync = async (pool, io, isManual = false) => {
         } catch (memErr) {
             console.warn("[Cloud Sync Member Error]:", memErr.message);
         }
+
+        // 1.5. PUSH TEACHING SCHEDULES: kirim jadwal, mapel, kelas, dan identitas guru.
+        try {
+            const scheduleRes = await pool.query(`
+                SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
+                       teacher.identity_number AS teacher_identity_number,
+                       teacher.identity_reference AS teacher_identity_reference,
+                       d.name AS division_name, s.name AS subject_name, s.code AS subject_code,
+                       ta.academic_year, ta.semester
+                FROM teaching_schedules ts
+                JOIN teaching_assignments ta ON ta.id = ts.assignment_id
+                JOIN members teacher ON teacher.id = ta.teacher_id
+                JOIN divisions d ON d.id = ta.division_id
+                JOIN subjects s ON s.id = ta.subject_id
+                ORDER BY ts.id ASC
+            `);
+            const schedulePush = await makeSyncRequest(`${syncUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
+            if (schedulePush.status !== 200 || !schedulePush.data?.success) console.warn('[Cloud Sync Schedules Error]:', schedulePush.data?.message || `HTTP ${schedulePush.status}`);
+        } catch (scheduleErr) { console.warn('[Cloud Sync Schedules Error]:', scheduleErr.message); }
 
         // 2. PUSH ATTENDANCE: Ambil log presensi yang belum terkirim
         const logQuery = isManual
