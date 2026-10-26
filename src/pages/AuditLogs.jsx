@@ -49,7 +49,9 @@ const AuditLogs = () => {
         return () => clearInterval(timer);
     }, []);
 
-    const safeLogs = activeLogType === 'backend' ? (Array.isArray(runtimeLogs) ? runtimeLogs : []) : (Array.isArray(logs) ? logs : []);
+    const safeRuntimeLogs = Array.isArray(runtimeLogs) ? runtimeLogs : [];
+    const portalLogs = safeRuntimeLogs.filter(log => /cloud sync|portal|handshake|sinkron|push|pull/i.test(String(log.message || '')));
+    const safeLogs = activeLogType === 'audit' ? (Array.isArray(logs) ? logs : []) : activeLogType === 'portal' ? portalLogs : safeRuntimeLogs;
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -84,6 +86,7 @@ const AuditLogs = () => {
                     <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
                         <button type="button" onClick={() => setActiveLogType('audit')} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${activeLogType === 'audit' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'text-slate-500'}`}>Audit Trail</button>
                         <button type="button" onClick={() => setActiveLogType('backend')} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${activeLogType === 'backend' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'text-slate-500'}`}>Log Backend ({runtimeLogs.length})</button>
+                        <button type="button" onClick={() => setActiveLogType('portal')} className={activeLogType === 'portal' ? 'rounded-lg px-3 py-2 text-xs font-bold bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'rounded-lg px-3 py-2 text-xs font-bold text-slate-500'}>Log Portal ({portalLogs.length})</button>
                     </div>
                     <p className="text-[11px] text-slate-500">Log proses aktif disimpan sementara di memori dan dibatasi hingga 300 entri.</p>
                 </div>
@@ -94,7 +97,7 @@ const AuditLogs = () => {
                         </div>
                     ) : safeLogs.length === 0 ? (
                         <div className="text-center p-8 text-slate-400 dark:text-slate-500">
-                            {activeLogType === 'backend' ? 'Belum ada log backend yang terekam sejak proses server berjalan.' : 'Belum ada aktivitas admin yang tercatat pada audit trail.'}
+                            {activeLogType === 'backend' ? 'Belum ada log backend yang terekam sejak proses server berjalan.' : activeLogType === 'portal' ? 'Belum ada pesan sinkronisasi Portal pada buffer log backend saat ini.' : 'Belum ada aktivitas admin yang tercatat pada audit trail.'}
                         </div>
                     ) : (
                         <div className="relative border-l-2 border-slate-100 dark:border-slate-700 ml-3 space-y-8 py-2">
@@ -104,7 +107,7 @@ const AuditLogs = () => {
 
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1">
                                         <h3 className="break-words font-semibold text-slate-800 text-base dark:text-slate-200">
-                                            {activeLogType === 'backend' ? log.message : log.action}
+                                            {activeLogType !== 'audit' ? log.message : log.action}
                                         </h3>
                                         <div className="flex items-center text-xs text-slate-400 gap-1 mt-1 sm:mt-0 font-mono">
                                             <Clock className="w-3 h-3" />
@@ -112,8 +115,8 @@ const AuditLogs = () => {
                                         </div>
                                     </div>
 
-                                    {activeLogType === 'backend' ? (
-                                        <div className="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{log.level || 'info'} · Backend</div>
+                                    {activeLogType !== 'audit' ? (
+                                        <div className="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{log.level || 'info'} · {activeLogType === 'portal' ? 'Portal Sync' : 'Backend'}</div>
                                     ) : (
                                         <div className="text-sm text-slate-600 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 dark:text-slate-400">
                                             <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700"><User className="w-3.5 h-3.5 text-slate-400" /><span className="font-medium">{log.admin_name}</span></div>
