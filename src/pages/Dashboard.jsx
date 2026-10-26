@@ -18,6 +18,7 @@ const Dashboard = () => {
   const [syncingPortal, setSyncingPortal] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncMessage, setSyncMessage] = useState('Menyiapkan koneksi Portal...');
+  const [cloudSyncStatus, setCloudSyncStatus] = useState({ enabled: false, lastStatus: 'idle', url: '' });
   const [weeklyStats, setWeeklyStats] = useState([]);
   const [activeTab, setActiveTab] = useState('activity');
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +35,8 @@ const Dashboard = () => {
   const [appConfig, setAppConfig] = useState({
     timezone: 'Asia/Jakarta',
     nama_instansi: 'Sistem Kehadiran',
-    labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' }
+    labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' },
+    cloud_sync_active: '0'
   });
 
   const fetchDashboardData = useCallback(async () => {
@@ -44,11 +46,13 @@ const Dashboard = () => {
       const localDate = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
 
       // Ambil data dashboard, members & daily attendance untuk akurasi optimal
-      const [resMembers, resDaily, resSettings] = await Promise.all([
+      const [resMembers, resDaily, resSettings, resCloudSync] = await Promise.all([
         api.get('/members').catch(() => ({ data: [] })),
         api.get('/attendance/daily', { params: { tanggal: localDate } }).catch(() => ({ data: [] })),
-        api.get('/settings').catch(() => ({ data: {} }))
+        api.get('/settings').catch(() => ({ data: {} })),
+        api.get('/cloud-sync/status').catch(() => ({ data: { enabled: false, lastStatus: 'idle', url: '' } }))
       ]);
+      setCloudSyncStatus(resCloudSync.data || { enabled: false, lastStatus: 'idle', url: '' });
 
       const membersArray = Array.isArray(resMembers.data) ? resMembers.data : (resMembers.data?.data || []);
       const attendanceArray = Array.isArray(resDaily.data) ? resDaily.data : (resDaily.data?.data || []);
@@ -109,7 +113,8 @@ const Dashboard = () => {
           labels: resSettings.data.labels || {
             label_pengguna: isEdu ? 'Siswa' : 'Karyawan',
             label_kelompok: isEdu ? 'Kelas' : 'Divisi'
-          }
+          },
+          cloud_sync_active: resSettings.data.cloud_sync_active || '0'
         });
       }
     } catch (err) {
@@ -129,6 +134,9 @@ const Dashboard = () => {
         timeout: 3000
       });
       socket.on('new_scan', () => {
+        fetchDashboardData();
+      });
+      socket.on('cloud_sync_status', () => {
         fetchDashboardData();
       });
       return () => socket.disconnect();
@@ -164,6 +172,10 @@ const Dashboard = () => {
   const hadirPercent = Math.min(100, Math.round((data.hadir / totalEffective) * 100));
   const latePercent = Math.min(100, Math.round((data.terlambat / totalEffective) * 100));
   const absentPercent = Math.max(0, 100 - (hadirPercent + latePercent));
+  const canSendToPortal = String(appConfig.cloud_sync_active) === '1'
+    && cloudSyncStatus?.enabled === true
+    && cloudSyncStatus?.lastStatus === 'synced'
+    && Boolean(cloudSyncStatus?.url);
 
   const filteredLogs = (data.logs || []).filter(log => {
     const name = (log.nama || log.nama_lengkap || log.full_name || '').toLowerCase();
@@ -213,12 +225,14 @@ const Dashboard = () => {
             + Input Presensi
           </Link>
 
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={handlePortalSync} disabled={syncingPortal} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-800 via-blue-700 to-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 disabled:opacity-60">
-              <CloudUpload size={15} className={syncingPortal ? 'animate-bounce' : ''} />
-              {syncingPortal ? 'Mengirim...' : 'Kirim ke Portal'}
-            </button>
-          </div>
+          {canSendToPortal && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={handlePortalSync} disabled={syncingPortal} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-800 via-blue-700 to-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 disabled:opacity-60">
+                <CloudUpload size={15} className={syncingPortal ? 'animate-bounce' : ''} />
+                {syncingPortal ? 'Mengirim...' : 'Kirim ke Portal'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
