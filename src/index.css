@@ -16,8 +16,8 @@
 
 body {
   font-family: 'Poppins', system-ui, -apple-system, sans-serif;
-  background-color: #ede8e1;
-  color: #111625;
+  background-color: #f4f8ff;
+  color: #101a2e;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -39,12 +39,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ded9ce;
+  background: #cbd8eb;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c7c1b5;
+  background: #94afd4;
 }
 
 /* Card surfaces matching the reference theme */
@@ -178,3 +178,13 @@ html.dark input::placeholder {
     display: table-footer-group;
   }
 }
+
+
+/* Nebula blue-forward design system */
+:root { --nebula-navy: #0b1730; --nebula-blue: #1d4ed8; --nebula-sky: #38bdf8; --nebula-orange: #f59e0b; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), a { transition-property: color, background-color, border-color, box-shadow, transform, opacity; transition-duration: 180ms; }
+::selection { background: rgba(56, 189, 248, .24); }
+.nebula-transfer-glow { background-size: 200% 100%; animation: nebula-transfer 1.8s linear infinite; }
+@keyframes nebula-transfer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
