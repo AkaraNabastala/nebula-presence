@@ -1,7 +1,8 @@
-const { pool, rootPath } = require('../config/database');
+const { pool, createConsistentBackup } = require('../config/database');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
+const os = require('os');
+const crypto = require('crypto');
 const { addAuditLog } = require('../utils/logger');
 
 // Ambil kredensial dari environment agar aman dan dinamis
@@ -40,28 +41,46 @@ exports.restoreDatabase = async (req, res) => {
 };
 
 exports.backupDatabase = async (req, res) => {
+    let tempPath = null;
+    const cleanup = () => {
+        if (tempPath && fs.existsSync(tempPath)) {
+            try { fs.unlinkSync(tempPath); } catch (err) {
+                console.warn('[Database Backup] Gagal membersihkan file sementara:', err.message);
+            }
+        }
+    };
+
     try {
-        console.log("📤 Menyiapkan Backup Database (SQLite)...");
-        
-        const os = require('os');
+        console.log("📤 Menyiapkan snapshot backup database SQLite...");
         const dbPath = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
-        
+
         if (!fs.existsSync(dbPath)) {
             return res.status(404).json({ success: false, message: "Database tidak ditemukan." });
         }
 
-        const fileName = `backup_db_${new Date().toISOString().split('T')[0]}.sqlite`;
-        res.setHeader('Content-Type', 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
-        
-        addAuditLog(req.user?.nama_admin || 'Admin', 'Backup Database', fileName);
-        
-        const fileStream = fs.createReadStream(dbPath);
-        fileStream.pipe(res);
+        const dateStamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `backup_db_${dateStamp}.sqlite`;
+        tempPath = path.join(os.tmpdir(), `nebula-backup-${crypto.randomUUID()}.sqlite`);
+        await createConsistentBackup(tempPath);
 
+        addAuditLog(req.user?.nama_admin || 'Admin', 'Backup Database', fileName);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+        res.on('finish', cleanup);
+        res.on('close', cleanup);
+        const fileStream = fs.createReadStream(tempPath);
+        fileStream.on('error', (err) => {
+            console.error('[Database Backup] Gagal membaca snapshot:', err.message);
+            cleanup();
+            if (!res.headersSent) res.status(500).json({ success: false, message: "Gagal membaca file backup." });
+            else res.destroy(err);
+        });
+        fileStream.pipe(res);
     } catch (e) {
-        console.error("Backup Exec Error:", e.message);
-        res.status(500).json({ success: false, message: "Gagal Backup Database" });
+        console.error("Backup Error:", e.message);
+        cleanup();
+        if (!res.headersSent) res.status(500).json({ success: false, message: "Gagal membuat snapshot backup database." });
     }
 };
 
