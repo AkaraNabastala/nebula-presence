@@ -60,6 +60,8 @@ export default function TeachingSchedules() {
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [statusTarget, setStatusTarget] = useState(null);
+  const [statusSaving, setStatusSaving] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -209,12 +211,13 @@ export default function TeachingSchedules() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const toggleStatus = async item => {
+  const toggleStatus = item => setStatusTarget(item);
+
+  const confirmToggleStatus = async () => {
+    if (!statusTarget) return;
+    const item = statusTarget;
     const nextStatus = Number(item.is_active) !== 1 ? 1 : 0;
-    const action = nextStatus ? 'mengaktifkan' : 'menonaktifkan';
-
-    if (!window.confirm(`Yakin ingin ${action} jadwal ini?`)) return;
-
+    setStatusSaving(true);
     setError('');
     setNotice('');
 
@@ -222,10 +225,14 @@ export default function TeachingSchedules() {
       await api.patch(`/teaching-schedules/${item.id}/status`, {
         is_active: nextStatus,
       });
-      setNotice(`Jadwal berhasil ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`);
+      setStatusTarget(null);
+      toast.success(`Jadwal berhasil ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`);
       await loadData();
     } catch (err) {
       setError(errorMessage(err));
+      toast.error(errorMessage(err));
+    } finally {
+      setStatusSaving(false);
     }
   };
 
@@ -647,6 +654,31 @@ export default function TeachingSchedules() {
               </button>
             </div>
           </form>
+          </div>
+        )}
+
+        {statusTarget && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="schedule-status-title">
+            <div className="w-full max-w-md overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+              <div className="h-1 bg-gradient-to-r from-blue-700 via-sky-500 to-orange-300" />
+              <div className="p-6">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-blue-700 dark:bg-sky-950/40 dark:text-sky-300">
+                  <Power size={21} />
+                </div>
+                <h3 id="schedule-status-title" className="mt-4 text-center text-lg font-extrabold text-slate-900 dark:text-white">
+                  {Number(statusTarget.is_active) === 1 ? 'Nonaktifkan jadwal?' : 'Aktifkan jadwal?'}
+                </h3>
+                <p className="mt-2 text-center text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                  {subjectName(statusTarget)} · {String(statusTarget.start_time).slice(0, 5)}–{String(statusTarget.end_time).slice(0, 5)}. Anda dapat mengubah statusnya kembali kapan saja.
+                </p>
+                <div className="mt-6 flex gap-2">
+                  <button type="button" disabled={statusSaving} onClick={() => setStatusTarget(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button>
+                  <button type="button" disabled={statusSaving} onClick={confirmToggleStatus} className="flex-1 rounded-xl bg-gradient-to-r from-blue-800 to-sky-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-105 disabled:opacity-50">
+                    {statusSaving ? 'Memproses...' : Number(statusTarget.is_active) === 1 ? 'Ya, nonaktifkan' : 'Ya, aktifkan'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
