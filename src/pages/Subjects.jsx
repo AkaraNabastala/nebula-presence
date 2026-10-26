@@ -126,7 +126,7 @@ export default function Subjects() {
           <div><h2 className="font-extrabold text-slate-950 dark:text-white">Katalog Mapel</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Cari, ubah identitas, atau kelola status mata pelajaran.</p></div>
           <div className="flex gap-2">
             <label className="relative min-w-0 flex-1 sm:w-72 sm:flex-none"><Search size={15} className="absolute left-3 top-3 text-slate-400" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari nama atau kode mapel..." className="w-full rounded-xl border border-sky-100 bg-white py-2.5 pl-9 pr-3 text-xs outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-blue-950" /></label>
-            <button type="button" onClick={() => load()} disabled={loading} aria-label="Muat ulang daftar" className="inline-flex items-center justify-center rounded-xl border border-sky-100 bg-white px-3 text-slate-600 transition hover:bg-sky-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /></button>
+
           </div>
         </div>
         {loading ? <div className="flex items-center justify-center gap-3 p-14 text-sm text-slate-500"><RefreshCw size={18} className="animate-spin text-blue-600" /> Memuat daftar mata pelajaran…</div> :
