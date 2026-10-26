@@ -63,17 +63,13 @@ const Login = () => {
 
     try {
       const res = await api.post('/login', { username, password });
-      if (res.data?.success !== false) {
-        const userData = res.data?.user || {
-          id: 1,
-          username: username || 'administrator',
-          nama_admin: 'Operator Nebula',
-          role: 'SuperAdmin'
-        };
+      const userData = res.data?.user;
+      if (res.data?.success === true && userData?.role === 'SuperAdmin') {
         localStorage.setItem('user', JSON.stringify(userData));
         navigate('/admin/dashboard');
       } else {
-        setErrorMsg(res.data?.message || 'Kredensial login tidak valid.');
+        localStorage.removeItem('user');
+        setErrorMsg(res.data?.message || 'Akses Nebula Presence hanya untuk admin.');
       }
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Gagal login ke sistem.');
