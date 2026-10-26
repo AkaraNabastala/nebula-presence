@@ -474,6 +474,7 @@ export default function TeachingSchedules() {
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             <span>Muat ulang</span>
           </button>
+          </div>
         </div>
       </section>
 
