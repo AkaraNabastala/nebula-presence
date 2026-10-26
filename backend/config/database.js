@@ -15,6 +15,33 @@ const uploadDir = path.join(userDataPath, 'uploads');
 
 const isTest = process.env.NODE_ENV === 'test';
 const dbFile = isTest ? ':memory:' : path.join(userDataPath, 'database.sqlite');
+const pendingRestorePath = path.join(userDataPath, 'database.restore-pending.sqlite');
+
+// Terapkan restore yang sudah divalidasi hanya saat startup, sebelum koneksi DB dibuka.
+// Ini menghindari mengganti file database yang sedang aktif dipakai proses berjalan.
+if (!isTest && fs.existsSync(pendingRestorePath)) {
+    const walPath = `${dbFile}-wal`;
+    const shmPath = `${dbFile}-shm`;
+    let previousDbPath = null;
+    try {
+        if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+        if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
+        if (fs.existsSync(dbFile)) {
+            previousDbPath = `${dbFile}.pre-restore-${Date.now()}`;
+            fs.renameSync(dbFile, previousDbPath);
+        }
+        fs.renameSync(pendingRestorePath, dbFile);
+        console.log('✅ Backup database tervalidasi berhasil diterapkan saat startup.');
+    } catch (restoreErr) {
+        console.error('❌ Gagal menerapkan restore terjadwal:', restoreErr.message);
+        if (!fs.existsSync(dbFile) && previousDbPath && fs.existsSync(previousDbPath)) {
+            try { fs.renameSync(previousDbPath, dbFile); } catch (rollbackErr) {
+                console.error('❌ Rollback database juga gagal:', rollbackErr.message);
+            }
+        }
+        throw restoreErr;
+    }
+}
 const db = new sqlite3.Database(dbFile, (err) => {
     if (err) console.error('Failed to connect to SQLite:', err.message);
     else console.log(`✅ SQLite Local Database Connected: ${dbFile}`);
