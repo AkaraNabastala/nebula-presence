@@ -111,6 +111,36 @@ const Database = () => {
         <AlertTriangle size={18} className="mt-0.5 shrink-0" /><p className="text-xs leading-relaxed"><strong>Catatan penting:</strong> proses restore mengganti database aktif. Buat backup terbaru dan pastikan file yang dipilih berasal dari sumber tepercaya.</p>
       </div>
 
+      {backupDialog && (
+        <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="backup-dialog-title">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="h-1 bg-gradient-to-r from-blue-900 via-sky-500 to-orange-300" />
+            <div className="p-6">
+              <div className={backupDialog.status === 'error' ? 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-300' : backupDialog.status === 'success' ? 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-300' : 'mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-blue-800 dark:bg-sky-950/40 dark:text-sky-300'}>
+                {backupDialog.status === 'processing' ? <RefreshCw size={25} className="animate-spin" /> : backupDialog.status === 'error' ? <AlertTriangle size={25} /> : backupDialog.status === 'success' ? <CheckCircle2 size={25} /> : <DownloadCloud size={25} />}
+              </div>
+              <h2 id="backup-dialog-title" className="mt-4 text-center text-lg font-extrabold text-slate-950 dark:text-white">
+                {backupDialog.status === 'ready' ? 'Unduh backup database?' : backupDialog.status === 'processing' ? 'Menyiapkan backup' : backupDialog.status === 'success' ? 'Backup siap' : 'Backup gagal'}
+              </h2>
+              <p className="mt-2 text-center text-sm leading-relaxed text-slate-600 dark:text-slate-300">{backupDialog.message}</p>
+              {backupDialog.status === 'processing' && <div className="nebula-transfer-glow mx-auto mt-5 h-1.5 max-w-xs rounded-full bg-gradient-to-r from-blue-900 via-sky-400 to-orange-300" />}
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
+                {backupDialog.status === 'ready' ? (
+                  <>
+                    <button type="button" onClick={() => setBackupDialog(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                    <button type="button" onClick={handleBackup} disabled={downloading || loading} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><DownloadCloud size={16} /> Mulai unduh</button>
+                  </>
+                ) : backupDialog.status === 'processing' ? (
+                  <button type="button" disabled className="w-full rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">Proses sedang berjalan…</button>
+                ) : (
+                  <button type="button" onClick={() => setBackupDialog(null)} className="w-full rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-3 text-sm font-bold text-white">Selesai</button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmOpen && file && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="restore-confirm-title">
           <div className="w-full max-w-md overflow-hidden rounded-[1.75rem] border border-orange-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
