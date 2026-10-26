@@ -316,6 +316,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 processed: Number(schedulePush.data?.synced || 0),
                 skipped: Number(schedulePush.data?.skipped || 0)
             });
+            console.info(`[Cloud Sync Portal] Jadwal pelajaran: ${Number(schedulePush.data?.synced || 0)} terkirim, ${Number(schedulePush.data?.skipped || 0)} dilewati dari ${scheduleRes.rows.length} jadwal.`);
         } catch (scheduleErr) {
             syncErrors.push(`Jadwal pelajaran: ${scheduleErr.message}`);
             console.warn('[Cloud Sync Schedules Error]:', scheduleErr.message);
