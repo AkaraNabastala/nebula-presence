@@ -42,24 +42,6 @@ const MainLayout = () => {
 
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
 
-  // Update the visual sky phase from local time without forcing a page reload.
-  useEffect(() => {
-    const updateSkyPhase = () => {
-      const hour = new Date().getHours();
-      const phase = hour >= 5 && hour < 10
-        ? 'morning'
-        : hour >= 10 && hour < 16
-          ? 'day'
-          : hour >= 16 && hour < 19
-            ? 'sunset'
-            : 'night';
-      document.documentElement.dataset.skyPhase = phase;
-    };
-    updateSkyPhase();
-    const timer = window.setInterval(updateSkyPhase, 60_000);
-    return () => window.clearInterval(timer);
-  }, []);
-
   const getSafeUser = () => {
     try {
       const storedUser = localStorage.getItem('user');
