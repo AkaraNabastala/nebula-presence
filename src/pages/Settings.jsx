@@ -40,7 +40,14 @@ const Settings = () => {
         enabled: false,
         pendingCount: 0,
         lastStatus: 'idle',
-        lastTime: ''
+        lastTime: '',
+        stage: '',
+        message: '',
+        progress: 0,
+        processed: 0,
+        total: 0,
+        skipped: 0,
+        errors: []
     });
 
     // Konfigurasi Jadwal Sekolah / Hari
@@ -62,12 +69,13 @@ const Settings = () => {
         try {
             const res = await api.get('/cloud-sync/status');
             if (res.data && res.data.success) {
-                setCloudSyncLive({
+                setCloudSyncLive(prev => ({
+                    ...prev,
                     enabled: res.data.enabled,
                     pendingCount: res.data.pendingCount || 0,
-                    lastStatus: res.data.lastStatus || 'idle',
-                    lastTime: res.data.lastTime || ''
-                });
+                    lastStatus: res.data.lastStatus || prev.lastStatus || 'idle',
+                    lastTime: res.data.lastTime || prev.lastTime || ''
+                }));
             }
         } catch {
             // silent fallback
@@ -135,11 +143,19 @@ const Settings = () => {
         // Socket.IO Listener untuk Status Sinkronisasi Real-Time
         const socket = io(import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin);
         socket.on('cloud_sync_status', (data) => {
-            if (data.state === 'syncing') {
-                setCloudSyncLive(prev => ({ ...prev, lastStatus: 'syncing' }));
-            } else {
-                fetchCloudSyncStatus();
-            }
+            setCloudSyncLive(prev => ({
+                ...prev,
+                lastStatus: data.state || prev.lastStatus,
+                stage: data.stage || prev.stage,
+                message: data.message || prev.message,
+                progress: Number.isFinite(data.progress) ? data.progress : prev.progress,
+                processed: Number.isFinite(data.processed) ? data.processed : prev.processed,
+                total: Number.isFinite(data.total) ? data.total : prev.total,
+                skipped: Number.isFinite(data.skipped) ? data.skipped : prev.skipped,
+                errors: Array.isArray(data.errors) ? data.errors : prev.errors,
+                lastTime: data.lastTime || prev.lastTime
+            }));
+            if (data.state !== 'syncing') fetchCloudSyncStatus();
         });
 
         return () => {
@@ -268,15 +284,18 @@ const Settings = () => {
             return;
         }
         setSyncLoading(true);
+        setCloudSyncLive(prev => ({ ...prev, lastStatus: 'syncing', stage: 'connecting', message: 'Memulai sinkronisasi...', progress: 0, processed: 0, total: 0, skipped: 0, errors: [] }));
         try {
             const res = await api.post('/cloud-sync/trigger');
             if (res.data && res.data.success) {
                 showToast('success', res.data.message || "Sinkronisasi berhasil!");
                 fetchCloudSyncStatus();
             } else {
+                setCloudSyncLive(prev => ({ ...prev, lastStatus: 'partial', stage: 'complete', progress: 100, message: res.data?.message || 'Sinkronisasi gagal.', errors: res.data?.errors || [] }));
                 showToast('error', res.data?.message || "Sinkronisasi gagal.");
             }
         } catch (err) {
+            setCloudSyncLive(prev => ({ ...prev, lastStatus: 'offline', stage: 'complete', message: err.response?.data?.message || 'Gagal menghubungi server Cloud.' }));
             showToast('error', err.response?.data?.message || "Gagal menghubungi server Cloud.");
         } finally {
             setSyncLoading(false);
@@ -623,6 +642,10 @@ const Settings = () => {
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400">
                                                     <CloudOff size={12} /> Offline (Mode Mandiri)
                                                 </span>
+                                            ) : cloudSyncLive.lastStatus === 'partial' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400">
+                                                    <AlertCircle size={12} /> Sinkronisasi Sebagian
+                                                </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
                                                     Siaga (Idle)
@@ -647,6 +670,23 @@ const Settings = () => {
                                         <span>{syncLoading ? "Menyinkronkan..." : "Sinkronkan Sekarang"}</span>
                                     </button>
                                 </div>
+
+                                {(syncLoading || cloudSyncLive.lastStatus === 'syncing' || cloudSyncLive.lastStatus === 'partial' || cloudSyncLive.lastStatus === 'synced') && (
+                                    <div className="p-4 rounded-2xl border border-sky-100 dark:border-slate-700 bg-white/80 dark:bg-slate-800/60 space-y-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                {cloudSyncLive.lastStatus === 'syncing' ? <RefreshCw size={15} className="animate-spin text-sky-600 shrink-0" /> : cloudSyncLive.lastStatus === 'synced' ? <CheckCircle size={15} className="text-emerald-600 shrink-0" /> : <AlertCircle size={15} className="text-orange-600 shrink-0" />}
+                                                <span className="text-xs font-bold text-gray-700 dark:text-slate-200 truncate">{cloudSyncLive.message || (cloudSyncLive.lastStatus === 'synced' ? 'Semua tahap sinkronisasi berhasil.' : cloudSyncLive.lastStatus === 'partial' ? 'Periksa detail data yang belum terkirim.' : 'Proses sinkronisasi berjalan...')}</span>
+                                            </div>
+                                            <span className="text-xs font-black tabular-nums text-sky-700 dark:text-sky-300">{Math.min(100, Math.max(0, cloudSyncLive.progress || 0))}%</span>
+                                        </div>
+                                        <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${cloudSyncLive.lastStatus === 'partial' ? 'bg-orange-500' : cloudSyncLive.lastStatus === 'synced' ? 'bg-emerald-500' : 'bg-sky-500'}`} style={{ width: `${Math.min(100, Math.max(0, cloudSyncLive.progress || 0))}%` }} />
+                                        </div>
+                                        {cloudSyncLive.stage && <p className="text-[11px] text-gray-500 dark:text-slate-400">Tahap: {cloudSyncLive.stage}{cloudSyncLive.total > 0 ? ` • ${cloudSyncLive.processed}/${cloudSyncLive.total} jadwal` : ''}{cloudSyncLive.skipped > 0 ? ` • ${cloudSyncLive.skipped} dilewati` : ''}</p>}
+                                        {Array.isArray(cloudSyncLive.errors) && cloudSyncLive.errors.length > 0 && <ul className="list-disc pl-5 text-[11px] text-orange-700 dark:text-orange-300 space-y-1">{cloudSyncLive.errors.slice(0, 4).map((error, index) => <li key={index}>{error}</li>)}</ul>}
+                                    </div>
+                                )}
 
                                 <div className="space-y-3">
                                     <div>
