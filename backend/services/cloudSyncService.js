@@ -145,7 +145,12 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // 0.25. PUSH ADMIN ACCOUNT: hanya hash bcrypt dan hanya melalui HTTPS.
         emitStage('admin', 'Memeriksa sinkronisasi akun administrator...', { progress: 20 });
         try {
-            if (new URL(syncUrl).protocol === 'https:') {
+            const portalUrl = new URL(syncUrl);
+            // HTTPS is required for remote servers. Plain HTTP is allowed only for
+            // loopback development on this same machine (never for LAN/public hosts).
+            const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(portalUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
+            const canSendAdminHash = portalUrl.protocol === 'https:' || (portalUrl.protocol === 'http:' && isLoopback);
+            if (canSendAdminHash) {
                 const adminRes = await pool.query("SELECT username, password AS password_hash FROM admins WHERE role = 'SuperAdmin' ORDER BY id ASC LIMIT 1");
                 const admin = adminRes.rows[0];
                 if (admin?.username && admin?.password_hash) {
@@ -156,8 +161,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     }
                 }
             } else {
-                syncErrors.push('Akun administrator tidak dikirim karena koneksi bukan HTTPS.');
-                console.warn('[Cloud Sync Admin Error]: Admin credential sync requires HTTPS; account hash was not sent.');
+                syncErrors.push('Akun administrator tidak dikirim: gunakan HTTPS untuk server Portal jarak jauh. HTTP hanya diizinkan untuk localhost.');
+                console.warn('[Cloud Sync Admin Error]: Admin credential sync requires HTTPS for non-loopback hosts; account hash was not sent.');
             }
         } catch (adminErr) {
             syncErrors.push(`Akun administrator: ${adminErr.message}`);
