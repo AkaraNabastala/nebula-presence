@@ -8,7 +8,7 @@ import {
   Cloud, Cpu, ArrowUpRight,
   FileText, Calendar, Search, ArrowRight,
   MoreHorizontal, Bell, ExternalLink,
-  ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X
+  ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X, Sparkles
 } from 'lucide-react';
 import logoNabastala from '../assets/logo-nabastala.png';
 
@@ -504,7 +504,7 @@ const Dashboard = () => {
           {/* STAT CARD 2: REAL DATA WEEKLY CHART */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-sm font-bold text-slate-900 dark:text-white">Statistik Mingguan</p><p className="text-xs text-slate-500 mt-1">Jumlah hadir dan terlambat berdasarkan data harian</p></div>
+              <div><p className="text-sm font-bold text-slate-900 dark:text-white">Statistik Mingguan</p><p className="text-xs text-slate-500 mt-1">Jumlah hadir dan terlambat dibanding total anggota terdaftar</p></div>
               <span className="rounded-lg bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">Aktual</span>
             </div>
             <div className="grid grid-cols-7 gap-2 items-end h-40 pt-2">
