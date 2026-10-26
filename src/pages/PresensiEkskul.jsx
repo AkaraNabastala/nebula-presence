@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import * as XLSX from 'xlsx-js-style';
-import { Download, ClipboardList, BookOpen, RefreshCw } from 'lucide-react';
+import { Download, ClipboardList, BookOpen } from 'lucide-react';
 
 const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
 
