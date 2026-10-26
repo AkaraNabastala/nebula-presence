@@ -439,11 +439,12 @@ export default function Extracurricular() {
         <div className="mx-auto max-w-7xl space-y-6 pb-8">
             <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#0b1730] via-[#123b82] to-[#2563eb] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8"><div className="pointer-events-none absolute -right-10 -top-16 h-52 w-52 rounded-full bg-sky-300/20 blur-3xl" /><div className="relative flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-sky-200">KEGIATAN SISWA</span>
+                    <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                         Monitoring Ekstrakurikuler
                     </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        Pantau data ekskul, rekap absensi peserta, dan riwayat jurnal tanpa mengubah data.
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-blue-100">
+                        Pantau data ekskul, rekap absensi peserta, dan riwayat jurnal dalam satu ruang kerja.
                     </p>
                 </div>
                 <button onClick={refresh} disabled={loading}
