@@ -178,13 +178,6 @@ const PresensiEkskul = () => {
 
           <div className="flex items-end gap-2 flex-wrap">
             <button
-              onClick={loadData}
-              disabled={loading}
-              className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-slate-700 flex items-center gap-2"
-            >
-              <RefreshCw size={16} /> Muat Ulang
-            </button>
-            <button
               onClick={exportMonthlyReport}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white flex items-center gap-2"
             >
