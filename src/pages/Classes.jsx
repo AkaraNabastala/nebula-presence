@@ -399,7 +399,7 @@ const Classes = () => {
   };
 
   return (
-    <div className="space-y-6 pb-20 md:pb-0 relative h-full font-sans flex flex-col">
+    <div className="sky-time-canvas space-y-6 pb-20 md:pb-0 relative h-full font-sans flex flex-col">
 
       {notification.show && (
         <div className={`fixed top-4 right-4 z-[99] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-right fade-in duration-300 border bg-white dark:bg-slate-800 ${notification.type === 'success' ? 'border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'}`}>
@@ -416,13 +416,13 @@ const Classes = () => {
         // ==============================================
         <>
           {/* HEADER CARD */}
-          <div className="relative bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+          <div className="relative bg-gradient-to-br from-sky-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 p-6 rounded-[2rem] shadow-sm border border-sky-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-50/50 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-200/20 dark:bg-orange-900/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
             <div className="relative z-10">
               <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
-                <Building2 className="text-indigo-600" size={32} />
+                <Building2 className="text-sky-700 dark:text-sky-300" size={32} />
                 {isEdu ? 'Daftar Kelas' : 'Daftar Divisi'}
               </h2>
               <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Kelola daftar {labelKelompok.toLowerCase()} dan penanggung jawab.</p>
