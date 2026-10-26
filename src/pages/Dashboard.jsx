@@ -172,10 +172,13 @@ const Dashboard = () => {
   const hadirPercent = Math.min(100, Math.round((data.hadir / totalEffective) * 100));
   const latePercent = Math.min(100, Math.round((data.terlambat / totalEffective) * 100));
   const absentPercent = Math.max(0, 100 - (hadirPercent + latePercent));
+  const lastSuccessfulSync = cloudSyncStatus?.lastTime ? new Date(cloudSyncStatus.lastTime).getTime() : 0;
+  const recentPortalConnection = Number.isFinite(lastSuccessfulSync) && lastSuccessfulSync > 0 && (Date.now() - lastSuccessfulSync) < 90000;
   const canSendToPortal = String(appConfig.cloud_sync_active) === '1'
     && cloudSyncStatus?.enabled === true
     && cloudSyncStatus?.lastStatus === 'synced'
-    && Boolean(cloudSyncStatus?.url);
+    && Boolean(cloudSyncStatus?.url)
+    && recentPortalConnection;
 
   const filteredLogs = (data.logs || []).filter(log => {
     const name = (log.nama || log.nama_lengkap || log.full_name || '').toLowerCase();
