@@ -36,8 +36,18 @@ const MonitoringAkademik = React.lazy(
 import backgroundSekolah from './assets/gedung.jpg'; 
 
 const ProtectedRoute = ({ children }) => {
-  const user = localStorage.getItem('user');
-  if (!user) return <Navigate to="/login" replace />;
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    localStorage.removeItem('user');
+  }
+
+  // Nebula Presence hanya untuk admin; role lain tidak boleh membuka konsol.
+  if (!user || user.role !== 'SuperAdmin') {
+    localStorage.removeItem('user');
+    return <Navigate to="/login" replace />;
+  }
   return children;
 };
 
