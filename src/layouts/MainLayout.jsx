@@ -353,8 +353,7 @@ const MainLayout = () => {
                         const active = location.pathname === item.path;
                         const Icon = item.icon;
 
-                        return (
-                          {item.action === 'settingsHub' ? (
+                        return item.action === 'settingsHub' ? (
                             <button
                               key={item.path}
                               type="button"
@@ -378,8 +377,7 @@ const MainLayout = () => {
                               <div className="flex items-center gap-2.5 min-w-0"><Icon size={14} className={active ? 'text-cyan-400' : 'text-slate-400'} /><span className="truncate">{item.name}</span></div>
                               {active && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
                             </Link>
-                          )}
-                        );
+                          );
                       })}
                     </div>
                   )}
