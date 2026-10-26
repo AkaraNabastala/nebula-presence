@@ -530,14 +530,16 @@ const Students = () => {
                     <button onClick={() => setShowImportModal(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-[1.25rem] hover:bg-emerald-500 hover:text-white text-sm font-bold transition-all border border-emerald-100 hover:border-emerald-500 shadow-sm">
                         <Upload size={18} /> <span>Import</span>
                     </button>
-                    <button
-                        type="button"
-                        onClick={handleOpenBulkTelegramModal}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-5 py-3 rounded-[1.25rem] hover:bg-blue-600 hover:text-white text-sm font-bold transition-all border border-blue-100 dark:border-blue-800 shadow-sm active:scale-95"
-                        title="Bagikan Tautan Telegram Massal"
-                    >
-                        <Send size={18} /> <span>Bagikan Tautan Massal</span>
-                    </button>
+                    {(appConfig.notif_telegram_active === '1' || appConfig.notif_telegram_active === 1 || appConfig.notif_telegram_active === true) && (
+                        <button
+                            type="button"
+                            onClick={handleOpenBulkTelegramModal}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-5 py-3 rounded-[1.25rem] hover:bg-blue-600 hover:text-white text-sm font-bold transition-all border border-blue-100 dark:border-blue-800 shadow-sm active:scale-95"
+                            title="Bagikan Tautan Telegram Massal"
+                        >
+                            <Send size={18} /> <span>Bagikan Tautan Massal</span>
+                        </button>
+                    )}
                     <button onClick={() => openModal()} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-[1.25rem] hover:shadow-lg hover:shadow-indigo-500/30 text-sm font-bold transition-all active:scale-95">
                         <Plus size={18} /> <span>Tambah {labelPengguna}</span>
                     </button>
