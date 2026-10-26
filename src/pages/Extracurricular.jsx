@@ -13,7 +13,7 @@ import {
 import api from '../api/axios';
 import Swal from 'sweetalert2';
 
-const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white";
+const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white";
 const cardClass = "bg-white rounded-2xl border border-slate-100 shadow-sm p-5 dark:bg-slate-800 dark:border-slate-700";
 const currentMonth = () => {
     const d = new Date();
@@ -490,7 +490,7 @@ export default function Extracurricular() {
                     </p>
                 </div>
                 <button onClick={refresh} disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50">
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50">
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     Muat Ulang
                 </button>
@@ -499,7 +499,7 @@ export default function Extracurricular() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className={cardClass}>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Total Ekskul</p>
-                    <p className="text-3xl font-bold mt-2 text-indigo-600">{items.length}</p>
+                    <p className="text-3xl font-bold mt-2 text-blue-600">{items.length}</p>
                 </div>
                 <div className={cardClass}>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Catatan Absensi Bulan {month}</p>
@@ -516,7 +516,7 @@ export default function Extracurricular() {
                     <button key={id} onClick={() => setTab(id)}
                         className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium whitespace-nowrap ${
                             tab === id
-                                ? 'bg-indigo-600 text-white'
+                                ? 'bg-blue-600 text-white'
                                 : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                         }`}>
                         <Icon size={18} /> {label}
@@ -562,7 +562,7 @@ export default function Extracurricular() {
                             <button
                                 type="submit"
                                 disabled={!supervisors.length}
-                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Plus size={16} /> Tambah Ekskul
                             </button>
@@ -709,7 +709,7 @@ export default function Extracurricular() {
                             <button
                                 type="button"
                                 onClick={downloadMonthlyJournal}
-                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                                className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
                             >
                                 <Download size={16} />
                                 Download Excel (.xlsx)
@@ -758,7 +758,7 @@ export default function Extracurricular() {
                                         <h3 className="font-bold text-slate-800 dark:text-white">
                                             {j.topic}
                                         </h3>
-                                        <span className="text-sm text-indigo-600 dark:text-indigo-400">
+                                        <span className="text-sm text-blue-600 dark:text-blue-400">
                                             {j.activity_date
                                                 ? String(j.activity_date).slice(0, 10)
                                                 : '-'}
