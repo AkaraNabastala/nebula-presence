@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { CalendarDays, Clock, Pencil, Power, Plus, RefreshCw, X, Download, Upload, FileSpreadsheet } from 'lucide-react';
+import { CalendarDays, Clock, Pencil, Power, Plus, RefreshCw, X, Download, Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
 
@@ -64,6 +64,7 @@ export default function TeachingSchedules() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -278,6 +279,7 @@ export default function TeachingSchedules() {
     if (!file) return;
 
     setImporting(true);
+    setImportResult(null);
     toast.info('Berkas jadwal sedang dibaca dan divalidasi.');
 
     try {
@@ -415,12 +417,14 @@ export default function TeachingSchedules() {
 
       await loadData();
 
+      setImportResult({ createdCount, newSubjectsCount, newDivisionsCount, errors });
       if (createdCount > 0) toast.success(`${createdCount} jadwal berhasil ditambahkan.`);
       else toast.warning('Tidak ada jadwal baru yang berhasil ditambahkan.');
       if (newSubjectsCount > 0 || newDivisionsCount > 0) toast.info(`${newSubjectsCount} mapel dan ${newDivisionsCount} kelas baru dibuat otomatis.`);
       if (errors.length > 0) toast.warning(`${errors.length} baris perlu diperiksa. Detail tersedia pada log server atau berkas sumber.`, { autoClose: 6000 });
 
     } catch (err) {
+      setImportResult({ error: err.message || 'Terjadi kesalahan saat mengolah berkas Excel.' });
       toast.error(err.message || 'Terjadi kesalahan saat mengolah berkas Excel.');
     } finally {
       setImporting(false);
@@ -712,6 +716,31 @@ export default function TeachingSchedules() {
           </div>
         )}
       </section>
+      {importResult && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="import-result-title">
+          <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="h-1.5 bg-gradient-to-r from-blue-950 via-blue-600 to-orange-400" />
+            <div className="p-6 sm:p-7">
+              <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${importResult.error || (importResult.errors?.length && !importResult.createdCount) ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-sky-300'}`}>
+                {importResult.error ? <AlertCircle size={27} /> : <CheckCircle2 size={27} />}
+              </div>
+              <h3 id="import-result-title" className="text-center text-lg font-extrabold text-slate-900 dark:text-white">{importResult.error ? 'Import tidak berhasil' : 'Ringkasan import jadwal'}</h3>
+              {importResult.error ? <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">{importResult.error}</p> : (
+                <>
+                  <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">Data dari file telah diproses. Berikut ringkasan hasilnya.</p>
+                  <div className="mt-5 grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center dark:border-slate-800 dark:bg-slate-950"><p className="text-xl font-extrabold text-blue-700 dark:text-sky-300">{importResult.createdCount}</p><p className="mt-1 text-[10px] font-semibold text-slate-500">Jadwal</p></div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center dark:border-slate-800 dark:bg-slate-950"><p className="text-xl font-extrabold text-blue-700 dark:text-sky-300">{importResult.newSubjectsCount}</p><p className="mt-1 text-[10px] font-semibold text-slate-500">Mapel baru</p></div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center dark:border-slate-800 dark:bg-slate-950"><p className="text-xl font-extrabold text-blue-700 dark:text-sky-300">{importResult.newDivisionsCount}</p><p className="mt-1 text-[10px] font-semibold text-slate-500">Kelas baru</p></div>
+                  </div>
+                  {importResult.errors?.length > 0 && <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/60 dark:bg-orange-950/20"><p className="text-xs font-bold text-orange-800 dark:text-orange-300">{importResult.errors.length} baris perlu diperiksa</p><ul className="mt-2 max-h-28 list-disc space-y-1 overflow-y-auto pl-4 text-[11px] text-orange-800 dark:text-orange-200">{importResult.errors.slice(0, 8).map((error, index) => <li key={index}>{error}</li>)}</ul>{importResult.errors.length > 8 && <p className="mt-2 text-[10px] text-orange-700 dark:text-orange-300">Dan {importResult.errors.length - 8} kendala lainnya.</p>}</div>}
+                </>
+              )}
+              <button type="button" onClick={() => setImportResult(null)} className="mt-6 w-full rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:brightness-110">Selesai</button>
+            </div>
+          </div>
+        </div>
+      )}
       {importing && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-live="polite">
           <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-blue-100 bg-white p-6 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
