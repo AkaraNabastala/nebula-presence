@@ -17,8 +17,6 @@ const Classes = React.lazy(() => import('./pages/Classes.jsx'));
 const Students = React.lazy(() => import('./pages/Students.jsx'));
 const Settings = React.lazy(() => import('./pages/Settings.jsx'));
 const ManualAttendance = React.lazy(() => import('./pages/ManualAttendance'));
-const BackupPage = React.lazy(() => import('./pages/BackupPage'));
-const RestorePage = React.lazy(() => import('./pages/RestorePage'));
 const Laporan = React.lazy(() => import('./pages/Laporan'));
 const LaporanBulanan = React.lazy(() => import('./pages/LaporanBulanan'));
 const Profile = React.lazy(() => import('./pages/Profile'));
