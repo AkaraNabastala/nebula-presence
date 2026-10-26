@@ -366,6 +366,18 @@ const Dashboard = () => {
                       strokeDashoffset={175.9 - (175.9 * latePercent) / 100}
                       strokeLinecap="round"
                     />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="18"
+                      stroke="#1b233a"
+                      strokeWidth="6"
+                      fill="none"
+                      strokeDasharray="113.1"
+                      strokeDashoffset={113.1 - (113.1 * absentPercent) / 100}
+                      strokeLinecap="round"
+                      className="dark:stroke-slate-400"
+                    />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-8 h-8 rounded-full bg-[#eaf2ff] dark:bg-blue-950 flex items-center justify-center text-[#f59e0b] font-black text-xs shadow-inner">
