@@ -77,20 +77,26 @@ const Dashboard = () => {
       });
 
       const today = new Date();
+      const todayParts = new Intl.DateTimeFormat('en-CA', { timeZone: appConfig.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(today);
+      const todayKey = `${todayParts.find(p => p.type === 'year')?.value}-${todayParts.find(p => p.type === 'month')?.value}-${todayParts.find(p => p.type === 'day')?.value}`;
       const mondayOffset = (today.getDay() + 6) % 7;
       const weekStart = new Date(today);
       weekStart.setDate(today.getDate() - mondayOffset);
-      const weekResults = await Promise.all(Array.from({ length: 7 }, async (_, index) => {
+      // Jangan tampilkan hari-hari mendatang sebagai nol; itu membuat grafik tampak tidak realistis.
+      const elapsedDays = mondayOffset + 1;
+      const weekResults = await Promise.all(Array.from({ length: elapsedDays }, async (_, index) => {
         const date = new Date(weekStart);
         date.setDate(weekStart.getDate() + index);
         const parts = new Intl.DateTimeFormat('en-CA', { timeZone: appConfig.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
         const dateKey = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+        const label = new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: appConfig.timezone }).format(date).replace('.', '');
+        if (dateKey > todayKey) return { label, count: null, date: dateKey };
         try {
           const response = await api.get('/attendance/daily', { params: { tanggal: dateKey } });
           const rows = Array.isArray(response.data) ? response.data : (response.data?.data || []);
-          return { label: new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: appConfig.timezone }).format(date).replace('.', ''), count: rows.filter(row => ['HADIR', 'TERLAMBAT'].includes(String(row.status || '').toUpperCase())).length, date: dateKey };
+          return { label, count: rows.filter(row => ['HADIR', 'TERLAMBAT'].includes(String(row.status || '').toUpperCase())).length, date: dateKey };
         } catch {
-          return { label: new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: appConfig.timezone }).format(date).replace('.', ''), count: 0, date: dateKey };
+          return { label, count: null, date: dateKey };
         }
       }));
       setWeeklyStats(weekResults);
@@ -503,11 +509,12 @@ const Dashboard = () => {
             </div>
             <div className="grid grid-cols-7 gap-2 items-end h-40 pt-2">
               {(weeklyStats.length ? weeklyStats : ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(label => ({ label, count: 0 }))).map((day, index) => {
-                const maxCount = Math.max(1, ...weeklyStats.map(item => item.count));
-                const height = day.count > 0 ? Math.max(8, Math.round((day.count / maxCount) * 112)) : 4;
+                const availableCounts = weeklyStats.map(item => item.count).filter(value => Number.isFinite(value));
+                const maxCount = Math.max(1, ...availableCounts);
+                const height = Number.isFinite(day.count) && day.count > 0 ? Math.max(8, Math.round((day.count / maxCount) * 112)) : 4;
                 return <div key={day.date || day.label || index} className="flex h-full flex-col items-center justify-end gap-2 min-w-0">
-                  <span className="text-[10px] font-semibold text-slate-500">{day.count}</span>
-                  <div className="w-full max-w-5 rounded-t-lg bg-gradient-to-t from-blue-800 via-blue-600 to-sky-400 transition-all duration-500" style={{ height: `${height}px` }} title={`${day.label}: ${day.count} hadir`} />
+                  <span className="text-[10px] font-semibold text-slate-500">{Number.isFinite(day.count) ? day.count : "—"}</span>
+                  <div className="w-full max-w-5 rounded-t-lg bg-gradient-to-t from-blue-800 via-blue-600 to-sky-400 transition-all duration-500" style={{ height: `${height}px` }} title={`${day.label}: ${Number.isFinite(day.count) ? `${day.count} hadir` : 'data tidak tersedia'}`} />
                   <span className="text-[10px] font-semibold text-slate-500 capitalize">{day.label}</span>
                 </div>;
               })}
