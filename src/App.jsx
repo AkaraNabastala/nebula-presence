@@ -206,9 +206,10 @@ function App() {
             <Route path="reports" element={<Laporan />} />
             <Route path="reports-monthly" element={<LaporanBulanan />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="database" element={<Navigate to="/admin/settings" replace />} />
-            <Route path="backup" element={<Navigate to="/admin/settings" replace />} />
-            <Route path="restore" element={<Navigate to="/admin/settings" replace />} />
+            <Route path="database" element={<Database />} />
+            {/* URL lama tetap berfungsi, tetapi manajemen backup/restore berada di halaman database khusus. */}
+            <Route path="backup" element={<Navigate to="/admin/database" replace />} />
+            <Route path="restore" element={<Navigate to="/admin/database" replace />} />
             <Route path="profile" element={<Profile />} />
             <Route path="license" element={<License />} /> 
             <Route path="devices" element={<Devices />} />
