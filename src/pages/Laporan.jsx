@@ -119,7 +119,7 @@ const Laporan = () => {
 
     const handleExportExcel = async () => {
         if (reportData.length === 0) {
-            showToast('error', "Tidak ada data untuk diexport!");
+            toast.error("Tidak ada data untuk diekspor.");
             return;
         }
 
@@ -131,7 +131,7 @@ const Laporan = () => {
             const fullMonthData = res.data || [];
 
             if (fullMonthData.length === 0) {
-                showToast('error', "Tidak ada data pada periode ini!");
+                toast.error("Tidak ada data pada periode ini.");
                 return;
             }
 
@@ -209,10 +209,10 @@ const Laporan = () => {
 
             XLSX.utils.book_append_sheet(wb, ws, "Rekap_Kehadiran");
             XLSX.writeFile(wb, `Rekap_Absensi_${startDate}_to_${endDate}.xlsx`);
-            showToast('success', "Data kehadiran berhasil diexport!");
+            toast.success("Data kehadiran berhasil diekspor.");
         } catch (error) {
             console.error("Export error:", error);
-            showToast('error', "Terjadi kesalahan saat export data");
+            toast.error("Terjadi kesalahan saat mengekspor data.");
         }
     };
 
