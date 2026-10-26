@@ -369,7 +369,7 @@ const Dashboard = () => {
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="w-8 h-8 rounded-full bg-[#eaf2ff] dark:bg-blue-950 flex items-center justify-center text-[#f59e0b] font-black text-xs shadow-inner">
-                      ✦
+                      <Sparkles size={14} />
                     </div>
                   </div>
                 </div>
