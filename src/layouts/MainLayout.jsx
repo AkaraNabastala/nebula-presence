@@ -420,19 +420,19 @@ const MainLayout = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto" onScroll={handleContentScroll}>
         
         {/* TOPBAR HEADER */}
-        <header className={`min-h-16 bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-sm transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+        <header className={`min-h-16 bg-[#e8f1ff]/95 dark:bg-[#0b1730]/96 border-b border-blue-200 dark:border-blue-900/70 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-[0_8px_28px_rgba(11,23,48,0.08)] transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-slate-700 dark:text-slate-300 hover:bg-stone-200 dark:hover:bg-slate-800 rounded-xl"
+              className="lg:hidden p-2 text-[#0b1730] dark:text-slate-100 hover:bg-blue-100 dark:hover:bg-white/10 rounded-xl"
             >
               <Menu size={20} />
             </button>
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-blue-800 dark:text-sky-300 tracking-wider">
                 {pageInfo.category}
               </span>
-              <h2 className="text-sm md:text-base font-bold text-slate-900 dark:text-white leading-tight">
+              <h2 className="text-sm md:text-base font-bold text-[#0b1730] dark:text-white leading-tight">
                 {pageInfo.title}
               </h2>
             </div>
@@ -527,13 +527,17 @@ const MainLayout = () => {
               {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
-            {/* Kiosk Screen Shortcut */}
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#101626] hover:bg-[#18223a] text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
+            {/* Tampilan layar penuh browser; gunakan Escape untuk keluar jika browser mendukungnya */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0b1730] via-[#1749a5] to-[#2563eb] px-3 py-2 text-xs font-semibold text-white shadow-md shadow-blue-900/15 hover:brightness-110"
+              title={isFullscreen ? 'Keluar dari layar penuh (Esc)' : 'Tampilan layar penuh (seperti F11)'}
+              aria-label={isFullscreen ? 'Keluar dari layar penuh' : 'Aktifkan layar penuh'}
             >
-              <span>Layar Kiosk</span>
-            </Link>
+              {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+              <span className="hidden sm:inline">{isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}</span>
+            </button>
           </div>
         </header>
 
@@ -553,15 +557,29 @@ const MainLayout = () => {
             </div>
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-2 sm:px-7 sm:pb-7">
               {[
-                { title: 'Sistem Aplikasi', description: 'Identitas, tema, sinkronisasi, dan tampilan.', path: '/admin/settings', icon: Settings },
-                { title: 'Profil Akun', description: 'Informasi akun operator.', path: '/admin/profile', icon: User },
-                { title: 'Manajemen Database', description: 'Cadangan, pemulihan, dan data lokal.', path: '/admin/database', icon: Database },
-                { title: 'Lisensi & Aktivasi', description: 'Status lisensi aplikasi.', path: '/admin/license', icon: Key },
-                { title: 'Mesin Kehadiran', description: 'Koneksi dan pengelolaan perangkat.', path: '/admin/devices', icon: Laptop },
-                { title: 'Log Aktivitas', description: 'Audit trail, backend, dan koneksi Portal.', path: '/admin/audit-logs', icon: Activity },
+                { title: 'Sistem Aplikasi', description: 'Identitas, tampilan, dan koneksi sinkronisasi.', path: '/admin/settings', icon: Settings },
+                { title: 'Data & Backup', description: 'Backup dan restore database dalam satu halaman.', path: '/admin/database', icon: Database },
+                { title: 'Akun & Lisensi', description: 'Profil operator dan aktivasi aplikasi.', icon: Key, children: [{ title: 'Profil Akun', path: '/admin/profile', icon: User }, { title: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key }] },
+                { title: 'Perangkat Kehadiran', description: 'Pengaturan mesin dan perangkat presensi.', path: '/admin/devices', icon: Laptop },
+                { title: 'Log Aktivitas', description: 'Audit trail, log backend, dan koneksi Portal.', path: '/admin/audit-logs', icon: Activity },
               ].map((entry) => {
                 const Icon = entry.icon;
-                return <Link key={entry.path} to={entry.path} onClick={() => setShowSettingsHub(false)} className="group flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-800/70 dark:hover:border-blue-700 dark:hover:bg-slate-800"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-900 to-blue-600 text-white shadow-sm"><Icon size={18} /></span><span className="min-w-0"><span className="block text-sm font-bold text-slate-900 dark:text-white">{entry.title}</span><span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{entry.description}</span></span><ChevronRight size={15} className="ml-auto mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" /></Link>;
+                return (
+                  <div key={entry.title} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-blue-300 hover:bg-blue-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-800/70 dark:hover:border-blue-700 dark:hover:bg-slate-800">
+                    {entry.path ? (
+                      <Link to={entry.path} onClick={() => setShowSettingsHub(false)} className="group flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-950 via-blue-800 to-blue-500 text-white shadow-sm"><Icon size={18} /></span>
+                        <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-slate-900 dark:text-white">{entry.title}</span><span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{entry.description}</span></span>
+                        <ChevronRight size={15} className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+                      </Link>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-950 via-blue-800 to-blue-500 text-white shadow-sm"><Icon size={18} /></span><span><span className="block text-sm font-bold text-slate-900 dark:text-white">{entry.title}</span><span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{entry.description}</span></span></div>
+                        <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">{entry.children.map(child => { const ChildIcon = child.icon; return <Link key={child.path} to={child.path} onClick={() => setShowSettingsHub(false)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-blue-900 hover:bg-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-200 dark:hover:bg-slate-800"><ChildIcon size={12} />{child.title}</Link>; })}</div>
+                      </>
+                    )}
+                  </div>
+                );
               })}
             </div>
           </div>
