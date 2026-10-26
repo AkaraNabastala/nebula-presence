@@ -84,11 +84,11 @@ const Holidays = () => {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex justify-between items-center dark:bg-slate-800 dark:border-slate-700">
+        <div className="sky-time-canvas p-6 max-w-6xl mx-auto space-y-6">
+            <div className="bg-gradient-to-br from-sky-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 rounded-2xl shadow-sm border border-sky-100 dark:border-slate-700 p-6 flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                        <Calendar className="w-6 h-6 text-red-500" />
+                        <Calendar className="w-6 h-6 text-sky-700" />
                         Kalender Libur (Tanggal Merah)
                     </h1>
                     <p className="text-slate-500 mt-1 dark:text-slate-400">
@@ -114,7 +114,7 @@ const Holidays = () => {
                                 required
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                             />
                         </div>
 
@@ -134,7 +134,7 @@ const Holidays = () => {
 
                         <button
                             type="submit"
-                            className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 rounded-xl transition-colors shadow-sm"
+                            className="w-full bg-sky-700 hover:bg-sky-800 text-white font-medium py-2 rounded-xl transition-colors shadow-sm"
                         >
                             Simpan Hari Libur
                         </button>
