@@ -438,12 +438,12 @@ exports.upsertTeacherAccount = async (req, res) => {
             if (password) {
                 const passwordHash = await bcrypt.hash(password, 12);
                 await pool.query(
-                    'UPDATE teacher_accounts SET username = $1, password_hash = $2 WHERE member_id = $3',
+                    'UPDATE teacher_accounts SET username = $1, password_hash = $2, is_active = 1 WHERE member_id = $3',
                     [username, passwordHash, memberId]
                 );
             } else {
                 await pool.query(
-                    'UPDATE teacher_accounts SET username = $1 WHERE member_id = $2',
+                    'UPDATE teacher_accounts SET username = $1, is_active = 1 WHERE member_id = $2',
                     [username, memberId]
                 );
             }
