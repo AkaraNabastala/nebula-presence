@@ -17,7 +17,6 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showSettingsHub, setShowSettingsHub] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
   const [headerVisible, setHeaderVisible] = useState(true);
   const scrollTimer = useRef(null);
@@ -241,11 +240,16 @@ const MainLayout = () => {
       ]
     },
     {
-      groupTitle: 'Pengaturan & Perangkat',
+      groupTitle: 'Pengaturan Sistem',
       groupKey: 'perangkat',
       role: 'SuperAdmin',
       items: [
-        { name: 'Pusat Pengaturan', path: '#settings-hub', icon: Settings, action: 'settingsHub' },
+        { name: 'Sistem Aplikasi', path: '/admin/settings', icon: Settings },
+        { name: 'Perangkat Kehadiran', path: '/admin/devices', icon: Laptop },
+        { name: 'Manajemen Database', path: '/admin/database', icon: HardDrive },
+        { name: 'Log Aktivitas', path: '/admin/audit-logs', icon: Activity },
+        { name: 'Profil Akun', path: '/admin/profile', icon: User },
+        { name: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key },
       ]
     }
   ].filter(group => !group.role || group.role === (userData?.role || 'SuperAdmin'));
@@ -353,17 +357,7 @@ const MainLayout = () => {
                         const active = location.pathname === item.path;
                         const Icon = item.icon;
 
-                        return item.action === 'settingsHub' ? (
-                            <button
-                              key={item.path}
-                              type="button"
-                              onClick={() => { setShowSettingsHub(true); setIsSidebarOpen(false); }}
-                              className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all"
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0"><Icon size={14} className="text-sky-300" /><span className="truncate">{item.name}</span></div>
-                              <ChevronRight size={13} className="text-slate-500" />
-                            </button>
-                          ) : (
+                        return (
                             <Link
                               key={item.path}
                               to={item.path}
@@ -546,44 +540,6 @@ const MainLayout = () => {
           <Outlet />
         </main>
       </div>
-
-      {showSettingsHub && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-4" role="dialog" aria-modal="true" aria-labelledby="settings-hub-title">
-          <div className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-blue-100/70 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="h-1.5 bg-gradient-to-r from-blue-950 via-blue-600 to-orange-400" />
-            <div className="flex items-start justify-between gap-4 p-6 sm:p-7">
-              <div><span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-700 dark:text-sky-300">Pusat kontrol</span><h2 id="settings-hub-title" className="mt-1 text-xl font-extrabold text-slate-900 dark:text-white">Pengaturan & Perangkat</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Akses pengaturan sistem dan perangkat dari satu tempat.</p></div>
-              <button type="button" onClick={() => setShowSettingsHub(false)} className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800" aria-label="Tutup pusat pengaturan"><X size={18} /></button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-2 sm:px-7 sm:pb-7">
-              {[
-                { title: 'Sistem Aplikasi', description: 'Identitas, tampilan, dan koneksi sinkronisasi.', path: '/admin/settings', icon: Settings },
-                { title: 'Akun & Lisensi', description: 'Profil operator dan aktivasi aplikasi.', icon: Key, children: [{ title: 'Profil Akun', path: '/admin/profile', icon: User }, { title: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key }] },
-                { title: 'Perangkat Kehadiran', description: 'Pengaturan mesin dan perangkat presensi.', path: '/admin/devices', icon: Laptop },
-                { title: 'Log Aktivitas', description: 'Audit trail, log backend, dan koneksi Portal.', path: '/admin/audit-logs', icon: Activity },
-              ].map((entry) => {
-                const Icon = entry.icon;
-                return (
-                  <div key={entry.title} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 transition hover:border-blue-300 hover:bg-blue-50 hover:shadow-md dark:border-slate-700 dark:bg-slate-800/70 dark:hover:border-blue-700 dark:hover:bg-slate-800">
-                    {entry.path ? (
-                      <Link to={entry.path} onClick={() => setShowSettingsHub(false)} className="group flex items-start gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-950 via-blue-800 to-blue-500 text-white shadow-sm"><Icon size={18} /></span>
-                        <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-slate-900 dark:text-white">{entry.title}</span><span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{entry.description}</span></span>
-                        <ChevronRight size={15} className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
-                      </Link>
-                    ) : (
-                      <>
-                        <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-950 via-blue-800 to-blue-500 text-white shadow-sm"><Icon size={18} /></span><span><span className="block text-sm font-bold text-slate-900 dark:text-white">{entry.title}</span><span className="mt-1 block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{entry.description}</span></span></div>
-                        <div className="mt-3 flex flex-wrap gap-2 pl-[52px]">{entry.children.map(child => { const ChildIcon = child.icon; return <Link key={child.path} to={child.path} onClick={() => setShowSettingsHub(false)} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-blue-900 hover:bg-blue-100 dark:border-slate-600 dark:bg-slate-900 dark:text-sky-200 dark:hover:bg-slate-800"><ChildIcon size={12} />{child.title}</Link>; })}</div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL LOGOUT KONFIRMASI */}
       {showLogoutModal && (
