@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { io } from 'socket.io-client';
 import {
   Users, CheckCircle2, AlertTriangle, Clock,
-  RefreshCw, Cloud, Cpu, ArrowUpRight,
+  Cloud, Cpu, ArrowUpRight,
   FileText, Calendar, Search, ArrowRight,
-  MoreHorizontal, Bell, Maximize2, ExternalLink,
+  MoreHorizontal, Bell, ExternalLink,
   ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X
 } from 'lucide-react';
 import logoNabastala from '../assets/logo-nabastala.png';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [syncingPortal, setSyncingPortal] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
@@ -112,7 +110,6 @@ const Dashboard = () => {
       console.warn("Gagal mengambil data dashboard:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [appConfig.timezone]);
 
@@ -133,11 +130,6 @@ const Dashboard = () => {
       /* ignore socket */
     }
   }, [fetchDashboardData]);
-
-  const handleManualRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
-  };
 
   const handlePortalSync = async () => {
     setSyncModalOpen(true);
