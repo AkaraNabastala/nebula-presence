@@ -11,7 +11,11 @@ exports.login = async (req, res) => {
         
         if (!await bcrypt.compare(password, r.rows[0].password)) return res.status(401).json({ message: "Username atau Password salah" });
         
-        const user = r.rows[0]; 
+        const user = r.rows[0];
+        // Nebula Presence hanya menerima akun admin dengan role SuperAdmin.
+        if (user.role !== 'SuperAdmin') {
+            return res.status(403).json({ message: 'Akses Nebula Presence hanya untuk admin.' });
+        }
         delete user.password;
 
         // Wajib mengamankan Secret Key
