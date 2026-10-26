@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import api from '../api/axios';
 import {
   Lock, User, ArrowRight, ArrowLeft, ShieldCheck, KeyRound,
@@ -28,7 +29,6 @@ const Login = () => {
   const [resetCode, setResetCode] = useState('');
   const [machineId, setMachineId] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
   // Ambil Machine ID untuk Lupa Password & Logo Sekolah
   React.useEffect(() => {
@@ -88,19 +88,11 @@ const Login = () => {
         security_code: resetCode,
         machine_id: machineId
       });
-      setNotification({
-        show: true,
-        type: 'success',
-        message: res.data?.message || 'Password berhasil di-reset ke default: admin123'
-      });
+      toast.success(res.data?.message || 'Permintaan reset password berhasil diproses.');
       setShowResetModal(false);
       setResetCode('');
     } catch (err) {
-      setNotification({
-        show: true,
-        type: 'error',
-        message: err.response?.data?.message || 'Kode otorisasi tidak valid'
-      });
+      toast.error(err.response?.data?.message || 'Kode otorisasi tidak valid');
     } finally {
       setResetLoading(false);
     }
@@ -109,11 +101,7 @@ const Login = () => {
   const copyMachineId = () => {
     if (machineId) {
       navigator.clipboard.writeText(machineId);
-      setNotification({
-        show: true,
-        type: 'success',
-        message: 'Machine ID disalin ke clipboard'
-      });
+      toast.success('Machine ID disalin ke clipboard');
     }
   };
 
@@ -143,28 +131,6 @@ const Login = () => {
           <span>Konsol Operator Presensi</span>
         </div>
       </div>
-
-      {/* NOTIFIKASI TOAST */}
-      {notification.show && (
-        <div className="fixed top-6 right-6 z-50">
-          <div
-            className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 backdrop-blur-xl ${
-              notification.type === 'success'
-                ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
-                : 'bg-rose-950/90 border-rose-500/50 text-rose-200'
-            }`}
-          >
-            {notification.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-            <span className="text-xs font-medium">{notification.message}</span>
-            <button
-              onClick={() => setNotification({ show: false, type: '', message: '' })}
-              className="ml-2 hover:opacity-75"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* LOGIN CARD */}
       <div className="w-full max-w-md mx-auto my-auto z-10">
