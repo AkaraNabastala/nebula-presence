@@ -11,7 +11,6 @@ import {
     Filter
 } from 'lucide-react';
 import api from '../api/axios';
-import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 
 const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-blue-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white";
@@ -141,7 +140,7 @@ export default function Extracurricular() {
             setItems(data);
             if (!selected && data.length) setSelected(String(data[0].id));
         } catch (err) {
-            Swal.fire('Gagal', err.response?.data?.message || 'Gagal memuat data ekskul.', 'error');
+            toast.error(err.response?.data?.message || 'Gagal memuat data ekskul.');
         }
     };
 
@@ -175,17 +174,13 @@ export default function Extracurricular() {
                     .map(student => String(student.id))
             );
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal memuat anggota ekskul.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal memuat anggota ekskul.');
         }
     };
 
     const saveExtracurricularMembers = async () => {
         if (!selected) {
-            return Swal.fire('Perhatian', 'Pilih ekskul terlebih dahulu.', 'warning');
+            return toast.warning('Pilih ekskul terlebih dahulu.');
         }
 
         setSavingMembers(true);
@@ -195,15 +190,11 @@ export default function Extracurricular() {
                 member_ids: selectedStudentIds.map(Number)
             });
 
-            Swal.fire('Berhasil', 'Pendaftaran siswa berhasil disimpan.', 'success');
+            toast.success('Pendaftaran siswa berhasil disimpan.');
             await loadExtracurricularMembers();
             await loadExtracurriculars();
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menyimpan anggota ekskul.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan anggota ekskul.');
         } finally {
             setSavingMembers(false);
         }
@@ -251,11 +242,7 @@ export default function Extracurricular() {
 
             setAttendanceDrafts(drafts);
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal memuat absensi.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal memuat absensi.');
         }
     };
 
@@ -287,11 +274,7 @@ export default function Extracurricular() {
 
             setJournals(res.data?.data || []);
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal memuat jurnal.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal memuat jurnal.');
         }
     };
 
@@ -327,11 +310,11 @@ export default function Extracurricular() {
         e.preventDefault();
 
         if (!name.trim()) {
-            return Swal.fire('Perhatian', 'Nama ekskul wajib diisi.', 'warning');
+            return toast.warning('Nama ekskul wajib diisi.');
         }
 
         if (!supervisorId) {
-            return Swal.fire('Perhatian', 'Pilih guru Pembina.', 'warning');
+            return toast.warning('Pilih guru Pembina.');
         }
 
         try {
@@ -340,16 +323,12 @@ export default function Extracurricular() {
                 supervisor_id: Number(supervisorId)
             });
 
-            Swal.fire('Berhasil', 'Ekskul berhasil ditambahkan.', 'success');
+            toast.success('Ekskul berhasil ditambahkan.');
             setName('');
             setSupervisorId('');
             await loadExtracurriculars();
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menambahkan ekskul.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menambahkan ekskul.');
         }
     };
 
@@ -358,11 +337,7 @@ export default function Extracurricular() {
         e.preventDefault();
 
         if (!selected || !memberId) {
-            return Swal.fire(
-                'Perhatian',
-                'Pilih ekskul dan peserta terlebih dahulu.',
-                'warning'
-            );
+            return toast.warning('Pilih ekskul dan peserta terlebih dahulu.');
         }
 
         try {
@@ -374,21 +349,17 @@ export default function Extracurricular() {
                 notes: attendanceNotes
             });
 
-            Swal.fire('Berhasil', 'Absensi berhasil disimpan.', 'success');
+            toast.success('Absensi berhasil disimpan.');
             setAttendanceNotes('');
             await loadAttendance();
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menyimpan absensi.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan absensi.');
         }
     };
 
     const saveAttendanceBulk = async () => {
         if (!selected) {
-            return Swal.fire('Perhatian', 'Pilih ekskul terlebih dahulu.', 'warning');
+            return toast.warning('Pilih ekskul terlebih dahulu.');
         }
 
         const studentsToSave = registeredStudents.filter(
@@ -396,11 +367,7 @@ export default function Extracurricular() {
         );
 
         if (studentsToSave.length === 0) {
-            return Swal.fire(
-                'Perhatian',
-                'Belum ada siswa yang terdaftar pada ekskul ini.',
-                'warning'
-            );
+            return toast.warning('Belum ada siswa yang terdaftar pada ekskul ini.');
         }
 
         const records = studentsToSave.map(student => {
@@ -424,17 +391,9 @@ export default function Extracurricular() {
 
             await loadAttendance();
 
-            await Swal.fire(
-                'Berhasil',
-                res.data?.message || 'Semua absensi berhasil disimpan.',
-                'success'
-            );
+            await toast.success(res.data?.message || 'Semua absensi berhasil disimpan.');
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menyimpan absensi massal.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan absensi massal.');
         } finally {
             setSavingAttendance(false);
         }
@@ -444,7 +403,7 @@ export default function Extracurricular() {
     const saveJournal = async (e) => {
         e.preventDefault();
         if (!selected || !topic.trim()) {
-            return Swal.fire('Perhatian', 'Pilih ekskul dan isi topik kegiatan.', 'warning');
+            return toast.warning('Pilih ekskul dan isi topik kegiatan.');
         }
         try {
             await api.post('/extracurriculars/journals', {
@@ -457,7 +416,7 @@ export default function Extracurricular() {
                 attendance_count: Number(attendanceCount) || 0,
                 notes: journalNotes
             });
-            Swal.fire('Berhasil', 'Jurnal kegiatan berhasil disimpan.', 'success');
+            toast.success('Jurnal kegiatan berhasil disimpan.');
             setTopic('');
             setStartTime('');
             setEndTime('');
@@ -466,7 +425,7 @@ export default function Extracurricular() {
             setJournalNotes('');
             await loadJournals();
         } catch (err) {
-            Swal.fire('Gagal', err.response?.data?.message || 'Gagal menyimpan jurnal.', 'error');
+            toast.error(err.response?.data?.message || 'Gagal menyimpan jurnal.');
         }
     };
 
