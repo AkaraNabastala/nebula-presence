@@ -143,20 +143,20 @@ export default function MonitoringAkademik() {
     const data = tab === 'jurnal' ? journals : attendance;
 
     return (
-        <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-            <div className={`${cardClass} flex flex-wrap items-center justify-between gap-4`}>
+        <div className="mx-auto max-w-7xl space-y-6 pb-8">
+            <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#0b1730] via-[#123b82] to-[#2563eb] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                         Monitoring Akademik
                     </h1>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-blue-100">
                         Rekap jurnal guru dan kehadiran siswa per kelas dan mata pelajaran.
                     </p>
                 </div>
                 <button
                     onClick={loadReport}
                     disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/20 disabled:opacity-50"
                 >
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     Muat Ulang
