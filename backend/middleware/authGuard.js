@@ -16,6 +16,10 @@ const authGuard = (req, res, next) => {
     try {
         const secret = process.env.JWT_SECRET || 'Nabastala_Secret_Key_2026_XYZ!';
         const decoded = jwt.verify(token, secret);
+        // Semua API terproteksi di Nebula Presence khusus admin.
+        if (decoded.role !== 'SuperAdmin' || decoded.type === 'teacher') {
+            return res.status(403).json({ message: 'Akses Nebula Presence hanya untuk admin.' });
+        }
         req.user = decoded;
         next();
     } catch (error) {
