@@ -678,22 +678,7 @@ const Settings = () => {
                                     </button>
                                 </div>
 
-                                {(syncLoading || cloudSyncLive.lastStatus === 'syncing' || cloudSyncLive.lastStatus === 'partial') && (
-                                    <div className="p-4 rounded-2xl border border-sky-100 dark:border-slate-700 bg-white/80 dark:bg-slate-800/60 space-y-3">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                {cloudSyncLive.lastStatus === 'syncing' ? <RefreshCw size={15} className="animate-spin text-sky-600 shrink-0" /> : cloudSyncLive.lastStatus === 'synced' ? <CheckCircle size={15} className="text-emerald-600 shrink-0" /> : <AlertCircle size={15} className="text-orange-600 shrink-0" />}
-                                                {cloudSyncLive.message && <span className="text-xs font-bold text-gray-700 dark:text-slate-200 truncate">{cloudSyncLive.message}</span>}
-                                            </div>
-                                            <span className="text-xs font-black tabular-nums text-sky-700 dark:text-sky-300">{Math.min(100, Math.max(0, cloudSyncLive.progress || 0))}%</span>
-                                        </div>
-                                        <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-500 ${cloudSyncLive.lastStatus === 'partial' ? 'bg-orange-500' : cloudSyncLive.lastStatus === 'synced' ? 'bg-emerald-500' : 'bg-sky-500'}`} style={{ width: `${Math.min(100, Math.max(0, cloudSyncLive.progress || 0))}%` }} />
-                                        </div>
-                                        {cloudSyncLive.stage && <p className="text-[11px] text-gray-500 dark:text-slate-400">Tahap: {cloudSyncLive.stage}{cloudSyncLive.total > 0 ? ` • ${cloudSyncLive.processed}/${cloudSyncLive.total} jadwal` : ''}{cloudSyncLive.skipped > 0 ? ` • ${cloudSyncLive.skipped} dilewati` : ''}</p>}
-                                        {Array.isArray(cloudSyncLive.errors) && cloudSyncLive.errors.length > 0 && <ul className="list-disc pl-5 text-[11px] text-orange-700 dark:text-orange-300 space-y-1">{cloudSyncLive.errors.slice(0, 4).map((error, index) => <li key={index}>{error}</li>)}</ul>}
-                                    </div>
-                                )}
+
 
                                 <div className="space-y-3">
                                     <div>
