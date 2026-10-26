@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, RefreshCw, ClipboardCheck, BookOpen, Users } from 'lucide-react';
+import { Download, ClipboardCheck, BookOpen, Users } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
 
@@ -92,6 +92,7 @@ export default function MonitoringAkademik() {
             return toast.info('Tidak ada data yang sesuai untuk diunduh.');
         }
 
+        try {
         const XLSX = await import("xlsx-js-style");
 
         const headers = isJournal
@@ -138,6 +139,11 @@ export default function MonitoringAkademik() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, isJournal ? 'Jurnal Guru' : 'Kehadiran Siswa');
         XLSX.writeFile(wb, `Monitoring-${isJournal ? 'Jurnal' : 'Kehadiran'}-${month}.xlsx`);
+        toast.success('Laporan berhasil diekspor.');
+        } catch (error) {
+            console.error('Gagal mengekspor monitoring akademik:', error);
+            toast.error('Gagal mengekspor laporan. Periksa konsol untuk detail.');
+        }
     };
 
     const data = tab === 'jurnal' ? journals : attendance;
@@ -156,9 +162,7 @@ export default function MonitoringAkademik() {
                             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Telusuri jurnal guru dan kehadiran siswa menggunakan filter periode, kelas, mapel, dan pengajar.</p>
                         </div>
                     </div>
-                    <button type="button" onClick={loadReport} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white/90 px-4 py-3 text-xs font-bold text-blue-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700">
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Perbarui Data
-                    </button>
+
                 </div>
             </section>
 
