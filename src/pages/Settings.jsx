@@ -332,7 +332,7 @@ const Settings = () => {
             </div>
 
             {/* ======================================================== */}
-            {/* 📅 1. JADWAL OPERASIONAL & SHIFT (DITARUH DI PALING ATAS) */}
+            {/* 1. JADWAL OPERASIONAL & SHIFT */}
             {/* ======================================================== */}
             <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-gray-100 dark:border-slate-700/80">
@@ -347,8 +347,9 @@ const Settings = () => {
                                 : 'Atur pembagian jam masuk dan kepulangan shift karyawan.'}
                         </p>
                     </div>
-                    <span className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-xl border border-blue-100 dark:border-blue-800/80 shrink-0">
-                        {config.app_mode === 'edukasi' ? '🏫 Mode Sekolah' : '🏢 Mode Perusahaan'}
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-xl border border-blue-100 dark:border-blue-800/80 shrink-0">
+                        <Building2 size={14} />
+                        {config.app_mode === 'edukasi' ? 'Mode Sekolah' : 'Mode Perusahaan'}
                     </span>
                 </div>
 
@@ -607,7 +608,7 @@ const Settings = () => {
                 {/* --- KOLOM KANAN: CLOUD SYNC & NOTIFIKASI TELEGRAM --- */}
                 <div className="space-y-8">
 
-                    {/* 🌐 CLOUD SYNC (LOCAL-FIRST ENGINE) */}
+                    {/* CLOUD SYNC */}
                     <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 space-y-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -737,7 +738,7 @@ const Settings = () => {
                         )}
                     </div>
 
-                    {/* 🔔 NOTIFIKASI TELEGRAM */}
+                    {/* NOTIFIKASI TELEGRAM */}
                     <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 space-y-5">
                         <div className="flex items-center justify-between">
                             <div>
