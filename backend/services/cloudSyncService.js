@@ -95,6 +95,14 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const isActive = settings['cloud_sync_active'] === '1';
         const syncUrl = (settings['cloud_sync_url'] || '').trim().replace(/\/+$/, '');
         const syncToken = settings['cloud_sync_token'] || '';
+        let canSendCredentialHashes = false;
+        try {
+            const portalUrl = new URL(syncUrl);
+            const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(portalUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
+            canSendCredentialHashes = portalUrl.protocol === 'https:' || (portalUrl.protocol === 'http:' && isLoopback);
+        } catch {
+            canSendCredentialHashes = false;
+        }
 
         if (!isActive || !syncUrl) {
             return { success: false, message: "Sinkronisasi Cloud belum diaktifkan atau URL kosong." };
@@ -145,12 +153,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // 0.25. PUSH ADMIN ACCOUNT: hanya hash bcrypt dan hanya melalui HTTPS.
         emitStage('admin', 'Memeriksa sinkronisasi akun administrator...', { progress: 20 });
         try {
-            const portalUrl = new URL(syncUrl);
-            // HTTPS is required for remote servers. Plain HTTP is allowed only for
-            // loopback development on this same machine (never for LAN/public hosts).
-            const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(portalUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
-            const canSendAdminHash = portalUrl.protocol === 'https:' || (portalUrl.protocol === 'http:' && isLoopback);
-            if (canSendAdminHash) {
+            // Password hashes may only travel over HTTPS or loopback HTTP.
+            if (canSendCredentialHashes) {
                 const adminRes = await pool.query("SELECT username, password AS password_hash FROM admins WHERE role = 'SuperAdmin' ORDER BY id ASC LIMIT 1");
                 const admin = adminRes.rows[0];
                 if (admin?.username && admin?.password_hash) {
@@ -189,18 +193,23 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // 1. PUSH MEMBERS: Kirim data siswa & guru beserta foto ke Web Portal
         emitStage('members', 'Mengirim data siswa dan guru...', { progress: 38 });
         try {
+            const credentialFields = canSendCredentialHashes
+                ? 'ta.username AS login_username, ta.password_hash AS login_password_hash'
+                : 'NULL AS login_username, NULL AS login_password_hash';
             const memberQuery = (isManual || portalNeedsBootstrap)
                 ? `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
-                          d.name as division_name, d.supervisor_name
+                          d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
+                   LEFT JOIN teacher_accounts ta ON ta.member_id = m.id AND LOWER(m.role) = 'guru'
                    ORDER BY m.id ASC`
                  : `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
-                          d.name as division_name, d.supervisor_name
+                          d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
+                   LEFT JOIN teacher_accounts ta ON ta.member_id = m.id AND LOWER(m.role) = 'guru'
                    WHERE (m.is_synced = 0 OR m.is_synced IS NULL)
                    ORDER BY m.id ASC
                    LIMIT 100`;

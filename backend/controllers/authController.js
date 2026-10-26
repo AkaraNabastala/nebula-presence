@@ -203,6 +203,8 @@ exports.createTeacherAccount = async (req, res) => {
             VALUES ($1, $2, $3)
             RETURNING id, member_id, username, is_active
         `, [memberId, username, hash]);
+        // Pastikan akun baru ikut dikirim pada sinkronisasi otomatis berikutnya.
+        await pool.query('UPDATE members SET is_synced = 0 WHERE id = $1', [memberId]);
 
         res.status(201).json({
             success: true,
