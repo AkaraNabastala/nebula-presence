@@ -7,7 +7,6 @@ import {
     Users,
     Plus,
     BookOpen,
-    RefreshCw,
     Download,
     Filter,
     X,
@@ -464,9 +463,7 @@ export default function Extracurricular() {
                             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Kelola data pembina, pantau kehadiran peserta, dan telusuri jurnal kegiatan melalui panel yang terpisah.</p>
                         </div>
                     </div>
-                    <button type="button" onClick={refresh} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white/90 px-4 py-3 text-xs font-bold text-blue-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700">
-                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Muat Ulang
-                    </button>
+
                 </div>
             </section>
 
