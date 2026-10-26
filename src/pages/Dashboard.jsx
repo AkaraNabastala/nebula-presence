@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import { io } from 'socket.io-client';
@@ -7,7 +8,7 @@ import {
   RefreshCw, Cloud, Cpu, ArrowUpRight,
   FileText, Calendar, Search, ArrowRight,
   MoreHorizontal, Bell, Maximize2, ExternalLink,
-  ChevronDown, MessageSquare, ThumbsUp
+  ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X
 } from 'lucide-react';
 import logoNabastala from '../assets/logo-nabastala.png';
 
@@ -15,6 +16,11 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncingPortal, setSyncingPortal] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncMessage, setSyncMessage] = useState('Menyiapkan koneksi Portal...');
+  const [weeklyStats, setWeeklyStats] = useState([]);
   const [activeTab, setActiveTab] = useState('activity');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -64,13 +70,32 @@ const Dashboard = () => {
       const belumScan = Math.max(0, totalMembers - (totalHadir + sakitIzin + alfa));
 
       setData({
-        total: totalMembers || 120,
-        hadir: hadir || (totalMembers === 0 ? 94 : 0),
-        terlambat: terlambat || (totalMembers === 0 ? 14 : 0),
+        total: totalMembers,
+        hadir,
+        terlambat,
         sakit_izin: sakitIzin,
         alfa: alfa + belumScan,
         logs: attendanceArray.length > 0 ? attendanceArray : []
       });
+
+      const today = new Date();
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - mondayOffset);
+      const weekResults = await Promise.all(Array.from({ length: 7 }, async (_, index) => {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + index);
+        const parts = new Intl.DateTimeFormat('en-CA', { timeZone: appConfig.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+        const dateKey = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+        try {
+          const response = await api.get('/attendance/daily', { params: { tanggal: dateKey } });
+          const rows = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+          return { label: new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: appConfig.timezone }).format(date).replace('.', ''), count: rows.filter(row => ['HADIR', 'TERLAMBAT'].includes(String(row.status || '').toUpperCase())).length, date: dateKey };
+        } catch {
+          return { label: new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: appConfig.timezone }).format(date).replace('.', ''), count: 0, date: dateKey };
+        }
+      }));
+      setWeeklyStats(weekResults);
 
       if (resSettings.data) {
         const isEdu = (resSettings.data.app_mode || 'edukasi') === 'edukasi';
@@ -112,6 +137,29 @@ const Dashboard = () => {
   const handleManualRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
+  };
+
+  const handlePortalSync = async () => {
+    setSyncModalOpen(true);
+    setSyncingPortal(true);
+    setSyncProgress(8);
+    setSyncMessage('Membuka jalur komunikasi dengan Portal...');
+    const progressTimer = setInterval(() => setSyncProgress(value => Math.min(92, value + Math.max(1, Math.round((92 - value) / 7)))), 420);
+    try {
+      setSyncMessage('Mengirim antrean data yang menunggu sinkronisasi...');
+      const response = await api.post('/cloud-sync/trigger');
+      if (response.data?.success === false) throw new Error(response.data.message || 'Portal menolak proses sinkronisasi.');
+      setSyncProgress(100);
+      setSyncMessage(response.data?.message || 'Permintaan sinkronisasi selesai diproses.');
+      toast.success('Proses sinkronisasi Portal selesai.');
+      fetchDashboardData();
+    } catch (error) {
+      setSyncMessage(error.response?.data?.message || error.message || 'Gagal mengirim data ke Portal. Periksa koneksi dan pengaturan sinkronisasi.');
+      toast.error('Sinkronisasi Portal gagal. Periksa status koneksi.');
+    } finally {
+      clearInterval(progressTimer);
+      setSyncingPortal(false);
+    }
   };
 
   const totalEffective = data.total > 0 ? data.total : (data.hadir + data.terlambat + data.alfa || 1);
@@ -167,25 +215,10 @@ const Dashboard = () => {
             + Input Presensi
           </Link>
 
-          {/* Fullscreen & Refresh Buttons */}
           <div className="flex items-center gap-2">
-            <Link
-              to="/"
-              className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 flex items-center justify-center text-stone-700 dark:text-slate-300 hover:text-black dark:hover:text-white shadow-sm transition-transform hover:scale-105"
-              title="Buka Layar Kiosk"
-            >
-              <Maximize2 size={16} />
-            </Link>
-
-            <button
-              onClick={handleManualRefresh}
-              className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 flex items-center justify-center text-stone-700 dark:text-slate-300 hover:text-black dark:hover:text-white shadow-sm transition-transform hover:scale-105 relative cursor-pointer"
-              title="Segarkan Data"
-            >
-              <RefreshCw size={16} className={refreshing ? 'animate-spin text-blue-600' : ''} />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#f84a72] text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-sm">
-                {data.logs.length > 9 ? '9+' : data.logs.length}
-              </span>
+            <button type="button" onClick={handlePortalSync} disabled={syncingPortal} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-800 via-blue-700 to-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 disabled:opacity-60">
+              <CloudUpload size={15} className={syncingPortal ? 'animate-bounce' : ''} />
+              {syncingPortal ? 'Mengirim...' : 'Kirim ke Portal'}
             </button>
           </div>
         </div>
@@ -470,80 +503,26 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* STAT CARD 2: WEEKLY BAR CHART */}
-          <div className="bg-white dark:bg-slate-800 rounded-[2.25rem] p-7 shadow-sm border border-stone-200/70 dark:border-slate-700 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#111625] dark:text-white">
-                Statistik Mingguan
-              </span>
-              <span className="text-[10px] text-stone-400 font-semibold">Senin - Minggu</span>
+          {/* STAT CARD 2: REAL DATA WEEKLY CHART */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-sm font-bold text-slate-900 dark:text-white">Statistik Mingguan</p><p className="text-xs text-slate-500 mt-1">Jumlah hadir dan terlambat berdasarkan data harian</p></div>
+              <span className="rounded-lg bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">Aktual</span>
             </div>
-
-            <div className="relative pt-6 pb-2">
-              <div className="absolute inset-x-0 top-12 h-16 pointer-events-none z-10 opacity-70">
-                <svg viewBox="0 0 200 40" className="w-full h-full" fill="none">
-                  <path
-                    d="M 10 25 Q 40 10, 70 20 T 130 15 T 190 20"
-                    stroke="#111625"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    className="dark:stroke-slate-300"
-                  />
-                  <path
-                    d="M 10 32 Q 50 15, 90 28 T 150 10 T 190 25"
-                    stroke="#f84a72"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-
-              <div className="grid grid-cols-7 gap-2.5 items-end h-36 z-0">
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-20 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">S</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-28 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">S</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-24 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">R</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end relative">
-                  <span className="text-[#f84a72] text-[10px] -mb-1 animate-bounce">★</span>
-                  <div className="w-3.5 bg-gradient-to-t from-[#f84a72] to-[#ff7a68] h-32 rounded-full shadow-md shadow-rose-500/20" />
-                  <span className="text-[10px] font-extrabold text-[#f84a72]">K</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-24 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">J</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-16 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">S</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-26 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">M</span>
-                </div>
-              </div>
+            <div className="grid grid-cols-7 gap-2 items-end h-40 pt-2">
+              {(weeklyStats.length ? weeklyStats : ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(label => ({ label, count: 0 }))).map((day, index) => {
+                const maxCount = Math.max(1, ...weeklyStats.map(item => item.count));
+                const height = day.count > 0 ? Math.max(8, Math.round((day.count / maxCount) * 112)) : 4;
+                return <div key={day.date || day.label || index} className="flex h-full flex-col items-center justify-end gap-2 min-w-0">
+                  <span className="text-[10px] font-semibold text-slate-500">{day.count}</span>
+                  <div className="w-full max-w-5 rounded-t-lg bg-gradient-to-t from-blue-800 via-blue-600 to-sky-400 transition-all duration-500" style={{ height: `${height}px` }} title={`${day.label}: ${day.count} hadir`} />
+                  <span className="text-[10px] font-semibold text-slate-500 capitalize">{day.label}</span>
+                </div>;
+              })}
             </div>
-
-            <div className="pt-3 border-t border-stone-100 dark:border-slate-700 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#feebe8] dark:bg-rose-950/40 flex items-center justify-center text-[#f84a72]">
-                  <Calendar size={15} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-[#111625] dark:text-white">Presensi Aktif</p>
-                  <p className="text-[10px] text-stone-400 dark:text-slate-400">Hari Operasional</p>
-                </div>
-              </div>
-              <span className="text-base font-extrabold text-[#111625] dark:text-white font-['Poppins']">
-                {data.hadir + data.terlambat} Hadir
-              </span>
+            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
+              <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"><Calendar size={16} /></div><div><p className="text-xs font-bold text-slate-900 dark:text-white">Presensi hari ini</p><p className="text-[10px] text-slate-500">Hadir + terlambat</p></div></div>
+              <span className="text-sm font-extrabold text-slate-900 dark:text-white">{data.hadir + data.terlambat}</span>
             </div>
           </div>
 
@@ -568,6 +547,24 @@ const Dashboard = () => {
 
       </div>
 
+      {syncModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-4" role="dialog" aria-modal="true" aria-labelledby="portal-sync-title">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-blue-100/70 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-950 via-blue-600 to-orange-400" />
+            <button type="button" onClick={() => { if (!syncingPortal) setSyncModalOpen(false); }} disabled={syncingPortal} className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800" aria-label="Tutup dialog"><X size={18} /></button>
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-900 via-blue-700 to-sky-400 text-white shadow-lg shadow-blue-900/20">
+              {syncProgress === 100 ? <CheckCircle2 size={30} /> : <CloudUpload size={30} className={syncingPortal ? 'animate-pulse' : ''} />}
+            </div>
+            <div className="text-center"><p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-blue-700 dark:text-blue-300">Nebula transfer channel</p><h2 id="portal-sync-title" className="text-xl font-extrabold text-slate-900 dark:text-white">{syncingPortal ? 'Mengirim data ke Portal' : syncProgress === 100 ? 'Proses sinkronisasi selesai' : 'Status pengiriman data'}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">{syncMessage}</p></div>
+            <div className="my-7 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="mb-3 flex items-center justify-between text-xs"><span className="font-semibold text-slate-600 dark:text-slate-300">Progres transfer</span><span className="font-extrabold tabular-nums text-blue-700 dark:text-blue-300">{syncProgress}%</span></div>
+              <div className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="relative h-full rounded-full bg-gradient-to-r from-blue-950 via-blue-600 to-orange-400 transition-all duration-500" style={{ width: `${syncProgress}%` }}><span className="absolute inset-y-0 right-0 w-16 animate-pulse bg-gradient-to-r from-transparent to-white/70" /></div></div>
+              <div className="mt-4 flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-500"><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${syncingPortal ? 'animate-pulse bg-orange-400' : syncProgress === 100 ? 'bg-emerald-500' : 'bg-slate-400'}`} />{syncingPortal ? 'Kanal aktif' : syncProgress === 100 ? 'Permintaan selesai' : 'Menunggu tindakan'}</span><span>NEBULA → PORTAL</span></div>
+            </div>
+            {!syncingPortal && <button type="button" onClick={() => setSyncModalOpen(false)} className="w-full rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:brightness-110">Tutup</button>}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
