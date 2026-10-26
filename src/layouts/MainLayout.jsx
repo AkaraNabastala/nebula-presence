@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, FileText, Settings,
@@ -6,7 +6,7 @@ import {
   Clock, ChevronDown, ChevronRight,
   Database, HardDrive, Calendar, BookOpen,
   Award, Key, Activity, User, Laptop,
-  Bell, AlertTriangle, Cloud, CloudOff, RefreshCw, Sun, Moon
+  Bell, AlertTriangle, Cloud, CloudOff, RefreshCw, Sun, Moon, Maximize, Minimize
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
@@ -17,6 +17,10 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const scrollTimer = useRef(null);
+  const lastScrollTop = useRef(0);
   const [openSections, setOpenSections] = useState({
     kegiatan: true,
     master: true,
@@ -152,6 +156,30 @@ const MainLayout = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch {
+      // Fullscreen can be blocked by the browser; F11 remains available as a fallback.
+    }
+  };
+
+  const handleContentScroll = (event) => {
+    const current = event.currentTarget.scrollTop;
+    if (current > lastScrollTop.current && current > 90) setHeaderVisible(false);
+    if (current < lastScrollTop.current) setHeaderVisible(true);
+    lastScrollTop.current = current;
+    clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => setHeaderVisible(true), 220);
+  };
+
   const toggleDarkMode = () => {
     const newTheme = !isDarkMode;
     setIsDarkMode(newTheme);
@@ -251,7 +279,7 @@ const MainLayout = () => {
   const pageInfo = getPageTitle();
 
   return (
-    <div className="min-h-screen bg-[#ede8e1] dark:bg-slate-900 text-[#111625] dark:text-slate-100 flex font-['Poppins']">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-[#111625] dark:text-slate-100 flex font-['Poppins']">
       
       {/* 1. DISTINCTIVE DARK OBSIDIAN SIDEBAR */}
       <aside className={`
@@ -263,7 +291,7 @@ const MainLayout = () => {
           {/* Top Logo Mark */}
           <div className="flex items-center justify-between pb-5 border-b border-white/10 mb-4">
             <Link to="/admin/dashboard" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center p-1.5 shadow-sm">
+              <div className="w-10 h-10 flex items-center justify-center shrink-0">
                 <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
               </div>
               <div className="min-w-0">
@@ -303,7 +331,7 @@ const MainLayout = () => {
             >
               <div className="flex items-center gap-3">
                 <ArrowLeft size={16} className="text-slate-400" />
-                <span>Layar Kiosk Absensi</span>
+                <span>Kiosk Absensi</span>
               </div>
             </Link>
           </div>
@@ -386,10 +414,10 @@ const MainLayout = () => {
       </aside>
 
       {/* 2. MAIN CONTENT VIEWPORT */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto" onScroll={handleContentScroll}>
         
         {/* TOPBAR HEADER */}
-        <header className="h-16 bg-[#ede8e1] dark:bg-slate-900 border-b border-stone-300 dark:border-slate-800 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90">
+        <header className={`min-h-16 bg-white/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-sm transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -398,10 +426,10 @@ const MainLayout = () => {
               <Menu size={20} />
             </button>
             <div>
-              <span className="text-[10px] uppercase font-bold text-stone-500 dark:text-slate-400 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
                 {pageInfo.category}
               </span>
-              <h2 className="text-sm md:text-base font-bold text-stone-900 dark:text-white leading-tight">
+              <h2 className="text-sm md:text-base font-bold text-slate-900 dark:text-white leading-tight">
                 {pageInfo.title}
               </h2>
             </div>
@@ -412,7 +440,7 @@ const MainLayout = () => {
             
             {/* Status Cloud Sync */}
             {cloudSyncStatus.enabled && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-stone-200 dark:border-slate-700 text-xs">
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                 {cloudSyncStatus.lastStatus === 'syncing' ? (
                   <>
                     <RefreshCw size={13} className="text-blue-500 animate-spin" />
@@ -436,7 +464,7 @@ const MainLayout = () => {
             <div className="relative">
               <button
                 onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-                className="relative p-2 rounded-xl bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-700 transition-colors"
+                className="relative p-2 rounded-xl bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors"
                 title="Notifikasi"
               >
                 <Bell size={16} />
