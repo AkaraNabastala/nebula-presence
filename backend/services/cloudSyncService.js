@@ -95,6 +95,23 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const isActive = settings['cloud_sync_active'] === '1';
         const syncUrl = (settings['cloud_sync_url'] || '').trim().replace(/\/+$/, '');
         const syncToken = settings['cloud_sync_token'] || '';
+        // Portal Absensi exposes sync handlers under /api/sync/*, not at the site root.
+        // Accept a site origin, an /api base, or an already-normalized /api/sync URL.
+        let syncBaseUrl = syncUrl;
+        try {
+            const configuredPortal = new URL(syncUrl);
+            let syncPath = configuredPortal.pathname.replace(/\/+$/, '');
+            if (syncPath.endsWith('/api/sync')) {
+                // Already configured for the sync API.
+            } else if (syncPath.endsWith('/api')) {
+                syncPath += '/sync';
+            } else {
+                syncPath += '/api/sync';
+            }
+            syncBaseUrl = `${configuredPortal.origin}${syncPath}`;
+        } catch {
+            syncBaseUrl = syncUrl;
+        }
         let canSendCredentialHashes = false;
         try {
             const portalUrl = new URL(syncUrl);
@@ -116,7 +133,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         emitStage('connecting', 'Menghubungkan ke Portal...', { progress: 5 });
         let portalNeedsBootstrap = false;
         try {
-            const handshake = await makeSyncRequest(`${syncUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
+            const handshake = await makeSyncRequest(`${syncBaseUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
             if (handshake.status === 200 && handshake.data?.success) portalNeedsBootstrap = handshake.data?.bootstrap_required === true;
             else syncErrors.push(`Handshake Portal gagal (HTTP ${handshake.status}).`);
         } catch (handshakeErr) {
@@ -134,7 +151,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             schoolRes.rows.forEach(r => schoolData[r.setting_key] = r.setting_value);
 
             if (schoolData.nama_sekolah || schoolData.logo_sekolah) {
-                const infoEndpoint = `${syncUrl}/push-school-info`;
+                const infoEndpoint = `${syncBaseUrl}/push-school-info`;
                 const infoPush = await makeSyncRequest(infoEndpoint, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${syncToken}` }
@@ -158,7 +175,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 const adminRes = await pool.query("SELECT username, password AS password_hash FROM admins WHERE role = 'SuperAdmin' ORDER BY id ASC LIMIT 1");
                 const admin = adminRes.rows[0];
                 if (admin?.username && admin?.password_hash) {
-                    const accountRes = await makeSyncRequest(`${syncUrl}/push-admin-account`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { username: admin.username, password_hash: admin.password_hash });
+                    const accountRes = await makeSyncRequest(`${syncBaseUrl}/push-admin-account`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { username: admin.username, password_hash: admin.password_hash });
                     if (accountRes.status !== 200 || !accountRes.data?.success) {
                         syncErrors.push(`Akun administrator gagal dikirim (HTTP ${accountRes.status}).`);
                         console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
@@ -179,7 +196,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             const divRes = await pool.query(
                 "SELECT d.id, d.name, d.supervisor_name FROM divisions d ORDER BY d.id ASC"
             );
-            const divEndpoint = `${syncUrl}/push-divisions`;
+            const divEndpoint = `${syncBaseUrl}/push-divisions`;
             const divPush = await makeSyncRequest(divEndpoint, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${syncToken}` }
@@ -217,7 +234,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             const pendingMembers = await pool.query(memberQuery);
 
             if (pendingMembers.rows.length > 0 || isManual || portalNeedsBootstrap) {
-                const memEndpoint = `${syncUrl}/push-members`;
+                const memEndpoint = `${syncBaseUrl}/push-members`;
                 const memRes = await makeSyncRequest(memEndpoint, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${syncToken}` }
@@ -258,7 +275,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 JOIN subjects s ON s.id = ta.subject_id
                 ORDER BY ts.id ASC
             `);
-            const schedulePush = await makeSyncRequest(`${syncUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
+            const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
             if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
                 const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
                 syncErrors.push(`Jadwal tidak tersinkron sempurna: ${detail}`);
@@ -303,7 +320,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         for (let offset = 0; offset < pendingLogs.rows.length; offset += attendanceBatchSize) {
             const batch = pendingLogs.rows.slice(offset, offset + attendanceBatchSize);
             try {
-                const pushRes = await makeSyncRequest(`${syncUrl}/push-attendance`, {
+                const pushRes = await makeSyncRequest(`${syncBaseUrl}/push-attendance`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${syncToken}` }
                 }, { logs: batch });
@@ -345,7 +362,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // setelah portal menjawab sukses dan semua pembaruan dapat diproses.
         // Format SQL UTC dipakai agar cocok dengan CURRENT_TIMESTAMP pada SQLite portal.
         const lastPullTime = settings['cloud_sync_last_pull_time'] || '2000-01-01 00:00:00';
-        const pullEndpoint = `${syncUrl}/pull-remote-updates?since=${encodeURIComponent(lastPullTime)}`;
+        const pullEndpoint = `${syncBaseUrl}/pull-remote-updates?since=${encodeURIComponent(lastPullTime)}`;
         let pullSucceeded = false;
 
         try {
