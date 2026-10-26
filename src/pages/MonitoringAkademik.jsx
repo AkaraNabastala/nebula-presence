@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Download, RefreshCw, ClipboardCheck, BookOpen, Users } from 'lucide-react';
 import api from '../api/axios';
-import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
 
 const inputClass =
     'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-800 dark:bg-slate-700 dark:border-slate-600 dark:text-white';
@@ -50,11 +50,7 @@ export default function MonitoringAkademik() {
                 )
             );
         } catch (err) {
-            Swal.fire(
-                'Gagal memuat filter',
-                err.response?.data?.message || 'Periksa endpoint data kelas, mapel, dan anggota.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Filter kelas, mapel, dan anggota gagal dimuat.');
         }
     };
 
@@ -74,12 +70,7 @@ export default function MonitoringAkademik() {
             setJournals(Array.isArray(data.journals) ? data.journals : []);
             setAttendance(Array.isArray(data.attendance) ? data.attendance : []);
         } catch (err) {
-            Swal.fire(
-                'Gagal memuat laporan',
-                err.response?.data?.message ||
-                    'Endpoint GET /monitoring/academic belum tersedia atau gagal diakses.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Laporan akademik gagal dimuat.');
         } finally {
             setLoading(false);
         }
@@ -98,7 +89,7 @@ export default function MonitoringAkademik() {
         const data = isJournal ? journals : attendance;
 
         if (!data.length) {
-            return Swal.fire('Tidak ada data', 'Tidak ada data untuk diunduh.', 'info');
+            return toast.info('Tidak ada data yang sesuai untuk diunduh.');
         }
 
         const XLSX = await import("xlsx-js-style");
