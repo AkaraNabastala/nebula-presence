@@ -189,6 +189,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     school_logo: schoolData.logo_sekolah || ''
                 });
                 if (infoPush.status !== 200 || !infoPush.data?.success) syncErrors.push(`Identitas sekolah gagal dikirim (POST ${infoEndpoint}, HTTP ${infoPush.status}${responseHint(infoPush)}).`);
+                else console.info('[Cloud Sync Portal] Identitas sekolah dan branding berhasil dikirim.');
             }
         } catch (infoErr) {
             syncErrors.push(`Identitas sekolah: ${infoErr.message}`);
@@ -207,7 +208,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     if (accountRes.status !== 200 || !accountRes.data?.success) {
                         syncErrors.push(`Akun administrator gagal dikirim (POST ${syncBaseUrl}/push-admin-account, HTTP ${accountRes.status}${responseHint(accountRes)}).`);
                         console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
-                    }
+                    } else console.info('[Cloud Sync Portal] Kredensial administrator berhasil dikirim melalui koneksi aman.');
                 }
             } else {
                 syncErrors.push('Akun administrator tidak dikirim: gunakan HTTPS untuk server Portal jarak jauh. HTTP hanya diizinkan untuk localhost.');
@@ -261,6 +262,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                    LIMIT 100`;
 
             const pendingMembers = await pool.query(memberQuery);
+            console.info(`[Cloud Sync Portal] Data anggota disiapkan untuk dikirim: ${pendingMembers.rows.length} siswa/guru.`);
 
             if (pendingMembers.rows.length > 0 || isManual || portalNeedsBootstrap) {
                 const memEndpoint = `${syncBaseUrl}/push-members`;
@@ -343,6 +345,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                LIMIT 100`;
 
         const pendingLogs = await pool.query(logQuery);
+        console.info(`[Cloud Sync Portal] Log presensi disiapkan untuk dikirim: ${pendingLogs.rows.length} baris.`);
         const attendanceBatchSize = 200;
         let pushSuccessCount = 0;
 
