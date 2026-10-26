@@ -433,13 +433,13 @@ export default function TeachingSchedules() {
   };
 
   const fieldClass =
-    'w-full rounded-lg border bg-transparent p-2.5 dark:border-gray-600';
+    'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-blue-950';
 
   return (
-    <div className="space-y-6 p-4 md:p-6 font-['Poppins']">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-7xl space-y-6 pb-8 font-['Poppins']">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-blue-100 bg-gradient-to-r from-white via-blue-50 to-sky-50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/30 sm:p-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Jadwal Pembelajaran</h1>
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-700 dark:text-sky-300">PERENCANAAN AKADEMIK</span><h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Jadwal Pembelajaran</h1>
           <p className="mt-1 text-sm text-slate-500">
             Kelola jadwal pelajaran mingguan per kelas dan penugasan guru.
           </p>
@@ -486,7 +486,7 @@ export default function TeachingSchedules() {
         </div>
       )}
 
-      <section className="space-y-4 rounded-2xl border bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 md:p-5">
+      <section className="space-y-5 rounded-[1.5rem] border border-blue-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:p-6">
         <label className="block space-y-1 text-sm">
           <span className="font-semibold text-slate-800 dark:text-white">1. Pilih Kelas</span>
           <select
@@ -548,13 +548,14 @@ export default function TeachingSchedules() {
         </div>
 
         {formOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#071226]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="schedule-form-title">
           <form
             onSubmit={save}
-            className="space-y-4 rounded-2xl border border-blue-200 bg-white p-5 shadow-sm dark:border-blue-900 dark:bg-gray-900"
+            className="w-full max-w-xl space-y-4 overflow-hidden rounded-[1.5rem] border border-blue-100 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-6"
           >
             <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h3 className="font-bold text-slate-900 dark:text-white">
+                <h3 id="schedule-form-title" className="font-bold text-slate-900 dark:text-white">
                   {editingId ? 'Edit Jadwal Pelajaran' : 'Tambah Jadwal Pelajaran'}
                 </h3>
                 <p className="text-xs text-gray-500">
@@ -642,6 +643,7 @@ export default function TeachingSchedules() {
               </button>
             </div>
           </form>
+          </div>
         )}
 
         {loading ? (
