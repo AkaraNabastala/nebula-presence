@@ -677,7 +677,7 @@ const Settings = () => {
                                     </button>
                                 </div>
 
-                                {(syncLoading || cloudSyncLive.lastStatus === 'syncing' || cloudSyncLive.lastStatus === 'partial' || cloudSyncLive.lastStatus === 'synced') && (
+                                {(syncLoading || cloudSyncLive.lastStatus === 'syncing' || cloudSyncLive.lastStatus === 'partial') && (
                                     <div className="p-4 rounded-2xl border border-sky-100 dark:border-slate-700 bg-white/80 dark:bg-slate-800/60 space-y-3">
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-2 min-w-0">
