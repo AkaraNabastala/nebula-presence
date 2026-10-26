@@ -4,15 +4,19 @@ import {
     Image as ImageIcon, CheckCircle, AlertCircle, X,
     Settings as SettingsIcon, Calendar, Clock, MapPin,
     Building2, ToggleLeft, ToggleRight, ChevronDown, Trash2, Camera,
-    Send, Cloud, CloudOff, RefreshCw, Globe, Check, ShieldCheck, Plus
+    Send, Cloud, CloudOff, RefreshCw, Globe, Check, ShieldCheck, Plus, Database, DownloadCloud, UploadCloud, FileText
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
+import { toast } from 'react-toastify';
 
 const Settings = () => {
     const [loading, setLoading] = useState(false);
     const [testLoading, setTestLoading] = useState(false);
     const [syncLoading, setSyncLoading] = useState(false);
+    const [backupLoading, setBackupLoading] = useState(false);
+    const [restoreLoading, setRestoreLoading] = useState(false);
+    const [pendingRestoreFile, setPendingRestoreFile] = useState(null);
     const [syncDialog, setSyncDialog] = useState(null);
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
@@ -65,6 +69,43 @@ const Settings = () => {
     const [shifts, setShifts] = useState([
         { name: 'Shift 1', in: '08:00', out: '16:00' }
     ]);
+
+    const handleDatabaseBackup = async () => {
+        setBackupLoading(true);
+        try {
+            const response = await api.get('/backup', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup_database_${new Date().toISOString().slice(0, 10)}.sqlite`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Backup database berhasil diunduh.');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Gagal mengunduh backup database.');
+        } finally {
+            setBackupLoading(false);
+        }
+    };
+
+    const handleDatabaseRestore = async () => {
+        if (!pendingRestoreFile) return;
+        setRestoreLoading(true);
+        const formData = new FormData();
+        formData.append('backup_file', pendingRestoreFile);
+        try {
+            await api.post('/restore', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            toast.success('Database berhasil dipulihkan. Aplikasi akan dimuat ulang.');
+            setPendingRestoreFile(null);
+            window.setTimeout(() => window.location.reload(), 1800);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Gagal memulihkan database. Pastikan file backup valid.');
+        } finally {
+            setRestoreLoading(false);
+        }
+    };
 
     const fetchCloudSyncStatus = async () => {
         try {
@@ -811,6 +852,39 @@ const Settings = () => {
                 </div>
 
             </div>
+
+            {/* DATA & BACKUP: backup dan restore digabung ke halaman pengaturan */}
+            <section className="mb-7 overflow-hidden rounded-[1.75rem] border border-blue-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="h-1.5 bg-gradient-to-r from-[#0b1730] via-blue-600 to-orange-400" />
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-sky-300"><Database size={20} /></span>
+                        <div><h3 className="font-bold text-slate-900 dark:text-white">Data & Backup</h3><p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">Cadangkan database atau pulihkan dari berkas backup. Simpan file cadangan di tempat aman sebelum melakukan pemulihan.</p></div>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:min-w-[230px]">
+                        <button type="button" onClick={handleDatabaseBackup} disabled={backupLoading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0b1730] to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-60">{backupLoading ? <RefreshCw size={14} className="animate-spin" /> : <DownloadCloud size={14} />}{backupLoading ? 'Menyiapkan backup…' : 'Unduh Backup Database'}</button>
+                        <label className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-900 transition hover:bg-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-200 dark:hover:bg-slate-700 ${restoreLoading ? 'pointer-events-none opacity-60' : ''}`}>
+                            <UploadCloud size={14} /> Pilih File untuk Restore
+                            <input type="file" accept=".sqlite,.sql,.db" className="hidden" disabled={restoreLoading} onChange={event => { const file = event.target.files?.[0]; if (file) setPendingRestoreFile(file); event.target.value = ''; }} />
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            {pendingRestoreFile && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="restore-confirm-title">
+                    <div className="w-full max-w-md overflow-hidden rounded-[1.5rem] border border-orange-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-orange-500 to-amber-300" />
+                        <div className="p-6">
+                            <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300"><AlertCircle size={23} /></span>
+                            <h3 id="restore-confirm-title" className="text-lg font-extrabold text-slate-900 dark:text-white">Pulihkan database?</h3>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Pemulihan dapat mengganti data yang saat ini tersimpan. Pastikan Anda sudah membuat backup terbaru.</p>
+                            <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"><FileText size={18} className="shrink-0 text-blue-600" /><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-800 dark:text-white">{pendingRestoreFile.name}</p><p className="text-[10px] text-slate-500">{(pendingRestoreFile.size / 1024 / 1024).toFixed(2)} MB</p></div></div>
+                            <div className="mt-5 flex gap-2"><button type="button" disabled={restoreLoading} onClick={() => setPendingRestoreFile(null)} className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button><button type="button" disabled={restoreLoading} onClick={handleDatabaseRestore} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-bold text-white hover:bg-orange-600 disabled:opacity-60">{restoreLoading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}{restoreLoading ? 'Memulihkan…' : 'Ya, Pulihkan'}</button></div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {syncDialog && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-live="polite">
