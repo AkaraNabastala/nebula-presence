@@ -7,6 +7,9 @@ const AuditLogs = () => {
     const [logs, setLogs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [syncStatus, setSyncStatus] = useState(null);
+    const [runtimeLogs, setRuntimeLogs] = useState([]);
+    const [activeLogType, setActiveLogType] = useState('audit');
+    const [backendReachable, setBackendReachable] = useState(null);
     const [lastChecked, setLastChecked] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -15,7 +18,8 @@ const AuditLogs = () => {
         try {
             const [logsResult, syncResult] = await Promise.allSettled([
                 api.get('/audit-logs'),
-                api.get('/cloud-sync/status')
+                api.get('/cloud-sync/status'),
+                api.get('/system-logs?limit=100')
             ]);
             if (logsResult.status === 'fulfilled') {
                 const res = logsResult.value;
@@ -23,12 +27,15 @@ const AuditLogs = () => {
             } else if (manual) {
                 toast.error('Log aktivitas gagal dimuat dari backend.');
             }
+            const runtimeResult = arguments;
             if (syncResult.status === 'fulfilled') {
                 setSyncStatus(syncResult.value.data?.data || syncResult.value.data || null);
             } else if (manual) {
-                setSyncStatus({ backendReachable: false });
                 toast.error('Status koneksi Portal tidak dapat diperiksa.');
             }
+            const runtimeResult = arguments;
+            setBackendReachable(logsResult.status === 'fulfilled' || syncResult.status === 'fulfilled');
+            if (runtimeResult.status === 'fulfilled') setRuntimeLogs(runtimeResult.value.data?.data || []);
             setLastChecked(new Date());
         } catch (error) {
             console.error('Gagal memuat pemantauan sistem', error);
@@ -44,7 +51,7 @@ const AuditLogs = () => {
         return () => clearInterval(timer);
     }, []);
 
-    const safeLogs = Array.isArray(logs) ? logs : [];
+    const safeLogs = activeLogType === 'backend' ? (Array.isArray(runtimeLogs) ? runtimeLogs : []) : (Array.isArray(logs) ? logs : []);
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -64,7 +71,7 @@ const AuditLogs = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"><Server size={18} /></span><div><p className="text-sm font-bold text-slate-900 dark:text-white">Backend Nebula</p><p className="text-xs text-slate-500 dark:text-slate-400">Status diperiksa melalui endpoint API</p></div></div>
-                    <div className="mt-4 flex items-center gap-2 text-sm font-semibold"><CircleCheck size={16} className="text-emerald-500" /> {lastChecked ? 'API merespons' : 'Memeriksa koneksi...'}</div>
+                    <div className="mt-4 flex items-center gap-2 text-sm font-semibold"><CircleCheck size={16} className={backendReachable === false ? "text-rose-500" : "text-emerald-500"} /> {backendReachable === true ? 'API merespons' : backendReachable === false ? 'Backend tidak merespons' : 'Memeriksa koneksi...'}</div>
                     <p className="mt-1 text-[11px] text-slate-500">Pemeriksaan terakhir: {lastChecked ? lastChecked.toLocaleTimeString('id-ID') : '—'}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
@@ -92,7 +99,7 @@ const AuditLogs = () => {
 
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1">
                                         <h3 className="font-semibold text-slate-800 text-base dark:text-slate-200">
-                                            {log.action}
+                                            {activeLogType === 'backend' ? log.message : log.action}
                                         </h3>
                                         <div className="flex items-center text-xs text-slate-400 gap-1 mt-1 sm:mt-0 font-mono">
                                             <Clock className="w-3 h-3" />
