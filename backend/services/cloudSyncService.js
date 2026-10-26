@@ -333,6 +333,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     );
                     if (memRes.rows.length === 0) {
                         pullSucceeded = false;
+                        syncErrors.push(`Pembaruan Portal untuk identitas ${memberIdentity || '(kosong)'} belum dapat diterapkan karena anggota tidak ditemukan di Nebula.`);
                         continue;
                     }
 
