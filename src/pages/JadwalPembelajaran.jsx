@@ -467,23 +467,27 @@ export default function TeachingSchedules() {
 
           <button
             type="button"
-            onClick={downloadTemplate}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-stone-50 dark:hover:bg-slate-700 shadow-sm transition-colors cursor-pointer"
-            title="Download Template Format Excel"
-          >
-            <Download size={15} className="text-blue-600" />
-            <span>Download Template (.xlsx)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
-            title="Import Jadwal dari Excel"
+            onClick={() => Swal.fire({
+              title: 'Data Jadwal',
+              text: 'Pilih tindakan yang ingin dilakukan.',
+              icon: 'question',
+              showCancelButton: true,
+              showDenyButton: true,
+              confirmButtonText: 'Import Excel',
+              denyButtonText: 'Download Template',
+              cancelButtonText: 'Batal',
+              confirmButtonColor: '#059669',
+              denyButtonColor: '#2563eb'
+            }).then(result => {
+              if (result.isConfirmed) fileInputRef.current?.click();
+              if (result.isDenied) downloadTemplate();
+            })}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+            title="Import jadwal atau unduh template"
           >
-            <Upload size={15} />
-            <span>{importing ? 'Mengimpor...' : 'Import Excel (.xlsx)'}</span>
+            {importing ? <RefreshCw size={15} className="animate-spin" /> : <Upload size={15} />}
+            <span>{importing ? 'Mengimpor...' : 'Import / Template'}</span>
           </button>
 
           <button
