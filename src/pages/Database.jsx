@@ -1,115 +1,127 @@
-import React, { useState } from 'react';
-import { Database as DatabaseIcon, DownloadCloud, UploadCloud, CheckCircle, AlertCircle, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import {
+  Database as DatabaseIcon, DownloadCloud, UploadCloud, ShieldCheck,
+  FileText, AlertTriangle, CheckCircle2, X, RefreshCw, HardDrive, ArrowRight
+} from 'lucide-react';
 import api from '../api/axios';
+import { toast } from 'react-toastify';
 
 const Database = () => {
+  const fileInputRef = useRef(null);
+  const [file, setFile] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
-
-  const showToast = (type, message) => {
-    setNotification({ show: true, type, message });
-    setTimeout(() => setNotification({ show: false, type: '', message: '' }), 3000);
-  };
+  const [downloading, setDownloading] = useState(false);
 
   const handleBackup = async () => {
-      try {
-          const response = await api.get('/backup', { responseType: 'blob' });
-          const url = window.URL.createObjectURL(new Blob([response.data]));
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', `backup_database_${new Date().toISOString().slice(0,10)}.sqlite`);
-          document.body.appendChild(link);
-          link.click();
-          link.parentNode.removeChild(link);
-          showToast('success', "Backup berhasil diunduh!");
-      } catch {
-          showToast('error', "Gagal mengunduh backup database.");
-      }
+    setDownloading(true);
+    toast.info('Menyiapkan salinan database…');
+    try {
+      const response = await api.get('/backup', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup_database_${new Date().toISOString().slice(0, 10)}.sqlite`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      toast.success('Backup database berhasil diunduh.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Gagal mengunduh backup database.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const handleRestore = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  const chooseFile = (event) => {
+    const selected = event.target.files?.[0] || null;
+    event.target.value = '';
+    if (!selected) return;
+    if (!/\.(sqlite|db)$/i.test(selected.name)) {
+      toast.error('Format file tidak sesuai. Pilih file backup .sqlite atau .db.');
+      return;
+    }
+    setFile(selected);
+    toast.info('File backup siap diperiksa sebelum pemulihan.');
+  };
 
-      const formData = new FormData();
-      formData.append('backup_file', file);
-
-      setLoading(true);
-      try {
-          await api.post('/restore', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          showToast('success', "Database berhasil direstore! Memuat ulang...");
-          setTimeout(() => {
-              window.location.reload();
-          }, 1500);
-      } catch {
-          showToast('error', "Gagal melakukan restore database.");
-      }
+  const handleRestore = async () => {
+    if (!file) return;
+    setLoading(true);
+    setConfirmOpen(false);
+    const formData = new FormData();
+    formData.append('backup_file', file);
+    try {
+      const response = await api.post('/restore', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (response.data?.success === false) throw new Error(response.data?.message || 'Pemulihan database gagal.');
+      toast.success('Database berhasil dipulihkan. Aplikasi akan dimuat ulang.');
+      setFile(null);
+      window.setTimeout(() => window.location.reload(), 1800);
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message || 'Gagal memulihkan database.');
+    } finally {
       setLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-24 md:pb-10 font-sans">
-      {notification.show && (
-        <div className={`fixed top-4 right-4 z-[99] flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl animate-in slide-in-from-right border bg-white ${notification.type === 'success' ? 'border-green-200 text-green-700' : 'border-red-200 text-red-700'}`}>
-            {notification.type === 'success' ? <CheckCircle size={22} className="text-green-500"/> : <AlertCircle size={22} className="text-red-500"/>}
-            <div><h4 className="font-bold text-sm">{notification.type === 'success' ? 'Berhasil' : 'Gagal'}</h4><p className="text-xs text-gray-500">{notification.message}</p></div>
-            <button onClick={() => setNotification({ show: false })}><X size={18} className="text-gray-400"/></button>
+    <div className="mx-auto max-w-6xl space-y-6 pb-10">
+      <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+        <div className="pointer-events-none absolute -right-8 -top-10 h-44 w-44 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
+        <div className="relative flex items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg"><DatabaseIcon size={22} /></span>
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">Perlindungan Data</span>
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Manajemen Database</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Backup dan restore tetap berada di halaman khusus ini, terpisah dari pengaturan aplikasi dan perangkat.</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-blue-800 dark:bg-blue-950/60 dark:text-sky-300"><DownloadCloud size={21} /></span><h2 className="mt-4 text-lg font-extrabold text-slate-950 dark:text-white">Backup Database</h2><p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Unduh salinan database lokal untuk disimpan sebagai cadangan sebelum pembaruan atau pemulihan.</p></div>
+            <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[10px] font-extrabold text-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300">EXPORT</span>
+          </div>
+          <div className="mt-5 flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"><HardDrive size={18} className="shrink-0 text-slate-500" /><div><p className="text-xs font-bold text-slate-800 dark:text-slate-200">Format file .sqlite</p><p className="mt-0.5 text-[11px] text-slate-500">Salinan database lengkap</p></div></div>
+          <button type="button" onClick={handleBackup} disabled={downloading || loading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-900/15 transition hover:brightness-110 disabled:opacity-50">{downloading ? <RefreshCw size={16} className="animate-spin" /> : <DownloadCloud size={16} />}{downloading ? 'Menyiapkan backup…' : 'Unduh Backup Database'}</button>
+        </section>
+
+        <section className="rounded-[1.75rem] border border-orange-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"><UploadCloud size={21} /></span><h2 className="mt-4 text-lg font-extrabold text-slate-950 dark:text-white">Restore Database</h2><p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Pilih file backup yang valid. Sistem akan meminta konfirmasi sebelum mengganti database yang aktif.</p></div>
+            <span className="rounded-full border border-orange-100 bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold text-orange-800 dark:border-slate-700 dark:bg-slate-800 dark:text-orange-300">IMPORT</span>
+          </div>
+          <input ref={fileInputRef} type="file" accept=".sqlite,.db" className="hidden" onChange={chooseFile} />
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || downloading} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-blue-900 transition hover:bg-sky-100 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"><FileText size={16} />{file ? 'Pilih File Lain' : 'Pilih File Backup'}</button>
+          {file ? <div className="mt-3 flex items-center gap-3 rounded-xl border border-sky-100 bg-sky-50/70 p-3 dark:border-slate-700 dark:bg-slate-950"><FileText size={18} className="shrink-0 text-blue-700 dark:text-sky-300" /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-900 dark:text-white">{file.name}</p><p className="mt-0.5 text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p></div><button type="button" onClick={() => setFile(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-white dark:hover:bg-slate-800" aria-label="Hapus file pilihan"><X size={15} /></button></div> : <div className="mt-3 rounded-xl border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700">Belum ada file yang dipilih.</div>}
+          <button type="button" onClick={() => setConfirmOpen(true)} disabled={!file || loading || downloading} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 text-sm font-bold text-slate-950 shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"><ShieldCheck size={16} />Tinjau & Pulihkan Database</button>
+        </section>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-orange-950 dark:border-orange-900/60 dark:bg-orange-950/20 dark:text-orange-200">
+        <AlertTriangle size={18} className="mt-0.5 shrink-0" /><p className="text-xs leading-relaxed"><strong>Catatan penting:</strong> proses restore mengganti database aktif. Buat backup terbaru dan pastikan file yang dipilih berasal dari sumber tepercaya.</p>
+      </div>
+
+      {confirmOpen && file && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="restore-confirm-title">
+          <div className="w-full max-w-md overflow-hidden rounded-[1.75rem] border border-orange-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="h-1.5 bg-gradient-to-r from-orange-500 via-amber-400 to-sky-400" />
+            <div className="p-6">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"><AlertTriangle size={22} /></span>
+              <h2 id="restore-confirm-title" className="mt-4 text-lg font-extrabold text-slate-950 dark:text-white">Konfirmasi pemulihan database</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Database aktif akan diganti dengan file berikut. Pastikan backup terbaru sudah tersedia.</p>
+              <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"><FileText size={18} className="shrink-0 text-blue-700 dark:text-sky-300" /><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-900 dark:text-white">{file.name}</p><p className="mt-0.5 text-[10px] text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p></div></div>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row"><button type="button" onClick={() => setConfirmOpen(false)} className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-xs font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button><button type="button" onClick={handleRestore} disabled={loading} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 px-4 py-3 text-xs font-extrabold text-slate-950 disabled:opacity-50">{loading ? <RefreshCw size={15} className="animate-spin" /> : <ArrowRight size={15} />}{loading ? 'Memulihkan…' : 'Ya, Pulihkan'}</button></div>
+            </div>
+          </div>
         </div>
       )}
-      
-      {/* HEADER */}
-      <div className="flex items-center gap-4 mb-8">
-          <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-purple-600">
-              <DatabaseIcon size={28}/>
-          </div>
-          <div>
-              <h2 className="text-2xl font-bold text-gray-800">Manajemen Database</h2>
-              <p className="text-sm text-gray-500">Amankan data presensi secara rutin. Cadangkan atau pulihkan data Anda.</p>
-          </div>
-      </div>
-
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8">
-            <div className="w-full md:w-1/3">
-                <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center mb-4 border border-purple-100">
-                    <DatabaseIcon size={24} className="text-purple-500" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">Pusat Data</h2>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                    Fitur ini memungkinkan Anda untuk mencadangkan (Backup) atau memulihkan (Restore) seluruh konfigurasi dan riwayat absen dalam satu file.
-                </p>
-            </div>
-            <div className="w-full md:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                <div className="border border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
-                    <DownloadCloud size={32} className="text-blue-500 mb-3" />
-                    <h3 className="font-bold text-gray-800 mb-1">Backup Data</h3>
-                    <p className="text-xs text-gray-500 mb-4">Unduh semua data ke format .sql</p>
-                    <button onClick={handleBackup} className="px-6 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 transition-colors w-full">
-                        Download Backup
-                    </button>
-                </div>
-
-                <div className="border border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center relative">
-                    {loading && (
-                        <div className="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center z-10 backdrop-blur-sm">
-                            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                    )}
-                    <UploadCloud size={32} className="text-orange-500 mb-3" />
-                    <h3 className="font-bold text-gray-800 mb-1">Restore Data</h3>
-                    <p className="text-xs text-gray-500 mb-4">Pulihkan dari file .sql / .sqlite</p>
-                    <label htmlFor="restore-file-input" className="px-6 py-2 bg-orange-50 text-orange-600 font-bold rounded-xl hover:bg-orange-100 transition-colors w-full cursor-pointer relative z-0">
-                        Upload & Restore
-                        <input id="restore-file-input" name="restore_file" type="file" accept=".sql,.sqlite" onChange={handleRestore} disabled={loading} className="hidden" />
-                    </label>
-                </div>
-                
-            </div>
-        </div>
-      </div>
     </div>
   );
 };
