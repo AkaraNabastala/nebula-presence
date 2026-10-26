@@ -453,8 +453,9 @@ export default function Extracurricular() {
                     Muat Ulang
                 </button>
             </div>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className={cardClass}>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Total Ekskul</p>
                     <p className="text-3xl font-bold mt-2 text-blue-600">{items.length}</p>
