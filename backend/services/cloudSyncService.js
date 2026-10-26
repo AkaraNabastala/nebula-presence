@@ -68,12 +68,21 @@ const getSyncStatus = async (pool) => {
         "SELECT COUNT(*) as count FROM attendance_logs WHERE is_synced = 0"
     );
 
+    let lastErrors = [];
+    try {
+        const parsedErrors = JSON.parse(settings['cloud_sync_last_errors'] || '[]');
+        if (Array.isArray(parsedErrors)) lastErrors = parsedErrors;
+    } catch {
+        lastErrors = [];
+    }
+
     return {
         enabled: settings['cloud_sync_active'] === '1',
         url: settings['cloud_sync_url'] || '',
         pendingCount: parseInt(pendingCountRes.rows[0]?.count || 0, 10),
         lastStatus: settings['cloud_sync_last_status'] || 'idle',
-        lastTime: settings['cloud_sync_last_time'] || ''
+        lastTime: settings['cloud_sync_last_time'] || '',
+        lastErrors
     };
 };
 
@@ -418,9 +427,12 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const nowStr = now.toISOString();
         const nowSql = nowStr.slice(0, 19).replace('T', ' ');
         const syncStatus = pullSucceeded && syncErrors.length === 0 ? 'synced' : 'partial';
+        const safeSyncErrors = syncErrors.slice(0, 20).map(message =>
+            String(message).replace(/(password|token|secret|authorization)\s*[:=]\s*[^,\s]+/gi, '$1=[REDACTED]').slice(0, 500)
+        );
         await pool.query(
-            "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', $1), ('cloud_sync_last_time', $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
-            [syncStatus, nowStr]
+            "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', $1), ('cloud_sync_last_time', $2), ('cloud_sync_last_errors', $3) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
+            [syncStatus, nowStr, JSON.stringify(safeSyncErrors)]
         );
 
         if (pullSucceeded) {
