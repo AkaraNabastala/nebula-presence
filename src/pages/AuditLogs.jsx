@@ -16,7 +16,7 @@ const AuditLogs = () => {
     const fetchLogs = async (manual = false) => {
         if (manual) setRefreshing(true);
         try {
-            const [logsResult, syncResult] = await Promise.allSettled([
+            const [logsResult, syncResult, runtimeResult] = await Promise.allSettled([
                 api.get('/audit-logs'),
                 api.get('/cloud-sync/status'),
                 api.get('/system-logs?limit=100')
@@ -27,13 +27,11 @@ const AuditLogs = () => {
             } else if (manual) {
                 toast.error('Log aktivitas gagal dimuat dari backend.');
             }
-            const runtimeResult = arguments;
             if (syncResult.status === 'fulfilled') {
                 setSyncStatus(syncResult.value.data?.data || syncResult.value.data || null);
             } else if (manual) {
                 toast.error('Status koneksi Portal tidak dapat diperiksa.');
             }
-            const runtimeResult = arguments;
             setBackendReachable(logsResult.status === 'fulfilled' || syncResult.status === 'fulfilled');
             if (runtimeResult.status === 'fulfilled') setRuntimeLogs(runtimeResult.value.data?.data || []);
             setLastChecked(new Date());
@@ -82,6 +80,13 @@ const AuditLogs = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
+                    <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                        <button type="button" onClick={() => setActiveLogType('audit')} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${activeLogType === 'audit' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'text-slate-500'}`}>Audit Trail</button>
+                        <button type="button" onClick={() => setActiveLogType('backend')} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${activeLogType === 'backend' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'text-slate-500'}`}>Log Backend ({runtimeLogs.length})</button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Log proses aktif disimpan sementara di memori dan dibatasi hingga 300 entri.</p>
+                </div>
                 <div className="p-6 overflow-x-auto">
                     {isLoading ? (
                         <div className="flex justify-center p-8">
@@ -89,7 +94,7 @@ const AuditLogs = () => {
                         </div>
                     ) : safeLogs.length === 0 ? (
                         <div className="text-center p-8 text-slate-400 dark:text-slate-500">
-                            Belum ada aktivitas admin yang tercatat. Log ini menampilkan audit trail aplikasi; log mentah proses Node.js tidak disediakan oleh endpoint ini.
+                            Belum ada aktivitas admin yang tercatat. Pilih tab Log Backend untuk melihat pesan proses server yang terekam selama proses berjalan.
                         </div>
                     ) : (
                         <div className="relative border-l-2 border-slate-100 dark:border-slate-700 ml-3 space-y-8 py-2">
@@ -107,16 +112,14 @@ const AuditLogs = () => {
                                         </div>
                                     </div>
 
-                                    <div className="text-sm text-slate-600 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 dark:text-slate-400">
-                                        <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700">
-                                            <User className="w-3.5 h-3.5 text-slate-400" />
-                                            <span className="font-medium">{log.admin_name}</span>
+                                    {activeLogType === 'backend' ? (
+                                        <div className="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{log.level || 'info'} · Backend</div>
+                                    ) : (
+                                        <div className="text-sm text-slate-600 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 dark:text-slate-400">
+                                            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700"><User className="w-3.5 h-3.5 text-slate-400" /><span className="font-medium">{log.admin_name}</span></div>
+                                            <div className="flex items-center gap-1.5 text-slate-500"><Target className="w-3.5 h-3.5" /><span>Target: <span className="text-slate-700 font-medium dark:text-slate-300">{log.target}</span></span></div>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Target className="w-3.5 h-3.5" />
-                                            <span>Target: <span className="text-slate-700 font-medium dark:text-slate-300">{log.target}</span></span>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
