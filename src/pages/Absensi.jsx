@@ -192,7 +192,7 @@ const Absensi = () => {
   const activeBg = appConfig.background_absensi || bgDefault;
 
   return (
-    <div className="h-screen w-screen bg-[#fbf8f0] text-[#111827] flex flex-col justify-between font-['Poppins'] selection:bg-amber-400/30 relative overflow-hidden p-3 md:p-5">
+    <div className="sky-time-canvas h-screen w-screen bg-[#fbf8f0] text-[#111827] flex flex-col justify-between font-['Poppins'] selection:bg-amber-400/30 relative overflow-hidden p-3 md:p-5">
       
       {/* 1. ATMOSPHERIC WATERMARK DENGAN WARM AMBER GLOW */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
