@@ -437,15 +437,18 @@ export default function TeachingSchedules() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8 font-['Poppins']">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-blue-100 bg-gradient-to-r from-white via-blue-50 to-sky-50 p-5 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/30 sm:p-6">
-        <div>
-          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-700 dark:text-sky-300">PERENCANAAN AKADEMIK</span><h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Jadwal Pembelajaran</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Kelola jadwal pelajaran mingguan per kelas dan penugasan guru.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
+      <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
+        <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg"><CalendarDays size={22} /></span>
+            <div>
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">PERENCANAAN AKADEMIK</span><h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Jadwal Pembelajaran</h1>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Atur penugasan guru, mata pelajaran, dan waktu belajar per kelas melalui tampilan jadwal mingguan.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
           {/* Hidden File Input */}
           <input
             type="file"
@@ -472,7 +475,7 @@ export default function TeachingSchedules() {
             <span>Muat ulang</span>
           </button>
         </div>
-      </div>
+      </section>
 
       {error && (
         <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
@@ -659,8 +662,8 @@ export default function TeachingSchedules() {
             <p className="mt-2 text-xs text-slate-400">Tekan "Tambah Jadwal Manual" atau "Import Excel (.xlsx)" untuk mengisi jadwal.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-stone-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
-            <table className="w-full min-w-[650px] text-left text-sm">
+          <div className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[650px] text-left text-sm">
               <thead className="bg-stone-50 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
                 <tr>
                   <th className="p-3.5">Waktu</th>
@@ -714,7 +717,21 @@ export default function TeachingSchedules() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
+            <div className="grid gap-3 p-3 md:hidden">
+              {visibleSchedules.map(item => (
+                <article key={item.id} className="rounded-2xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/60 p-4 dark:border-slate-800 dark:from-slate-900 dark:to-slate-950">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><p className="break-words font-extrabold text-slate-900 dark:text-white">{item.subject_name || subjectName(item)}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.teacher_name || nameOf(item)}</p></div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${Number(item.is_active) === 1 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'}`}>{Number(item.is_active) === 1 ? 'Aktif' : 'Nonaktif'}</span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-sky-100 pt-3 dark:border-slate-800">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold tabular-nums text-blue-900 dark:text-sky-300"><Clock size={14} />{String(item.start_time).slice(0, 5)}–{String(item.end_time).slice(0, 5)} WIB</span>
+                    <div className="flex gap-2"><button type="button" onClick={() => edit(item)} aria-label="Edit jadwal" className="rounded-lg border border-sky-100 bg-white p-2 text-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300"><Pencil size={14} /></button><button type="button" onClick={() => toggleStatus(item)} aria-label="Ubah status jadwal" className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"><Power size={14} /></button></div>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         )}
       </section>
