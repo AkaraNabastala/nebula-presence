@@ -13,6 +13,7 @@ const Settings = () => {
     const [loading, setLoading] = useState(false);
     const [testLoading, setTestLoading] = useState(false);
     const [syncLoading, setSyncLoading] = useState(false);
+    const [syncDialog, setSyncDialog] = useState(null);
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
     // Konfigurasi Dasar, Notifikasi & Cloud Sync
@@ -284,19 +285,23 @@ const Settings = () => {
             return;
         }
         setSyncLoading(true);
+        setSyncDialog({ type: 'progress', message: 'Menghubungkan ke Portal dan mengirim data…' });
         setCloudSyncLive(prev => ({ ...prev, lastStatus: 'syncing', stage: 'connecting', message: 'Memulai sinkronisasi...', progress: 0, processed: 0, total: 0, skipped: 0, errors: [] }));
         try {
             const res = await api.post('/cloud-sync/trigger');
             if (res.data && res.data.success) {
                 showToast('success', res.data.message || "Sinkronisasi berhasil!");
+                setSyncDialog({ type: res.data.errors?.length ? 'error' : 'success', message: res.data.message || 'Sinkronisasi selesai.', errors: res.data.errors || [] });
                 fetchCloudSyncStatus();
             } else {
                 setCloudSyncLive(prev => ({ ...prev, lastStatus: 'partial', stage: 'complete', progress: 100, message: res.data?.message || 'Sinkronisasi gagal.', errors: res.data?.errors || [] }));
                 showToast('error', res.data?.message || "Sinkronisasi gagal.");
+                setSyncDialog({ type: 'error', message: res.data?.message || 'Sinkronisasi gagal.', errors: res.data?.errors || [] });
             }
         } catch (err) {
             setCloudSyncLive(prev => ({ ...prev, lastStatus: 'offline', stage: 'complete', message: err.response?.data?.message || 'Gagal menghubungi server Cloud.' }));
             showToast('error', err.response?.data?.message || "Gagal menghubungi server Cloud.");
+            setSyncDialog({ type: 'error', message: err.response?.data?.message || 'Gagal menghubungi server Cloud.' });
         } finally {
             setSyncLoading(false);
         }
@@ -725,7 +730,7 @@ const Settings = () => {
                                 </div>
 
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-200/60 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300">
-                                    💡 <b>Local-First:</b> Scanner di sekolah tetap mencatat secepat kilat (&lt;50ms) walau tanpa internet. Log antrean akan otomatis terkirim saat internet online.
+                                    Pencatatan tetap berjalan saat offline. Data akan dikirim kembali saat koneksi pulih.
                                 </div>
                             </div>
                         )}
@@ -815,6 +820,24 @@ const Settings = () => {
                 </div>
 
             </div>
+
+            {syncDialog && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-live="polite">
+                    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+                        <div className="flex items-start gap-3">
+                            {syncDialog.type === 'progress' ? <RefreshCw size={24} className="mt-0.5 animate-spin text-sky-600" /> : syncDialog.type === 'success' ? <CheckCircle size={24} className="mt-0.5 text-emerald-600" /> : <AlertCircle size={24} className="mt-0.5 text-rose-600" />}
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-bold text-slate-900 dark:text-white">{syncDialog.type === 'progress' ? 'Sinkronisasi Berjalan' : syncDialog.type === 'success' ? 'Sinkronisasi Berhasil' : 'Sinkronisasi Perlu Diperiksa'}</h3>
+                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{syncDialog.message}</p>
+                            </div>
+                            {syncDialog.type !== 'progress' && <button onClick={() => setSyncDialog(null)} aria-label="Tutup"><X size={18} /></button>}
+                        </div>
+                        {syncDialog.type === 'progress' && <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><div className="h-full w-2/3 animate-pulse rounded-full bg-sky-600" /></div>}
+                        {Array.isArray(syncDialog.errors) && syncDialog.errors.length > 0 && <ul className="mt-4 max-h-36 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-700 dark:text-rose-300">{syncDialog.errors.slice(0, 8).map((err, index) => <li key={index}>{String(err)}</li>)}</ul>}
+                        {syncDialog.type !== 'progress' && <button onClick={() => setSyncDialog(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white dark:bg-slate-700">Tutup</button>}
+                    </div>
+                </div>
+            )}
 
             {/* TOMBOL SIMPAN PENGATURAN */}
             <div className="fixed bottom-6 right-6 md:static md:flex md:justify-end z-40">
