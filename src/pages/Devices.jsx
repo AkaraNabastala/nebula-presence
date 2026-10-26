@@ -175,9 +175,6 @@ export default function Devices() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:justify-end">
-            <button type="button" onClick={() => fetchDevices()} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Muat ulang
-            </button>
             <button type="button" onClick={openAdd} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-900/15 transition hover:brightness-105">
               <Plus size={16} /> Tambah perangkat
             </button>
