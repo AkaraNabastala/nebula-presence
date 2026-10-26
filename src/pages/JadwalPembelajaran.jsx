@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { CalendarDays, Clock, Pencil, Power, Plus, RefreshCw, X, Download, Upload, FileSpreadsheet } from 'lucide-react';
 import api from '../api/axios';
-import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
 
 const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 const EMPTY = {
@@ -268,7 +268,7 @@ export default function TeachingSchedules() {
       XLSX.utils.book_append_sheet(wb, ws, 'Template Jadwal');
       XLSX.writeFile(wb, 'Template_Import_Jadwal.xlsx');
     } catch (e) {
-      Swal.fire('Error', 'Gagal membuat template Excel: ' + e.message, 'error');
+      toast.error('Gagal membuat template Excel: ' + e.message);
     }
   };
 
@@ -278,12 +278,7 @@ export default function TeachingSchedules() {
     if (!file) return;
 
     setImporting(true);
-    Swal.fire({
-      title: 'Memproses Import...',
-      text: 'Membaca dan memvalidasi berkas jadwal...',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
-    });
+    toast.info('Berkas jadwal sedang dibaca dan divalidasi.');
 
     try {
       const XLSX = await import("xlsx-js-style");
@@ -427,15 +422,13 @@ export default function TeachingSchedules() {
         summaryHtml += `<br/><br/><div style="max-height:120px; overflow-y:auto; text-align:left; font-size:11px; background:#fef2f2; color:#991b1b; padding:8px; border-radius:8px;">${errors.slice(0, 5).join('<br/>')}${errors.length > 5 ? `<br/>...dan ${errors.length - 5} kesalahan lainnya` : ''}</div>`;
       }
 
-      Swal.fire({
-        icon: createdCount > 0 ? 'success' : 'warning',
-        title: 'Hasil Import Jadwal',
-        html: summaryHtml,
-        confirmButtonColor: '#2563EB'
-      });
+      if (createdCount > 0) toast.success(`${createdCount} jadwal berhasil ditambahkan.`);
+      else toast.warning('Tidak ada jadwal baru yang berhasil ditambahkan.');
+      if (newSubjectsCount > 0 || newDivisionsCount > 0) toast.info(`${newSubjectsCount} mapel dan ${newDivisionsCount} kelas baru dibuat otomatis.`);
+      if (errors.length > 0) toast.warning(`${errors.length} baris perlu diperiksa. Detail tersedia pada log server atau berkas sumber.`, { autoClose: 6000 });
 
     } catch (err) {
-      Swal.fire('Import Gagal', err.message || 'Terjadi kesalahan saat mengolah berkas Excel.', 'error');
+      toast.error(err.message || 'Terjadi kesalahan saat mengolah berkas Excel.');
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -465,29 +458,11 @@ export default function TeachingSchedules() {
             className="hidden"
           />
 
-          <button
-            type="button"
-            disabled={importing}
-            onClick={() => Swal.fire({
-              title: 'Data Jadwal',
-              text: 'Pilih tindakan yang ingin dilakukan.',
-              icon: 'question',
-              showCancelButton: true,
-              showDenyButton: true,
-              confirmButtonText: 'Import Excel',
-              denyButtonText: 'Download Template',
-              cancelButtonText: 'Batal',
-              confirmButtonColor: '#059669',
-              denyButtonColor: '#2563eb'
-            }).then(result => {
-              if (result.isConfirmed) fileInputRef.current?.click();
-              if (result.isDenied) downloadTemplate();
-            })}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-semibold shadow-sm transition-colors cursor-pointer disabled:opacity-50"
-            title="Import jadwal atau unduh template"
-          >
-            {importing ? <RefreshCw size={15} className="animate-spin" /> : <Upload size={15} />}
-            <span>{importing ? 'Mengimpor...' : 'Import / Template'}</span>
+          <button type="button" disabled={importing} onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-800 to-blue-600 hover:from-blue-900 hover:to-blue-700 text-white px-3.5 py-2.5 text-xs font-bold shadow-sm transition disabled:opacity-50" title="Import file Excel">
+            <Upload size={15} /><span>{importing ? 'Mengimpor...' : 'Import Excel'}</span>
+          </button>
+          <button type="button" disabled={importing} onClick={downloadTemplate} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-blue-50 text-slate-700 px-3.5 py-2.5 text-xs font-bold shadow-sm transition dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50" title="Unduh template Excel">
+            <Download size={15} /><span>Template</span>
           </button>
 
           <button
@@ -744,6 +719,17 @@ export default function TeachingSchedules() {
           </div>
         )}
       </section>
+      {importing && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-live="polite">
+          <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-blue-100 bg-white p-6 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg shadow-blue-900/20"><FileSpreadsheet size={30} className="animate-pulse" /></div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-700 dark:text-sky-300">Import terjadwal</p>
+            <h3 className="mt-2 text-lg font-extrabold text-slate-900 dark:text-white">Memproses file Excel</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Membaca kolom, memvalidasi jadwal, dan menyimpan data. Mohon tunggu sebentar.</p>
+            <div className="mt-6 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="nebula-transfer-glow h-full w-2/3 rounded-full bg-gradient-to-r from-blue-950 via-blue-500 to-orange-400" /></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
