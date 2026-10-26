@@ -56,7 +56,7 @@ const AuditLogs = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                        <ShieldAlert className="w-6 h-6 text-indigo-500" />
+                        <ShieldAlert className="w-6 h-6 text-blue-500" />
                         Log Aktivitas (Audit Trail)
                     </h1>
                     <p className="text-slate-500 mt-1 dark:text-slate-400">
@@ -90,7 +90,7 @@ const AuditLogs = () => {
                 <div className="p-6 overflow-x-auto">
                     {isLoading ? (
                         <div className="flex justify-center p-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                         </div>
                     ) : safeLogs.length === 0 ? (
                         <div className="text-center p-8 text-slate-400 dark:text-slate-500">
@@ -100,7 +100,7 @@ const AuditLogs = () => {
                         <div className="relative border-l-2 border-slate-100 dark:border-slate-700 ml-3 space-y-8 py-2">
                             {safeLogs.map((log, index) => (
                                 <div key={log.id || index} className="relative pl-6 group">
-                                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-indigo-400 group-hover:border-indigo-600 transition-colors dark:bg-slate-800 dark:border-indigo-500"></span>
+                                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-blue-400 group-hover:border-blue-600 transition-colors dark:bg-slate-800 dark:border-blue-500"></span>
 
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1">
                                         <h3 className="break-words font-semibold text-slate-800 text-base dark:text-slate-200">
