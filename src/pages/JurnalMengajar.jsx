@@ -39,7 +39,7 @@ export default function TeachingAssignments() {
       ]);
       const list = value => Array.isArray(value) ? value : value?.data || [];
       setAssignments(list(a.data));
-      setTeachers(list(m.data).filter(x => ['guru', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'wali kelas', 'wali_kelas', 'walikelas', 'penanggung jawab', 'penanggung_jawab', 'koordinator'].includes(String(x.role || '').trim().toLowerCase())));
+      setTeachers(list(m.data).filter(x => String(x.role || '').trim().toLowerCase() === 'guru'));
       setDivisions(list(d.data));
       setSubjects(list(s.data).filter(x => Number(x.is_active) === 1));
     } catch (e) {
