@@ -558,7 +558,6 @@ const MainLayout = () => {
             <div className="grid grid-cols-1 gap-3 px-6 pb-6 sm:grid-cols-2 sm:px-7 sm:pb-7">
               {[
                 { title: 'Sistem Aplikasi', description: 'Identitas, tampilan, dan koneksi sinkronisasi.', path: '/admin/settings', icon: Settings },
-                { title: 'Data & Backup', description: 'Backup dan restore database dalam satu halaman.', path: '/admin/database', icon: Database },
                 { title: 'Akun & Lisensi', description: 'Profil operator dan aktivasi aplikasi.', icon: Key, children: [{ title: 'Profil Akun', path: '/admin/profile', icon: User }, { title: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key }] },
                 { title: 'Perangkat Kehadiran', description: 'Pengaturan mesin dan perangkat presensi.', path: '/admin/devices', icon: Laptop },
                 { title: 'Log Aktivitas', description: 'Audit trail, log backend, dan koneksi Portal.', path: '/admin/audit-logs', icon: Activity },
