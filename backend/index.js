@@ -1,4 +1,6 @@
 // --- 1. GLOBAL ERROR HANDLING ---
+require('./utils/runtimeLogBuffer');
+
 process.on('uncaughtException', (err) => {
     console.error('🔥 CRITICAL ERROR (UNCAUGHT)!', err);
 });
