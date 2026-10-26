@@ -8,7 +8,8 @@ import {
     BookOpen,
     RefreshCw,
     Download,
-    Filter
+    Filter,
+    X
 } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
@@ -42,6 +43,8 @@ export default function Extracurricular() {
     const [date, setDate] = useState(today());
     const [month, setMonth] = useState(currentMonth());
     const [loading, setLoading] = useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [savingEkskul, setSavingEkskul] = useState(false);
 
     const [name, setName] = useState('');
     const [supervisorId, setSupervisorId] = useState('');
@@ -317,6 +320,7 @@ export default function Extracurricular() {
             return toast.warning('Pilih guru Pembina.');
         }
 
+        setSavingEkskul(true);
         try {
             await api.post('/extracurriculars', {
                 name: name.trim(),
@@ -326,9 +330,12 @@ export default function Extracurricular() {
             toast.success('Ekskul berhasil ditambahkan.');
             setName('');
             setSupervisorId('');
+            setShowAddModal(false);
             await loadExtracurriculars();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Gagal menambahkan ekskul.');
+        } finally {
+            setSavingEkskul(false);
         }
     };
 
@@ -437,23 +444,23 @@ export default function Extracurricular() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 pb-8">
-            <div className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-[#0b1730] via-[#123b82] to-[#2563eb] p-6 text-white shadow-xl shadow-blue-950/10 sm:p-8"><div className="pointer-events-none absolute -right-10 -top-16 h-52 w-52 rounded-full bg-sky-300/20 blur-3xl" /><div className="relative flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-sky-200">KEGIATAN SISWA</span>
-                    <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-                        Monitoring Ekstrakurikuler
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-blue-100">
-                        Pantau data ekskul, rekap absensi peserta, dan riwayat jurnal dalam satu ruang kerja.
-                    </p>
+            <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+                <div className="pointer-events-none absolute -right-10 -top-12 h-48 w-48 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
+                <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-4">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg"><Award size={22} /></span>
+                        <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">KEGIATAN SISWA · RUANG MONITORING</span>
+                            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Monitoring Ekstrakurikuler</h1>
+                            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Kelola data pembina, pantau kehadiran peserta, dan telusuri jurnal kegiatan melalui panel yang terpisah.</p>
+                        </div>
+                    </div>
+                    <button type="button" onClick={refresh} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-white/90 px-4 py-3 text-xs font-bold text-blue-900 shadow-sm transition hover:bg-sky-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700">
+                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Muat Ulang
+                    </button>
                 </div>
-                <button onClick={refresh} disabled={loading}
-                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-white backdrop-blur transition hover:bg-white/20 disabled:opacity-50">
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    Muat Ulang
-                </button>
-            </div>
-            </div>
+            </section>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className={cardClass}>
@@ -470,72 +477,27 @@ export default function Extracurricular() {
                 </div>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-sky-100 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 {tabs.map(({ id, label, icon: Icon }) => (
-                    <button key={id} onClick={() => setTab(id)}
-                        className={`flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-bold whitespace-nowrap transition ${
+                    <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id}
+                        className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-[11px] font-bold transition sm:px-4 sm:text-xs ${
                             tab === id
-                                ? 'bg-gradient-to-r from-blue-950 to-blue-600 text-white shadow-md shadow-blue-900/15'
-                                : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                ? 'bg-gradient-to-r from-blue-950 via-blue-800 to-blue-600 text-white shadow-md shadow-blue-900/15'
+                                : 'text-slate-600 hover:bg-sky-50 dark:text-slate-300 dark:hover:bg-slate-800'
                         }`}>
-                        <Icon size={18} /> {label}
+                        <Icon size={16} /> <span className="truncate">{label}</span>
                     </button>
                 ))}
             </div>
 
             {tab === 'ekskul' && (
-                <div className={cardClass + ' mb-5'}>
-                    <h2 className="font-bold text-slate-800 dark:text-white mb-4">
-                        Tambah Ekskul
-                    </h2>
-                    <form onSubmit={addExtracurricular} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="block text-sm text-slate-600 dark:text-slate-300">
-                            Nama ekstrakurikuler
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                maxLength={100}
-                                required
-                                placeholder="Contoh: Pramuka"
-                                className={inputClass + ' mt-1'}
-                            />
-                        </label>
-                        <label className="block text-sm text-slate-600 dark:text-slate-300">
-                            Guru Pembina
-                            <select
-                                value={supervisorId}
-                                onChange={e => setSupervisorId(e.target.value)}
-                                required
-                                className={inputClass + ' mt-1'}
-                            >
-                                <option value="">Pilih guru Pembina</option>
-                                {supervisors.map(teacher => (
-                                    <option key={teacher.id} value={teacher.id}>
-                                        {teacher.full_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-                            <button
-                                type="submit"
-                                disabled={!supervisors.length}
-                                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <Plus size={16} /> Tambah Ekskul
-                            </button>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                Jadwal latihan dan anggota dikelola Pembina melalui portal online.
-                            </p>
-                        </div>
-                        {!supervisors.length && (
-                            <p className="md:col-span-2 text-sm text-amber-600 dark:text-amber-400">
-                                Belum ada data guru untuk dipilih sebagai Pembina.
-                            </p>
-                        )}
-                    </form>
-                </div>
+                <section className={cardClass + ' flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'}>
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-blue-800 dark:bg-blue-950 dark:text-sky-300"><Plus size={20} /></span>
+                        <div><h2 className="font-extrabold text-slate-900 dark:text-white">Direktori Ekstrakurikuler</h2><p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">Tambah unit kegiatan melalui formulir terfokus agar daftar tetap ringkas.</p></div>
+                    </div>
+                    <button type="button" onClick={() => setShowAddModal(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-xs font-bold text-white shadow-md shadow-blue-900/15"><Plus size={15} /> Tambah Ekskul</button>
+                </section>
             )}
 
             {tab === 'ekskul' && (
@@ -758,6 +720,26 @@ export default function Extracurricular() {
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            {showAddModal && tab === 'ekskul' && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="add-ekskul-title">
+                    <form onSubmit={addExtracurricular} className="w-full max-w-lg overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400" />
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-orange-50/60 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
+                            <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-sky-300">Data Kegiatan</span><h2 id="add-ekskul-title" className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">Tambah Ekstrakurikuler</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tentukan nama kegiatan dan guru pembina.</p></div>
+                            <button type="button" onClick={() => !savingEkskul && setShowAddModal(false)} disabled={savingEkskul} className="rounded-xl p-2 text-slate-500 hover:bg-white dark:hover:bg-slate-800" aria-label="Tutup modal"><X size={18} /></button>
+                        </div>
+                        <div className="grid gap-4 p-5">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Nama ekstrakurikuler<input type="text" value={name} onChange={e => setName(e.target.value)} maxLength={100} required placeholder="Contoh: Pramuka" className={inputClass + ' mt-1.5'} /></label>
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Guru pembina<select value={supervisorId} onChange={e => setSupervisorId(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih guru pembina</option>{supervisors.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.full_name}</option>)}</select></label>
+                            {!supervisors.length && <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">Belum ada data guru untuk dipilih sebagai pembina.</p>}
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
+                            <button type="button" disabled={savingEkskul} onClick={() => setShowAddModal(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                            <button type="submit" disabled={savingEkskul || !supervisors.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Plus size={14} />{savingEkskul ? 'Menyimpan…' : 'Simpan Ekskul'}</button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>
