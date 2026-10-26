@@ -18,6 +18,7 @@ const jadwalMapelController = require('../controllers/jadwalMapelController');
 // Middleware
 const upload = require('../middleware/upload');
 const authGuard = require('../middleware/authGuard');
+const { getRuntimeLogs } = require('../utils/runtimeLogBuffer');
 const roleGuard = require('../middleware/roleGuard');
 
 // Rate Limiter
@@ -182,6 +183,7 @@ router.post('/settings', roleGuard(['SuperAdmin']), (req, res) => masterControll
 router.get('/backup', roleGuard(['SuperAdmin']), (req, res) => systemController.backupDatabase(req, res));
 router.post('/restore', roleGuard(['SuperAdmin']), upload.single('backup_file'), (req, res) => systemController.restoreDatabase(req, res));
 router.get('/audit-logs', roleGuard(['SuperAdmin']), (req, res) => systemController.getAuditLogs(req, res));
+router.get('/system-logs', roleGuard(['SuperAdmin']), (req, res) => res.json({ success: true, data: getRuntimeLogs(req.query.limit || 100) }));
 
 // DEVICES (Hanya SuperAdmin)
 router.get('/devices', roleGuard(['SuperAdmin']), (req, res) => deviceController.getAllDevices(req, res));
