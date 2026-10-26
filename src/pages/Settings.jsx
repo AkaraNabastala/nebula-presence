@@ -250,10 +250,7 @@ const Settings = () => {
             };
 
             await api.post('/settings', payload);
-            showToast('success', "Pengaturan berhasil disimpan! Memuat ulang...");
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            showToast('success', "Pengaturan berhasil disimpan.");
 
         } catch {
             showToast('error', "Gagal menyimpan pengaturan.");
