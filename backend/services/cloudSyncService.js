@@ -54,6 +54,12 @@ const makeSyncRequest = (urlStr, options = {}, payload = null) => {
     });
 };
 
+const responseHint = (response) => {
+    const detail = response?.data?.message || response?.data?.error || response?.raw || '';
+    const safeDetail = String(detail).replace(/[\r\n\t]+/g, ' ').trim().slice(0, 160);
+    return safeDetail ? ` — ${safeDetail}` : '';
+};
+
 /**
  * Status Live Sync untuk Dashboard / Settings
  */
@@ -110,6 +116,16 @@ const performCloudSync = async (pool, io, isManual = false) => {
         try {
             const configuredPortal = new URL(syncUrl);
             let syncPath = configuredPortal.pathname.replace(/\/+$/, '');
+
+            // Accept a site origin, /api, /api/sync, or a copied sync endpoint URL.
+            // If a full endpoint (for example /api/sync/handshake) was pasted into
+            // settings, normalize it back to the shared /api/sync base to avoid 404s.
+            const syncApiMarker = '/api/sync/';
+            const endpointIndex = syncPath.indexOf(syncApiMarker);
+            if (endpointIndex >= 0) {
+                syncPath = syncPath.slice(0, endpointIndex + '/api/sync'.length);
+            }
+
             if (syncPath.endsWith('/api/sync')) {
                 // Already configured for the sync API.
             } else if (syncPath.endsWith('/api')) {
@@ -144,7 +160,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         try {
             const handshake = await makeSyncRequest(`${syncBaseUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
             if (handshake.status === 200 && handshake.data?.success) portalNeedsBootstrap = handshake.data?.bootstrap_required === true;
-            else syncErrors.push(`Handshake Portal gagal (HTTP ${handshake.status}).`);
+            else syncErrors.push(`Handshake Portal gagal (POST ${syncBaseUrl}/handshake, HTTP ${handshake.status}${responseHint(handshake)}).`);
         } catch (handshakeErr) {
             syncErrors.push(`Handshake Portal: ${handshakeErr.message}`);
             console.warn('[Cloud Sync Handshake Error]:', handshakeErr.message);
@@ -169,7 +185,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     school_address: schoolData.alamat_sekolah || '',
                     school_logo: schoolData.logo_sekolah || ''
                 });
-                if (infoPush.status !== 200 || !infoPush.data?.success) syncErrors.push(`Identitas sekolah gagal dikirim (HTTP ${infoPush.status}).`);
+                if (infoPush.status !== 200 || !infoPush.data?.success) syncErrors.push(`Identitas sekolah gagal dikirim (POST ${infoEndpoint}, HTTP ${infoPush.status}${responseHint(infoPush)}).`);
             }
         } catch (infoErr) {
             syncErrors.push(`Identitas sekolah: ${infoErr.message}`);
@@ -186,7 +202,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 if (admin?.username && admin?.password_hash) {
                     const accountRes = await makeSyncRequest(`${syncBaseUrl}/push-admin-account`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { username: admin.username, password_hash: admin.password_hash });
                     if (accountRes.status !== 200 || !accountRes.data?.success) {
-                        syncErrors.push(`Akun administrator gagal dikirim (HTTP ${accountRes.status}).`);
+                        syncErrors.push(`Akun administrator gagal dikirim (POST ${syncBaseUrl}/push-admin-account, HTTP ${accountRes.status}${responseHint(accountRes)}).`);
                         console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
                     }
                 }
@@ -210,7 +226,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${syncToken}` }
             }, { divisions: divRes.rows });
-            if (divPush.status !== 200 || !divPush.data?.success) syncErrors.push(`Data kelas gagal dikirim (HTTP ${divPush.status}).`);
+            if (divPush.status !== 200 || !divPush.data?.success) syncErrors.push(`Data kelas gagal dikirim (POST ${divEndpoint}, HTTP ${divPush.status}${responseHint(divPush)}).`);
         } catch (divErr) {
             syncErrors.push(`Data kelas: ${divErr.message}`);
             console.warn("[Cloud Sync Divisions Error]:", divErr.message);
@@ -260,7 +276,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                         syncErrors.push(`Data siswa/guru: ${acknowledgedIds.size} dari ${pendingMembers.rows.length} data dikonfirmasi Portal; ${Number(memRes.data?.skipped || 0)} dilewati. Data yang belum dikonfirmasi akan dicoba lagi.`);
                     }
                 } else {
-                    syncErrors.push(`Data siswa/guru gagal dikirim (HTTP ${memRes.status} atau respons tidak valid).`);
+                    syncErrors.push(`Data siswa/guru gagal dikirim (POST ${memEndpoint}, HTTP ${memRes.status} atau respons tidak valid${responseHint(memRes)}).`);
                 }
             }
         } catch (memErr) {
@@ -335,7 +351,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 }, { logs: batch });
 
                 if (pushRes.status !== 200 || pushRes.data?.success !== true || !Array.isArray(pushRes.data?.synced_ids)) {
-                    syncErrors.push(`Log presensi batch gagal dikirim (HTTP ${pushRes.status}).`);
+                    syncErrors.push(`Log presensi batch gagal dikirim (POST ${syncBaseUrl}/push-attendance, HTTP ${pushRes.status}${responseHint(pushRes)}).`);
                     break;
                 }
 
@@ -414,7 +430,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 }
             } else {
                 pullSucceeded = false;
-                syncErrors.push(`Pembaruan Portal gagal diperiksa (HTTP ${pullRes.status}).`);
+                syncErrors.push(`Pembaruan Portal gagal diperiksa (GET ${pullEndpoint}, HTTP ${pullRes.status}${responseHint(pullRes)}).`);
             }
         } catch (pullErr) {
             // Pertahankan cursor agar pembaruan remote dapat dicoba lagi pada siklus berikutnya.
