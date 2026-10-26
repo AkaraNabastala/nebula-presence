@@ -75,7 +75,7 @@ const AuditLogs = () => {
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">{syncStatus?.lastStatus === 'synced' ? <Cloud size={18} /> : <CloudOff size={18} />}</span><div><p className="text-sm font-bold text-slate-900 dark:text-white">Sinkronisasi Portal</p><p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan koneksi dan antrean kirim</p></div></div>
                     <div className="mt-4 flex flex-wrap items-center gap-2"><span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${syncStatus?.lastStatus === 'synced' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : syncStatus?.lastStatus === 'partial' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{syncStatus?.lastStatus || 'Belum ada status'}</span><span className="text-xs text-slate-500">{Number(syncStatus?.pendingCount || 0)} antrean belum terkirim</span></div>
-                    <p className="mt-2 break-all text-[11px] text-slate-500">{syncStatus?.url || 'URL Portal belum diatur'}</p>
+                    <p className="mt-2 break-all text-[11px] text-slate-500">{syncStatus?.url || 'URL Portal belum diatur'}</p><p className="mt-1 text-[11px] text-slate-500">Sinkronisasi terakhir: {syncStatus?.lastTime ? new Date(syncStatus.lastTime).toLocaleString('id-ID') : 'Belum tercatat'}</p>
                 </div>
             </div>
 
