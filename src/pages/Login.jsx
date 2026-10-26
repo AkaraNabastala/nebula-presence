@@ -106,120 +106,74 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070e1c] text-slate-100 flex flex-col justify-between font-['Poppins'] p-6 relative overflow-hidden">
-      {/* BACKGROUND IMAGE DENGAN SCRIM ELEGAN */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <img
-          src={loginBackground}
-          alt="Latar Belakang Sekolah"
-          className="w-full h-full object-cover scale-105 brightness-[0.34] contrast-[1.05] saturate-[1.1]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#060b17] via-[#091326]/85 to-[#0c1a35]/70 backdrop-blur-[4px]" />
-      </div>
-
-      {/* TOP HEADER */}
-      <div className="flex items-center justify-between max-w-5xl w-full mx-auto z-10">
-        <Link
-          to="/"
-          className="flex items-center gap-2.5 text-slate-300 hover:text-white transition-colors text-xs font-semibold bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10"
-        >
-          <ArrowLeft size={16} />
-          <span>Kembali ke Layar Kiosk</span>
-        </Link>
-        <div className="flex items-center gap-2 text-xs text-slate-300">
-          <ShieldCheck size={14} className="text-cyan-400" />
-          <span>Konsol Operator Presensi</span>
+    <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-orange-50 font-['Poppins'] text-slate-900 lg:grid lg:grid-cols-[1.03fr_.97fr]">
+      <section className="relative hidden min-h-screen overflow-hidden bg-[#101c30] text-white lg:flex lg:flex-col lg:justify-between lg:p-10 xl:p-14">
+        <img src={loginBackground} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#071226]/95 via-[#102e50]/80 to-[#075985]/70" />
+        <div className="absolute -right-24 top-16 h-80 w-80 rounded-full bg-sky-400/25 blur-3xl" />
+        <div className="absolute -bottom-20 left-1/4 h-72 w-72 rounded-full bg-orange-400/20 blur-3xl" />
+        <div className="relative z-10 flex items-center gap-4">
+          <img src={schoolLogo} alt="Logo sekolah" className="h-14 w-14 object-contain" />
+          <div className="min-w-0"><p className="truncate text-sm font-extrabold tracking-wide">{schoolName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-sky-200">Nebula Presence</p></div>
         </div>
-      </div>
+        <div className="relative z-10 max-w-xl py-10">
+          <span className="inline-flex items-center gap-2 rounded-full border border-sky-200/25 bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-sky-100"><ShieldCheck size={14} /> Sistem presensi terpadu</span>
+          <h1 className="mt-6 text-4xl font-black leading-[1.12] tracking-tight xl:text-5xl">Satu ruang kendali.<br /><span className="bg-gradient-to-r from-sky-300 via-cyan-100 to-orange-300 bg-clip-text text-transparent">Data hadir lebih jelas.</span></h1>
+          <p className="mt-5 max-w-lg text-sm leading-7 text-slate-200">Kelola perangkat, data akademik, aktivitas presensi, dan sinkronisasi Portal melalui konsol operator yang aman.</p>
+          <div className="mt-8 grid max-w-md grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3 backdrop-blur"><Lock size={17} className="text-sky-300" /><p className="mt-3 text-[11px] font-bold">Akses terlindungi</p></div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3 backdrop-blur"><User size={17} className="text-sky-300" /><p className="mt-3 text-[11px] font-bold">Konsol operator</p></div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.08] p-3 backdrop-blur"><ArrowRight size={17} className="text-orange-300" /><p className="mt-3 text-[11px] font-bold">Sinkronisasi data</p></div>
+          </div>
+        </div>
+        <div className="relative z-10 flex items-center justify-between gap-4 border-t border-white/10 pt-5 text-[10px] text-slate-300"><span>© {new Date().getFullYear()} {schoolName}</span><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-sky-300" /> Nebula Presence Console</span></div>
+      </section>
 
-      {/* LOGIN CARD */}
-      <div className="w-full max-w-md mx-auto my-auto z-10">
-        <div className="bg-white/[0.05] hover:bg-white/[0.07] backdrop-blur-2xl border border-white/15 rounded-3xl p-8 shadow-2xl transition-colors">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center mx-auto mb-3 p-2 shadow-lg">
-              <img src={schoolLogo} alt="Logo" className="w-full h-full object-contain" />
+      <section className="relative flex min-h-screen flex-col justify-between overflow-hidden px-4 py-5 sm:px-8 lg:px-10 xl:px-14">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-sky-300/35 blur-3xl lg:hidden" />
+        <header className="relative z-10 flex items-center justify-between gap-3">
+          <Link to="/" className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white/85 px-3 py-2 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-sky-50"><ArrowLeft size={15} /> Layar Kiosk</Link>
+          <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-800"><ShieldCheck size={14} className="text-sky-600" /> Akses administrator</span>
+        </header>
+
+        <div className="relative z-10 mx-auto my-8 w-full max-w-md lg:my-auto">
+          <div className="mb-6 overflow-hidden rounded-[1.5rem] border border-sky-200/80 bg-[#101c30] text-white shadow-lg lg:hidden">
+            <div className="relative min-h-36 overflow-hidden p-5">
+              <img src={loginBackground} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#101c30]/95 via-[#123b62]/80 to-[#075985]/55" />
+              <div className="relative flex items-center gap-3">
+                <img src={schoolLogo} alt="Logo sekolah" className="h-12 w-12 object-contain" />
+                <div className="min-w-0"><p className="truncate text-sm font-extrabold">{schoolName}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-sky-200">Nebula Presence</p></div>
+              </div>
+              <p className="relative mt-5 text-lg font-extrabold">Selamat datang kembali.</p>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Konsol Pengelola</h1>
-            <p className="text-xs text-slate-300 mt-1">{schoolName} · Presensi Terpadu</p>
           </div>
 
-          {errorMsg && (
-            <div className="mb-4 p-3 bg-rose-500/15 border border-rose-400/30 rounded-2xl text-rose-200 text-xs text-center font-medium">
-              {errorMsg}
+          <div className="rounded-[2rem] border border-sky-100 bg-white/95 p-5 shadow-[0_24px_70px_rgba(28,100,160,0.14)] backdrop-blur-xl sm:p-8">
+            <div className="mb-6">
+              <span className="inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-800"><Lock size={13} /> Area administrator</span>
+              <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Masuk ke konsol</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">Gunakan akun administrator untuk mengelola sistem presensi.</p>
             </div>
-          )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Username Operator
+            {errorMsg && <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-700"><AlertCircle size={15} className="mt-0.5 shrink-0" />{errorMsg}</div>}
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <label className="block text-xs font-bold text-slate-700">Username Operator
+                <span className="relative mt-1.5 block"><User size={16} className="absolute left-3.5 top-3 text-slate-400" /><input type="text" value={username} onChange={e => setUsername(e.target.value)} autoComplete="username" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100" placeholder="Masukkan username" required /></span>
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-black/40 border border-white/15 rounded-2xl px-4 py-2.5 pl-10 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-colors font-['Poppins']"
-                  placeholder="Masukkan username"
-                  required
-                />
-                <User size={16} className="absolute left-3.5 top-3 text-slate-400" />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-medium text-slate-300">Password</label>
-                <button
-                  type="button"
-                  onClick={() => setShowResetModal(true)}
-                  className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors"
-                >
-                  Lupa Password?
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-black/40 border border-white/15 rounded-2xl px-4 py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-colors font-['Poppins']"
-                  placeholder="••••••••"
-                  required
-                />
-                <Lock size={16} className="absolute left-3.5 top-3 text-slate-400" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3 text-slate-400 hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm rounded-2xl transition-all shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Masuk ke Konsol</span>
-                  <ArrowRight size={16} />
-                </>
-              )}
-            </button>
-          </form>
+              <label className="block text-xs font-bold text-slate-700">
+                <span className="flex items-center justify-between gap-3">Password<button type="button" onClick={() => setShowResetModal(true)} className="text-[11px] font-bold text-blue-700 hover:text-orange-600">Lupa password?</button></span>
+                <span className="relative mt-1.5 block"><Lock size={16} className="absolute left-3.5 top-3 text-slate-400" /><input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-11 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100" placeholder="Masukkan password" required /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-3 text-slate-400 transition hover:text-blue-700" aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></span>
+              </label>
+              <button type="submit" disabled={loading} className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 via-blue-700 to-sky-500 px-4 py-3.5 text-sm font-extrabold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-wait disabled:opacity-60">{loading ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Memverifikasi akun…</> : <>Masuk ke konsol <ArrowRight size={16} /></>}</button>
+            </form>
+            <div className="mt-5 flex items-start gap-2 border-t border-slate-100 pt-4 text-[10px] leading-relaxed text-slate-400"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-sky-600" /><span>Akses ini hanya untuk akun dengan hak administrator Nebula Presence.</span></div>
+          </div>
         </div>
-      </div>
 
-      {/* FOOTER */}
-      <div className="text-center text-xs text-slate-400 z-10 py-2">
-        © {new Date().getFullYear()} {schoolName}. Sistem Presensi Otomatis.
-      </div>
+        <footer className="relative z-10 py-2 text-center text-[10px] text-slate-400">© {new Date().getFullYear()} {schoolName} · Sistem Presensi Otomatis</footer>
+      </section>
 
       {/* MODAL RESET PASSWORD DARURAT */}
       {showResetModal && (
@@ -295,7 +249,8 @@ const Login = () => {
           </div>
         </div>
       )}
-    </div>
+
+    </main>
   );
 };
 
