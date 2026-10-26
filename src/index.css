@@ -199,3 +199,55 @@ button:not(:disabled), a { transition-property: color, background-color, border-
 html.dark .swal2-popup { background: #0f172a !important; border-color: #334155 !important; }
 html.dark .swal2-title { color: #f8fafc !important; }
 html.dark .swal2-html-container { color: #cbd5e1 !important; }
+
+
+/* Time-aware sky palette: subtle morning, clear daylight, sunset and midnight. */
+:root {
+  --nebula-sky-canvas: #f5faff;
+  --nebula-sky-line: #dce9f5;
+  --nebula-sky-header: linear-gradient(112deg, #183652 0%, #285d83 58%, #78b9df 100%);
+  --nebula-sky-schedule: linear-gradient(135deg, #f0f8ff 0%, #ffffff 56%, #fff6ed 100%);
+}
+html[data-sky-phase="morning"] {
+  --nebula-sky-canvas: #f5faff;
+  --nebula-sky-line: #dceaf6;
+  --nebula-sky-header: linear-gradient(112deg, #183652 0%, #285d83 58%, #86c5e8 100%);
+  --nebula-sky-schedule: linear-gradient(135deg, #eef8ff 0%, #ffffff 62%, #fff8f0 100%);
+}
+html[data-sky-phase="day"] {
+  --nebula-sky-canvas: #f7fbff;
+  --nebula-sky-line: #d9e8f5;
+  --nebula-sky-header: linear-gradient(112deg, #16334f 0%, #24628e 55%, #5da9d9 100%);
+  --nebula-sky-schedule: linear-gradient(135deg, #eaf6ff 0%, #ffffff 58%, #f5fbff 100%);
+}
+html[data-sky-phase="sunset"] {
+  --nebula-sky-canvas: #fbf8f5;
+  --nebula-sky-line: #eadfd7;
+  --nebula-sky-header: linear-gradient(112deg, #172943 0%, #344f70 58%, #c28b70 100%);
+  --nebula-sky-schedule: linear-gradient(135deg, #f1f6fb 0%, #fffaf6 62%, #fff0e5 100%);
+}
+html[data-sky-phase="night"] {
+  --nebula-sky-canvas: #f4f7fb;
+  --nebula-sky-line: #d8e1ee;
+  --nebula-sky-header: linear-gradient(112deg, #0b1730 0%, #142747 62%, #203f65 100%);
+  --nebula-sky-schedule: linear-gradient(135deg, #eef3fa 0%, #ffffff 60%, #f5f2f8 100%);
+}
+html.dark[data-sky-phase] {
+  --nebula-sky-canvas: #0b1324;
+  --nebula-sky-line: #29394f;
+}
+html.dark[data-sky-phase="morning"] { --nebula-sky-header: linear-gradient(112deg, #0e1d31, #183957 65%, #285777); --nebula-sky-schedule: linear-gradient(135deg, #111d30, #111827 62%, #1b2638); }
+html.dark[data-sky-phase="day"] { --nebula-sky-header: linear-gradient(112deg, #0d1b2d, #163b5d 60%, #24577b); --nebula-sky-schedule: linear-gradient(135deg, #111e31, #111827 62%, #17263a); }
+html.dark[data-sky-phase="sunset"] { --nebula-sky-header: linear-gradient(112deg, #10192b, #29344c 60%, #63443e); --nebula-sky-schedule: linear-gradient(135deg, #111e31, #111827 62%, #2b2028); }
+html.dark[data-sky-phase="night"] { --nebula-sky-header: linear-gradient(112deg, #080f1e, #101c34 62%, #192c49); --nebula-sky-schedule: linear-gradient(135deg, #0e1727, #111827 62%, #171c2b); }
+
+.sky-time-canvas { background-color: var(--nebula-sky-canvas) !important; transition: background-color .6s ease; }
+.sky-time-header { background-image: var(--nebula-sky-header) !important; border-bottom-color: var(--nebula-sky-line) !important; }
+.schedule-hero { background-image: var(--nebula-sky-schedule) !important; border-color: var(--nebula-sky-line) !important; }
+.schedule-table { border-collapse: separate; border-spacing: 0; }
+.schedule-table thead th { border-bottom: 1px solid var(--nebula-sky-line); }
+.schedule-table tbody td { border-bottom: 1px solid var(--nebula-sky-line); }
+.schedule-table tbody tr:last-child td { border-bottom: 0; }
+.schedule-table th, .schedule-table td { border-left: 0; border-right: 0; }
+html.dark .schedule-table thead th,
+html.dark .schedule-table tbody td { border-color: var(--nebula-sky-line); }
