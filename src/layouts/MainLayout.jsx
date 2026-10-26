@@ -42,6 +42,24 @@ const MainLayout = () => {
 
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('theme') === 'dark');
 
+  // Update the visual sky phase from local time without forcing a page reload.
+  useEffect(() => {
+    const updateSkyPhase = () => {
+      const hour = new Date().getHours();
+      const phase = hour >= 5 && hour < 10
+        ? 'morning'
+        : hour >= 10 && hour < 16
+          ? 'day'
+          : hour >= 16 && hour < 19
+            ? 'sunset'
+            : 'night';
+      document.documentElement.dataset.skyPhase = phase;
+    };
+    updateSkyPhase();
+    const timer = window.setInterval(updateSkyPhase, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const getSafeUser = () => {
     try {
       const storedUser = localStorage.getItem('user');
@@ -279,7 +297,7 @@ const MainLayout = () => {
   const pageInfo = getPageTitle();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-[#111625] dark:text-slate-100 flex font-['Poppins']">
+    <div className="sky-time-canvas min-h-screen bg-slate-50 dark:bg-slate-950 text-[#111625] dark:text-slate-100 flex font-['Poppins']">
       
       {/* 1. DISTINCTIVE DARK OBSIDIAN SIDEBAR */}
       <aside className={`
@@ -414,7 +432,7 @@ const MainLayout = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto" onScroll={handleContentScroll}>
         
         {/* TOPBAR HEADER */}
-        <header className={`min-h-16 bg-gradient-to-r from-[#101c30] via-[#172943] to-[#174a70] border-b border-sky-400/40 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-[0_8px_28px_rgba(11,23,48,0.08)] transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+        <header className={`sky-time-header min-h-16 bg-gradient-to-r from-[#101c30] via-[#172943] to-[#174a70] border-b border-sky-400/40 px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 backdrop-blur-xl shadow-[0_8px_28px_rgba(11,23,48,0.08)] transition-transform duration-300 ${headerVisible ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(true)}
