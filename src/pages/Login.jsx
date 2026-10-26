@@ -19,6 +19,7 @@ const Login = () => {
 
   // State Tampilan
   const [schoolLogo, setSchoolLogo] = useState(logoNabastala);
+  const [loginBackground, setLoginBackground] = useState(backgroundSekolah);
   const [schoolName, setSchoolName] = useState('Nebula Smart Presence');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -45,6 +46,7 @@ const Login = () => {
           if (resSet.data.nama_sekolah || resSet.data.nama_instansi) {
             setSchoolName(resSet.data.nama_sekolah || resSet.data.nama_instansi);
           }
+          if (resSet.data.background_absensi) setLoginBackground(resSet.data.background_absensi);
           if (resSet.data.logo_sekolah || resSet.data.logo_instansi) {
             setSchoolLogo(resSet.data.logo_sekolah || resSet.data.logo_instansi);
           }
@@ -120,7 +122,7 @@ const Login = () => {
       {/* BACKGROUND IMAGE DENGAN SCRIM ELEGAN */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <img
-          src={backgroundSekolah}
+          src={loginBackground}
           alt="Latar Belakang Sekolah"
           className="w-full h-full object-cover scale-105 brightness-[0.34] contrast-[1.05] saturate-[1.1]"
         />
