@@ -69,7 +69,7 @@ const License = () => {
   };
 
   return (
-    <div className="space-y-8 pb-24 md:pb-10 font-sans">
+    <div className="sky-time-canvas space-y-8 pb-24 md:pb-10 font-sans">
       
       {/* TOAST NOTIFICATION */}
       {notification.show && (
@@ -81,7 +81,7 @@ const License = () => {
       )}
 
       {/* 1. HEADER SIMPLE */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-br from-sky-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 p-5 rounded-2xl border border-sky-100 dark:border-slate-700 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Lisensi & Keamanan</h2>
           <p className="text-slate-500 text-xs mt-1 flex items-center gap-2 font-medium">
@@ -98,7 +98,7 @@ const License = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Card Pemilik */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden group">
+        <div className="bg-white/90 dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-sky-100 dark:border-slate-700 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity">
               <Building2 size={120} className="text-slate-800" />
           </div>
@@ -106,10 +106,10 @@ const License = () => {
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 text-slate-600 rounded-md mb-4 text-[10px] font-bold uppercase tracking-widest border border-slate-200">
               <Building2 size={12} /> Terdaftar Untuk
             </div>
-            <h3 className="text-xl font-bold text-slate-800 tracking-tight mb-1 truncate">
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white tracking-tight mb-1 truncate">
               {data?.owner || 'Belum Terdeteksi'}
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Identitas Perusahaan Terverifikasi</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Identitas Instansi Terverifikasi</p>
             
             {machineId && (
               <div className="mt-5 pt-4 border-t border-slate-100">
