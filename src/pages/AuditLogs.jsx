@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Clock, User, Target, RefreshCw, Cloud, CloudOff, Server, CircleCheck } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { ShieldAlert, Clock, User, Target, Cloud, CloudOff, Server, CircleCheck } from 'lucide-react';
 import api from '../api/axios';
 
 const AuditLogs = () => {
@@ -11,10 +10,8 @@ const AuditLogs = () => {
     const [activeLogType, setActiveLogType] = useState('audit');
     const [backendReachable, setBackendReachable] = useState(null);
     const [lastChecked, setLastChecked] = useState(null);
-    const [refreshing, setRefreshing] = useState(false);
 
-    const fetchLogs = async (manual = false) => {
-        if (manual) setRefreshing(true);
+    const fetchLogs = async () => {
         try {
             const [logsResult, syncResult, runtimeResult] = await Promise.allSettled([
                 api.get('/audit-logs'),
@@ -24,13 +21,9 @@ const AuditLogs = () => {
             if (logsResult.status === 'fulfilled') {
                 const res = logsResult.value;
                 setLogs(res.data?.data || (Array.isArray(res.data) ? res.data : []));
-            } else if (manual) {
-                toast.error('Log aktivitas gagal dimuat dari backend.');
             }
             if (syncResult.status === 'fulfilled') {
                 setSyncStatus(syncResult.value.data?.data || syncResult.value.data || null);
-            } else if (manual) {
-                toast.error('Status koneksi Portal tidak dapat diperiksa.');
             }
             setBackendReachable(logsResult.status === 'fulfilled' || syncResult.status === 'fulfilled');
             if (runtimeResult.status === 'fulfilled') setRuntimeLogs(runtimeResult.value.data?.data || []);
@@ -39,7 +32,6 @@ const AuditLogs = () => {
             console.error('Gagal memuat pemantauan sistem', error);
         } finally {
             setIsLoading(false);
-            setRefreshing(false);
         }
     };
 
@@ -65,7 +57,7 @@ const AuditLogs = () => {
                         Pantau seluruh riwayat aktivitas krusial yang dilakukan oleh Administrator. (Hanya SuperAdmin)
                     </p>
                 </div>
-                <button type="button" onClick={() => fetchLogs(true)} disabled={refreshing} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-900/15 disabled:opacity-60"><RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> Perbarui pemantauan</button>
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
