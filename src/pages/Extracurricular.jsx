@@ -45,6 +45,8 @@ export default function Extracurricular() {
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [savingEkskul, setSavingEkskul] = useState(false);
+    const [showJournalModal, setShowJournalModal] = useState(false);
+    const [savingJournal, setSavingJournal] = useState(false);
 
     const [name, setName] = useState('');
     const [supervisorId, setSupervisorId] = useState('');
@@ -412,13 +414,14 @@ export default function Extracurricular() {
         if (!selected || !topic.trim()) {
             return toast.warning('Pilih ekskul dan isi topik kegiatan.');
         }
+        setSavingJournal(true);
         try {
             await api.post('/extracurriculars/journals', {
                 extracurricular_id: Number(selected),
                 activity_date: date,
                 start_time: startTime || null,
                 end_time: endTime || null,
-                topic,
+                topic: topic.trim(),
                 activity_description: activityDescription,
                 attendance_count: Number(attendanceCount) || 0,
                 notes: journalNotes
@@ -430,9 +433,12 @@ export default function Extracurricular() {
             setActivityDescription('');
             setAttendanceCount('0');
             setJournalNotes('');
+            setShowJournalModal(false);
             await loadJournals();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Gagal menyimpan jurnal.');
+        } finally {
+            setSavingJournal(false);
         }
     };
 
@@ -627,14 +633,10 @@ export default function Extracurricular() {
                                 </p>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={downloadMonthlyJournal}
-                                className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-                            >
-                                <Download size={16} />
-                                Download Excel (.xlsx)
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                                <button type="button" onClick={() => setShowJournalModal(true)} disabled={!selected} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50"><Plus size={15} /> Tambah Jurnal</button>
+                                <button type="button" onClick={downloadMonthlyJournal} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-xs font-bold text-blue-900 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"><Download size={15} /> Download Excel</button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -720,6 +722,31 @@ export default function Extracurricular() {
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            {showJournalModal && tab === 'jurnal' && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="journal-modal-title">
+                    <form onSubmit={saveJournal} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400" />
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-orange-50/60 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
+                            <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-sky-300">Dokumentasi Kegiatan</span><h2 id="journal-modal-title" className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">Tambah Jurnal Ekskul</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Catat topik, waktu, dan ringkasan aktivitas yang telah dilaksanakan.</p></div>
+                            <button type="button" onClick={() => !savingJournal && setShowJournalModal(false)} disabled={savingJournal} className="rounded-xl p-2 text-slate-500 hover:bg-white dark:hover:bg-slate-800" aria-label="Tutup modal"><X size={18} /></button>
+                        </div>
+                        <div className="grid gap-4 p-5 sm:grid-cols-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Ekstrakurikuler<select value={selected} onChange={e => setSelected(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih ekskul</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Tanggal kegiatan<input type="date" value={date} onChange={e => setDate(e.target.value)} required className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Topik kegiatan<input value={topic} onChange={e => setTopic(e.target.value)} maxLength={160} required placeholder="Contoh: Latihan dasar dan kerja sama tim" className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu mulai<input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu selesai<input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Jumlah peserta<input type="number" min="0" value={attendanceCount} onChange={e => setAttendanceCount(e.target.value)} className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Deskripsi kegiatan<textarea value={activityDescription} onChange={e => setActivityDescription(e.target.value)} rows={3} maxLength={2000} placeholder="Ringkasan kegiatan yang dilaksanakan…" className={inputClass + ' mt-1.5 resize-y'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Catatan tambahan<textarea value={journalNotes} onChange={e => setJournalNotes(e.target.value)} rows={2} maxLength={1000} placeholder="Catatan jika ada…" className={inputClass + ' mt-1.5 resize-y'} /></label>
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
+                            <button type="button" onClick={() => setShowJournalModal(false)} disabled={savingJournal} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                            <button type="submit" disabled={savingJournal} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 size={14} />{savingJournal ? 'Menyimpan…' : 'Simpan Jurnal'}</button>
+                        </div>
+                    </form>
                 </div>
             )}
             {showAddModal && tab === 'ekskul' && (
