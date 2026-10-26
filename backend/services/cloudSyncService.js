@@ -214,11 +214,19 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     headers: { 'Authorization': `Bearer ${syncToken}` }
                 }, { members: pendingMembers.rows });
 
-                if (memRes.status === 200 && memRes.data?.success) {
+                if (memRes.status === 200 && Array.isArray(memRes.data?.synced_ids)) {
+                    const acknowledgedIds = new Set(memRes.data.synced_ids.map(id => String(id)));
                     for (const row of pendingMembers.rows) {
-                        await pool.query("UPDATE members SET is_synced = 1 WHERE id = $1", [row.id]);
+                        if (acknowledgedIds.has(String(row.id))) {
+                            await pool.query("UPDATE members SET is_synced = 1 WHERE id = $1", [row.id]);
+                        }
                     }
-                } else syncErrors.push(`Data siswa/guru gagal dikirim (HTTP ${memRes.status}).`);
+                    if (acknowledgedIds.size < pendingMembers.rows.length || Number(memRes.data?.skipped || 0) > 0) {
+                        syncErrors.push(`Data siswa/guru: ${acknowledgedIds.size} dari ${pendingMembers.rows.length} data dikonfirmasi Portal; ${Number(memRes.data?.skipped || 0)} dilewati. Data yang belum dikonfirmasi akan dicoba lagi.`);
+                    }
+                } else {
+                    syncErrors.push(`Data siswa/guru gagal dikirim (HTTP ${memRes.status} atau respons tidak valid).`);
+                }
             }
         } catch (memErr) {
             syncErrors.push(`Data siswa/guru: ${memErr.message}`);
