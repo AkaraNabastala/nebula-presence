@@ -156,7 +156,7 @@ export default function MonitoringAkademik() {
                 <button
                     onClick={loadReport}
                     disabled={loading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-white disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
                 >
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                     Muat Ulang
@@ -165,7 +165,7 @@ export default function MonitoringAkademik() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className={cardClass}>
-                    <BookOpen className="mb-3 text-indigo-600" />
+                    <BookOpen className="mb-3 text-blue-600" />
                     <p className="text-sm text-slate-500">Jurnal Guru</p>
                     <p className="mt-1 text-3xl font-bold">{journals.length}</p>
                 </div>
@@ -233,20 +233,20 @@ export default function MonitoringAkademik() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => setTab('jurnal')}
-                        className={`rounded-xl px-4 py-2 font-semibold ${tab === 'jurnal' ? 'bg-indigo-600 text-white' : 'bg-white border dark:bg-slate-800 dark:border-slate-700'}`}
+                        className={`rounded-xl px-4 py-2 font-semibold ${tab === 'jurnal' ? 'bg-blue-600 text-white' : 'bg-white border dark:bg-slate-800 dark:border-slate-700'}`}
                     >
                         Jurnal Guru
                     </button>
                     <button
                         onClick={() => setTab('kehadiran')}
-                        className={`rounded-xl px-4 py-2 font-semibold ${tab === 'kehadiran' ? 'bg-indigo-600 text-white' : 'bg-white border dark:bg-slate-800 dark:border-slate-700'}`}
+                        className={`rounded-xl px-4 py-2 font-semibold ${tab === 'kehadiran' ? 'bg-blue-600 text-white' : 'bg-white border dark:bg-slate-800 dark:border-slate-700'}`}
                     >
                         Kehadiran Siswa
                     </button>
                 </div>
                 <button
                     onClick={exportCsv}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-white"
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2 text-white"
                 >
                     <Download size={16} /> Download Excel (.xlsx)
                 </button>
