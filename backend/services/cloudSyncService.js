@@ -283,7 +283,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 headers: { 'Authorization': `Bearer ${syncToken}` }
             }, { logs: pendingLogs.rows });
 
-            if (pushRes.status === 200 && pushRes.data?.synced_ids) {
+            if (pushRes.status === 200 && Array.isArray(pushRes.data?.synced_ids)) {
                 const syncedIds = pushRes.data.synced_ids;
                 if (syncedIds.length > 0) {
                     for (const sId of syncedIds) {
@@ -293,11 +293,17 @@ const performCloudSync = async (pool, io, isManual = false) => {
                                 [sId, sId]
                             );
                         } catch (errSync) {
+                            syncErrors.push(`Gagal menandai log ${sId} sebagai terkirim: ${errSync.message}`);
                             console.error("Gagal update status is_synced di attendance_logs:", errSync.message);
                         }
                     }
                     pushSuccessCount = syncedIds.length;
                 }
+                if (syncedIds.length < pendingLogs.rows.length) {
+                    syncErrors.push(`Log presensi: ${pendingLogs.rows.length - syncedIds.length} dari ${pendingLogs.rows.length} log belum dikonfirmasi Portal.`);
+                }
+            } else {
+                syncErrors.push(`Log presensi gagal dikirim (HTTP ${pushRes.status}).`);
             }
         }
 
@@ -347,6 +353,9 @@ const performCloudSync = async (pool, io, isManual = false) => {
                         );
                     }
                 }
+            } else {
+                pullSucceeded = false;
+                syncErrors.push(`Pembaruan Portal gagal diperiksa (HTTP ${pullRes.status}).`);
             }
         } catch (pullErr) {
             // Pertahankan cursor agar pembaruan remote dapat dicoba lagi pada siklus berikutnya.
