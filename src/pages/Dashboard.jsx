@@ -233,7 +233,7 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* CARD 1: VIVID CORAL-ROSE SUNSET GRADIENT CARD */}
-            <div className="bg-gradient-to-br from-[#ff5e50] via-[#f84a72] to-[#df2e78] rounded-[2.25rem] p-7 text-white shadow-xl shadow-rose-500/15 flex flex-col justify-between relative overflow-hidden min-h-[260px]">
+            <div className="bg-gradient-to-br from-[#0b1730] via-[#1d4ed8] to-[#38bdf8] rounded-[2.25rem] p-7 text-white shadow-xl shadow-blue-900/20 flex flex-col justify-between relative overflow-hidden min-h-[260px]">
               
               <div className="flex items-center justify-between z-10">
                 <span className="text-xs font-semibold uppercase tracking-wider text-white/90">
@@ -315,7 +315,7 @@ const Dashboard = () => {
 
                   <div className="space-y-1.5 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#f84a72]" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
                       <span className="font-extrabold text-[#111625] dark:text-white">%{hadirPercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Hadir</span>
                     </div>
@@ -370,7 +370,7 @@ const Dashboard = () => {
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-8 h-8 rounded-full bg-[#feebe8] dark:bg-rose-950 flex items-center justify-center text-[#f84a72] font-black text-xs shadow-inner">
+                    <div className="w-8 h-8 rounded-full bg-[#eaf2ff] dark:bg-blue-950 flex items-center justify-center text-[#f84a72] font-black text-xs shadow-inner">
                       ✦
                     </div>
                   </div>
@@ -454,7 +454,7 @@ const Dashboard = () => {
                       <div className="flex items-center gap-3 shrink-0">
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
                           isLate
-                            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                             : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
                         }`}>
                           {isLate ? '↓ Terlambat' : '↑ Hadir'}
@@ -485,7 +485,7 @@ const Dashboard = () => {
           
           {/* STAT CARD 1: COMMENTS / RASIO KEHADIRAN */}
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm border border-stone-200/70 dark:border-slate-700 flex items-center justify-between gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-rose-950/50 flex flex-col items-center justify-center shrink-0">
+            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
               <span className="text-lg font-black text-[#111625] dark:text-white leading-none">
                 {hadirPercent}%
               </span>
@@ -496,7 +496,7 @@ const Dashboard = () => {
               <p className="text-xs font-bold text-[#111625] dark:text-white truncate">Rasio Kehadiran Hari Ini</p>
               <div className="mt-2 w-full bg-stone-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-[#ff6053] to-[#e13478] h-full rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-[#1d4ed8] to-[#38bdf8] h-full rounded-full transition-all duration-500"
                   style={{ width: `${hadirPercent}%` }}
                 />
               </div>
@@ -528,7 +528,7 @@ const Dashboard = () => {
 
           {/* STAT CARD 3: QUICK LINK KE LAPORAN */}
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm border border-stone-200/70 dark:border-slate-700 flex items-center justify-between gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-rose-950/50 flex flex-col items-center justify-center shrink-0">
+            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
               <span className="text-lg font-black text-[#111625] dark:text-white leading-none">
                 {data.logs.length}
               </span>
