@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; 
 import api from "./api/axios";
 import { Lock, MessageCircle, Copy, Check } from 'lucide-react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // --- IMPORT LAYOUTS & PAGES ---
 import MainLayout from './layouts/MainLayout';
@@ -235,6 +237,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </React.Suspense>
+      <ToastContainer position="top-right" autoClose={3200} newestOnTop closeOnClick pauseOnFocusLoss draggable theme={localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'} toastClassName="!rounded-2xl !border !border-slate-200 !shadow-xl dark:!border-slate-700" />
     </BrowserRouter>
   );
 }
