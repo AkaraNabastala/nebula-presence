@@ -681,7 +681,7 @@ const Settings = () => {
                                         <div className="flex items-center justify-between gap-3">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 {cloudSyncLive.lastStatus === 'syncing' ? <RefreshCw size={15} className="animate-spin text-sky-600 shrink-0" /> : cloudSyncLive.lastStatus === 'synced' ? <CheckCircle size={15} className="text-emerald-600 shrink-0" /> : <AlertCircle size={15} className="text-orange-600 shrink-0" />}
-                                                <span className="text-xs font-bold text-gray-700 dark:text-slate-200 truncate">{cloudSyncLive.message || (cloudSyncLive.lastStatus === 'synced' ? 'Semua tahap sinkronisasi berhasil.' : cloudSyncLive.lastStatus === 'partial' ? 'Periksa detail data yang belum terkirim.' : 'Proses sinkronisasi berjalan...')}</span>
+                                                {cloudSyncLive.message && <span className="text-xs font-bold text-gray-700 dark:text-slate-200 truncate">{cloudSyncLive.message}</span>}
                                             </div>
                                             <span className="text-xs font-black tabular-nums text-sky-700 dark:text-sky-300">{Math.min(100, Math.max(0, cloudSyncLive.progress || 0))}%</span>
                                         </div>
@@ -805,16 +805,7 @@ const Settings = () => {
                             </div>
                         )}
 
-                        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-amber-700 dark:text-amber-400">
-                            <div className="flex items-center gap-3">
-                                <span className="text-lg">💬</span>
-                                <div>
-                                    <p className="text-xs font-bold">WhatsApp Gateway</p>
-                                    <p className="text-[11px] opacity-80">Nomor kontak anggota tersimpan di database & siap diaktifkan saat modul gateway selesai diriset.</p>
-                                </div>
-                            </div>
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-[10px] font-extrabold uppercase shrink-0">Riset</span>
-                        </div>
+
                     </div>
 
                 </div>
