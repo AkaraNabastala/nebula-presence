@@ -4,7 +4,7 @@ import {
     Image as ImageIcon, CheckCircle, AlertCircle, X,
     Settings as SettingsIcon, Calendar, Clock, MapPin,
     Building2, ToggleLeft, ToggleRight, ChevronDown, Trash2, Camera,
-    Send, Cloud, CloudOff, RefreshCw, Globe, Check, ShieldCheck, Plus, Database, DownloadCloud, UploadCloud, FileText
+    Send, Cloud, CloudOff, RefreshCw, Globe, Check, ShieldCheck, Plus
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
