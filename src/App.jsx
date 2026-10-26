@@ -146,6 +146,23 @@ const LockScreen = ({ onUnlock }) => {
 };
 
 function App() {
+  // Apply the sky palette throughout the app, including the login screen.
+  useEffect(() => {
+    const updateSkyPhase = () => {
+      const hour = new Date().getHours();
+      const phase = hour >= 5 && hour < 10
+        ? 'morning'
+        : hour >= 10 && hour < 16
+          ? 'day'
+          : hour >= 16 && hour < 19
+            ? 'sunset'
+            : 'night';
+      document.documentElement.dataset.skyPhase = phase;
+    };
+    updateSkyPhase();
+    const timer = window.setInterval(updateSkyPhase, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [isLocked, setIsLocked] = useState(false);
   const [dbWaiting, setDbWaiting] = useState(true);
 
