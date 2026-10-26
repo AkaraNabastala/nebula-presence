@@ -175,12 +175,12 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="space-y-7 font-['Poppins'] text-[#111625] dark:text-slate-100">
+    <div className="space-y-7 font-['Poppins'] text-[#0b1730] dark:text-slate-100">
       
       {/* 1. TOP HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-[#111625] dark:text-white">
+          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-[#0b1730] dark:text-white">
             Analytics Presensi
           </h1>
           <p className="text-xs text-stone-600 dark:text-slate-400 mt-1 font-medium">
@@ -210,7 +210,7 @@ const Dashboard = () => {
           {/* Action button */}
           <Link
             to="/admin/attendance-manual"
-            className="bg-[#111625] hover:bg-slate-800 text-white font-semibold text-xs px-5 py-2.5 rounded-full transition-all shadow-md whitespace-nowrap"
+            className="bg-[#0b1730] hover:bg-slate-800 text-white font-semibold text-xs px-5 py-2.5 rounded-full transition-all shadow-md whitespace-nowrap"
           >
             + Input Presensi
           </Link>
@@ -307,7 +307,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between gap-4 py-3">
                 <div className="space-y-3">
                   <div>
-                    <span className="text-3xl font-extrabold text-[#111625] dark:text-white font-['Poppins']">
+                    <span className="text-3xl font-extrabold text-[#0b1730] dark:text-white font-['Poppins']">
                       {data.total}
                       <span className="text-sm font-semibold text-stone-400 ml-1">Total {appConfig.labels?.label_pengguna || 'Siswa'}</span>
                     </span>
@@ -316,19 +316,19 @@ const Dashboard = () => {
                   <div className="space-y-1.5 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
-                      <span className="font-extrabold text-[#111625] dark:text-white">%{hadirPercent}</span>
+                      <span className="font-extrabold text-[#0b1730] dark:text-white">%{hadirPercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Hadir</span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#fbb034]" />
-                      <span className="font-extrabold text-[#111625] dark:text-white">%{latePercent}</span>
+                      <span className="font-extrabold text-[#0b1730] dark:text-white">%{latePercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Terlambat</span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#1b233a] dark:bg-slate-600" />
-                      <span className="font-extrabold text-[#111625] dark:text-white">%{absentPercent}</span>
+                      <span className="font-extrabold text-[#0b1730] dark:text-white">%{absentPercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Belum Hadir</span>
                     </div>
                   </div>
@@ -350,7 +350,7 @@ const Dashboard = () => {
                       cx="50"
                       cy="50"
                       r="38"
-                      stroke="#f84a72"
+                      stroke="#f59e0b"
                       strokeWidth="10"
                       fill="none"
                       strokeDasharray="238.7"
@@ -370,7 +370,7 @@ const Dashboard = () => {
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-8 h-8 rounded-full bg-[#eaf2ff] dark:bg-blue-950 flex items-center justify-center text-[#f84a72] font-black text-xs shadow-inner">
+                    <div className="w-8 h-8 rounded-full bg-[#eaf2ff] dark:bg-blue-950 flex items-center justify-center text-[#f59e0b] font-black text-xs shadow-inner">
                       ✦
                     </div>
                   </div>
@@ -392,13 +392,13 @@ const Dashboard = () => {
                 onClick={() => setActiveTab('activity')}
                 className={`text-sm font-bold pb-2 transition-all relative ${
                   activeTab === 'activity'
-                    ? 'text-[#111625] dark:text-white'
+                    ? 'text-[#0b1730] dark:text-white'
                     : 'text-stone-400 hover:text-stone-600 dark:hover:text-slate-300'
                 }`}
               >
                 <span>Aktivitas Presensi Terakhir</span>
                 {activeTab === 'activity' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#111625] dark:bg-cyan-400 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0b1730] dark:bg-cyan-400 rounded-full" />
                 )}
               </button>
             </div>
@@ -436,7 +436,7 @@ const Dashboard = () => {
 
                         <div className="min-w-0 truncate">
                           <div className="flex items-center gap-2">
-                            <p className="font-bold text-[#111625] dark:text-white text-xs sm:text-sm truncate">
+                            <p className="font-bold text-[#0b1730] dark:text-white text-xs sm:text-sm truncate">
                               {name}
                             </p>
                           </div>
@@ -470,7 +470,7 @@ const Dashboard = () => {
               <span className="text-stone-400 dark:text-slate-500">Menampilkan {Math.min(6, filteredLogs.length)} dari {filteredLogs.length} data</span>
               <Link
                 to="/admin/reports"
-                className="font-bold text-[#111625] dark:text-cyan-400 hover:text-blue-600 inline-flex items-center gap-1"
+                className="font-bold text-[#0b1730] dark:text-cyan-400 hover:text-blue-600 inline-flex items-center gap-1"
               >
                 <span>Buka Seluruh Laporan</span>
                 <ArrowRight size={13} />
@@ -485,15 +485,15 @@ const Dashboard = () => {
           
           {/* STAT CARD 1: COMMENTS / RASIO KEHADIRAN */}
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm border border-stone-200/70 dark:border-slate-700 flex items-center justify-between gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
-              <span className="text-lg font-black text-[#111625] dark:text-white leading-none">
+            <div className="w-16 h-16 rounded-2xl bg-[#eaf2ff] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
+              <span className="text-lg font-black text-[#0b1730] dark:text-white leading-none">
                 {hadirPercent}%
               </span>
-              <MessageSquare size={14} className="text-[#f84a72] mt-1" />
+              <MessageSquare size={14} className="text-[#f59e0b] mt-1" />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#111625] dark:text-white truncate">Rasio Kehadiran Hari Ini</p>
+              <p className="text-xs font-bold text-[#0b1730] dark:text-white truncate">Rasio Kehadiran Hari Ini</p>
               <div className="mt-2 w-full bg-stone-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
                 <div
                   className="bg-gradient-to-r from-[#1d4ed8] to-[#38bdf8] h-full rounded-full transition-all duration-500"
@@ -528,17 +528,17 @@ const Dashboard = () => {
 
           {/* STAT CARD 3: QUICK LINK KE LAPORAN */}
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm border border-stone-200/70 dark:border-slate-700 flex items-center justify-between gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
-              <span className="text-lg font-black text-[#111625] dark:text-white leading-none">
+            <div className="w-16 h-16 rounded-2xl bg-[#eaf2ff] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
+              <span className="text-lg font-black text-[#0b1730] dark:text-white leading-none">
                 {data.logs.length}
               </span>
-              <ThumbsUp size={14} className="text-[#f84a72] mt-1" />
+              <ThumbsUp size={14} className="text-[#f59e0b] mt-1" />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#111625] dark:text-white truncate">Total Log Presensi Terkumpul</p>
+              <p className="text-xs font-bold text-[#0b1730] dark:text-white truncate">Total Log Presensi Terkumpul</p>
               <div className="mt-2 w-full bg-stone-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
-                <div className="bg-[#111625] dark:bg-cyan-400 h-full rounded-full w-full" />
+                <div className="bg-[#0b1730] dark:bg-cyan-400 h-full rounded-full w-full" />
               </div>
             </div>
           </div>
