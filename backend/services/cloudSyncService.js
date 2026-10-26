@@ -212,7 +212,11 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 ORDER BY ts.id ASC
             `);
             const schedulePush = await makeSyncRequest(`${syncUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
-            if (schedulePush.status !== 200 || !schedulePush.data?.success) console.warn('[Cloud Sync Schedules Error]:', schedulePush.data?.message || `HTTP ${schedulePush.status}`);
+            if (schedulePush.status !== 200 || !schedulePush.data?.success) {
+                console.warn('[Cloud Sync Schedules Error]:', schedulePush.data?.message || `HTTP ${schedulePush.status}`);
+            } else if (Number(schedulePush.data.skipped || 0) > 0) {
+                console.warn('[Cloud Sync Schedules Warning]:', `${schedulePush.data.skipped} jadwal dilewati karena guru belum terpetakan atau data belum lengkap.`);
+            }
         } catch (scheduleErr) { console.warn('[Cloud Sync Schedules Error]:', scheduleErr.message); }
 
         // 2. PUSH ATTENDANCE: Ambil log presensi yang belum terkirim
