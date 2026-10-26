@@ -415,13 +415,6 @@ export default function TeachingSchedules() {
 
       await loadData();
 
-      let summaryHtml = `<b>${createdCount}</b> jadwal berhasil ditambahkan.`;
-      if (newSubjectsCount > 0) summaryHtml += `<br/>• Otomatis menambah <b>${newSubjectsCount}</b> mapel baru.`;
-      if (newDivisionsCount > 0) summaryHtml += `<br/>• Otomatis menambah <b>${newDivisionsCount}</b> kelas baru.`;
-      if (errors.length > 0) {
-        summaryHtml += `<br/><br/><div style="max-height:120px; overflow-y:auto; text-align:left; font-size:11px; background:#fef2f2; color:#991b1b; padding:8px; border-radius:8px;">${errors.slice(0, 5).join('<br/>')}${errors.length > 5 ? `<br/>...dan ${errors.length - 5} kesalahan lainnya` : ''}</div>`;
-      }
-
       if (createdCount > 0) toast.success(`${createdCount} jadwal berhasil ditambahkan.`);
       else toast.warning('Tidak ada jadwal baru yang berhasil ditambahkan.');
       if (newSubjectsCount > 0 || newDivisionsCount > 0) toast.info(`${newSubjectsCount} mapel dan ${newDivisionsCount} kelas baru dibuat otomatis.`);
