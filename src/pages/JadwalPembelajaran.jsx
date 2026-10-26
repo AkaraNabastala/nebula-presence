@@ -437,7 +437,7 @@ export default function TeachingSchedules() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8 font-['Poppins']">
-      <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+      <section className="schedule-hero relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
         <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
         <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -519,8 +519,8 @@ export default function TeachingSchedules() {
                 aria-pressed={selectedDay === day}
                 className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors cursor-pointer ${
                   selectedDay === day
-                    ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                    : 'hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 text-slate-700 dark:text-slate-300'
+                    ? 'border-sky-600 bg-gradient-to-r from-blue-700 to-sky-600 text-white shadow-sm'
+                    : 'border-sky-100 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                 }`}
               >
                 {day}
@@ -570,7 +570,7 @@ export default function TeachingSchedules() {
                 type="button"
                 onClick={resetForm}
                 aria-label="Tutup formulir"
-                className="rounded-lg border p-1.5 text-slate-400 hover:text-slate-700 dark:border-gray-700"
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-400 transition hover:border-sky-200 hover:bg-sky-50 hover:text-slate-700 dark:border-slate-700 dark:hover:bg-slate-800"
               >
                 <X size={16} />
               </button>
@@ -653,18 +653,18 @@ export default function TeachingSchedules() {
         {loading ? (
           <p className="p-4 text-sm text-gray-500">Memuat jadwal...</p>
         ) : !selectedClass ? (
-          <div className="rounded-2xl border p-8 text-center text-sm text-gray-500 bg-white dark:bg-slate-900">
+          <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
             Pilih kelas untuk melihat jadwal.
           </div>
         ) : visibleSchedules.length === 0 ? (
-          <div className="rounded-2xl border p-8 text-center text-sm text-gray-500 bg-white dark:bg-slate-900">
+          <div className="rounded-2xl border border-sky-100 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
             <CalendarDays size={28} className="mx-auto mb-2 opacity-50 text-blue-500" />
             Belum ada jadwal untuk {divisionName(selectedClassInfo || { id: selectedClass })} pada hari {selectedDay}.
             <p className="mt-2 text-xs text-slate-400">Tekan "Tambah Jadwal Manual" atau "Import Excel (.xlsx)" untuk mengisi jadwal.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[650px] text-left text-sm">
+            <div className="hidden overflow-x-auto md:block"><table className="schedule-table w-full min-w-[650px] text-left text-sm">
               <thead className="bg-stone-50 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
                 <tr>
                   <th className="p-3.5">Waktu</th>
