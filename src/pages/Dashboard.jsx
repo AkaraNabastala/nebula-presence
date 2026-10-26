@@ -8,7 +8,7 @@ import {
   Cloud, Cpu, ArrowUpRight,
   FileText, Calendar, Search, ArrowRight,
   MoreHorizontal, Bell, ExternalLink,
-  ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X, Sparkles
+  ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X, Sparkles, Database
 } from 'lucide-react';
 import logoNabastala from '../assets/logo-nabastala.png';
 
@@ -509,9 +509,9 @@ const Dashboard = () => {
             </div>
             <div className="grid grid-cols-7 gap-2 items-end h-40 pt-2">
               {(weeklyStats.length ? weeklyStats : ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(label => ({ label, count: 0 }))).map((day, index) => {
-                const availableCounts = weeklyStats.map(item => item.count).filter(value => Number.isFinite(value));
-                const maxCount = Math.max(1, ...availableCounts);
-                const height = Number.isFinite(day.count) && day.count > 0 ? Math.max(8, Math.round((day.count / maxCount) * 112)) : 4;
+                // Gunakan total anggota terdaftar sebagai skala tetap agar perbandingan antarhari tidak menyesatkan.
+                const maxCount = Math.max(1, Number(data.total) || 0);
+                const height = Number.isFinite(day.count) && day.count > 0 ? Math.min(112, Math.max(5, Math.round((day.count / maxCount) * 112))) : 4;
                 return <div key={day.date || day.label || index} className="flex h-full flex-col items-center justify-end gap-2 min-w-0">
                   <span className="text-[10px] font-semibold text-slate-500">{Number.isFinite(day.count) ? day.count : "—"}</span>
                   <div className="w-full max-w-5 rounded-t-lg bg-gradient-to-t from-blue-800 via-blue-600 to-sky-400 transition-all duration-500" style={{ height: `${height}px` }} title={`${day.label}: ${Number.isFinite(day.count) ? `${day.count} hadir` : 'data tidak tersedia'}`} />
@@ -555,10 +555,26 @@ const Dashboard = () => {
               {syncProgress === 100 ? <CheckCircle2 size={30} /> : <CloudUpload size={30} className={syncingPortal ? 'animate-pulse' : ''} />}
             </div>
             <div className="text-center"><p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-blue-700 dark:text-blue-300">Nebula transfer channel</p><h2 id="portal-sync-title" className="text-xl font-extrabold text-slate-900 dark:text-white">{syncingPortal ? 'Mengirim data ke Portal' : syncProgress === 100 ? 'Proses sinkronisasi selesai' : 'Status pengiriman data'}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">{syncMessage}</p></div>
-            <div className="my-7 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-              <div className="mb-3 flex items-center justify-between text-xs"><span className="font-semibold text-slate-600 dark:text-slate-300">Progres transfer</span><span className="font-extrabold tabular-nums text-blue-700 dark:text-blue-300">{syncProgress}%</span></div>
-              <div className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="relative h-full rounded-full bg-gradient-to-r from-blue-950 via-blue-600 to-orange-400 transition-all duration-500" style={{ width: `${syncProgress}%` }}><span className="absolute inset-y-0 right-0 w-16 animate-pulse bg-gradient-to-r from-transparent to-white/70" /></div></div>
-              <div className="mt-4 flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-500"><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${syncingPortal ? 'animate-pulse bg-orange-400' : syncProgress === 100 ? 'bg-emerald-500' : 'bg-slate-400'}`} />{syncingPortal ? 'Kanal aktif' : syncProgress === 100 ? 'Permintaan selesai' : 'Menunggu tindakan'}</span><span>NEBULA → PORTAL</span></div>
+            <div className="my-7 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-4 dark:border-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/30">
+              <div className="mb-4 flex items-center justify-between text-xs"><span className="font-semibold text-slate-600 dark:text-slate-300">Kanal transfer data</span><span className="font-extrabold tabular-nums text-blue-800 dark:text-sky-300">{syncProgress}%</span></div>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-sky-100 bg-white/90 p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-950 text-sky-200 shadow-md"><Database size={18} /></span>
+                  <span className="text-[10px] font-extrabold tracking-wide text-slate-700 dark:text-slate-200">NEBULA</span>
+                  <span className="text-[9px] text-slate-400">Data lokal</span>
+                </div>
+                <div className="relative flex w-14 flex-col items-center justify-center">
+                  <ArrowRight size={20} className={syncingPortal ? 'animate-pulse text-blue-700 dark:text-sky-300' : 'text-slate-400'} />
+                  {syncingPortal && <><span className="absolute -top-3 left-2 h-1.5 w-1.5 animate-bounce rounded-full bg-sky-400" /><span className="absolute top-1 left-5 h-1.5 w-1.5 animate-ping rounded-full bg-orange-400" /><span className="absolute -bottom-3 right-2 h-1.5 w-1.5 animate-bounce rounded-full bg-blue-700 [animation-delay:180ms]" /></>}
+                </div>
+                <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-orange-100 bg-white/90 p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-md"><Cloud size={18} /></span>
+                  <span className="text-[10px] font-extrabold tracking-wide text-slate-700 dark:text-slate-200">PORTAL</span>
+                  <span className="text-[9px] text-slate-400">Server tujuan</span>
+                </div>
+              </div>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400 transition-all duration-500" style={{ width: `${syncProgress}%` }} /></div>
+              <div className="mt-3 flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-500"><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${syncingPortal ? 'animate-pulse bg-orange-400' : syncProgress === 100 ? 'bg-emerald-500' : 'bg-slate-400'}`} />{syncingPortal ? 'Paket data sedang bergerak' : syncProgress === 100 ? 'Transfer selesai' : 'Kanal menunggu'}</span><span>LOCAL → CLOUD</span></div>
             </div>
             {!syncingPortal && <button type="button" onClick={() => setSyncModalOpen(false)} className="w-full rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:brightness-110">Tutup</button>}
           </div>
