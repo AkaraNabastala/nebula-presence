@@ -213,6 +213,9 @@ const MainLayout = () => {
       const arcX = 7 + daylight * 78;
       root.style.setProperty('--nebula-sky-object-x', `${arcX}%`);
       root.style.setProperty('--nebula-sky-object-y', `${arcY}%`);
+      const moonProgress = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12;
+      root.style.setProperty('--nebula-sky-moon-x', `${85 - Math.max(0, Math.min(1, moonProgress)) * 78}%`);
+      root.style.setProperty('--nebula-sky-moon-y', `${9 + Math.sin(Math.max(0, Math.min(1, moonProgress)) * Math.PI) * 30}%`);
     };
     updateSky();
     const timer = window.setInterval(updateSky, 15_000);
