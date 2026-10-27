@@ -136,8 +136,16 @@ const Dashboard = () => {
       socket.on('new_scan', () => {
         fetchDashboardData();
       });
-      socket.on('cloud_sync_status', () => {
+      socket.on('cloud_sync_status', status => {
         fetchDashboardData();
+        if (!status || typeof status !== 'object') return;
+        if (Number.isFinite(Number(status.progress))) {
+          setSyncProgress(current => Math.max(current, Math.min(100, Number(status.progress))));
+        }
+        if (status.message) setSyncMessage(status.message);
+        if (status.state === 'offline') {
+          setSyncMessage(status.error || status.message || 'Portal tidak dapat dijangkau.');
+        }
       });
       return () => socket.disconnect();
     } catch {
@@ -150,7 +158,6 @@ const Dashboard = () => {
     setSyncingPortal(true);
     setSyncProgress(8);
     setSyncMessage('Membuka jalur komunikasi dengan Portal...');
-    const progressTimer = setInterval(() => setSyncProgress(value => Math.min(92, value + Math.max(1, Math.round((92 - value) / 7)))), 420);
     try {
       setSyncMessage('Mengirim antrean data yang menunggu sinkronisasi...');
       const response = await api.post('/cloud-sync/trigger');
@@ -163,7 +170,6 @@ const Dashboard = () => {
       setSyncMessage(error.response?.data?.message || error.message || 'Gagal mengirim data ke Portal. Periksa koneksi dan pengaturan sinkronisasi.');
       toast.error('Sinkronisasi Portal gagal. Periksa status koneksi.');
     } finally {
-      clearInterval(progressTimer);
       setSyncingPortal(false);
     }
   };
