@@ -382,8 +382,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // 1.5. PUSH TEACHING SCHEDULES: snapshot penuh agar Portal tidak menyimpan jadwal usang.
         emitStage('schedules', 'Mengirim dan mencocokkan jadwal pelajaran...', { progress: 55 });
         try {
-            const scheduleSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_schedules');
-            const assignmentSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_assignments');
+            const scheduleSourceCount = await pool.query('SELECT COUNT(*) AS count FROM teaching_schedules');
+            const assignmentSourceCount = await pool.query('SELECT COUNT(*) AS count FROM teaching_assignments');
             const scheduleRes = await pool.query(`
                 SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
                        teacher.identity_number AS teacher_identity_number,
