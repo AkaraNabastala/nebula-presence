@@ -415,7 +415,7 @@ exports.upsertTeacherAccount = async (req, res) => {
             [memberId]
         );
         const member = memberResult.rows[0];
-        if (!member || !['guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas'].includes(String(member.role || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' '))) {
+        if (!member || !['guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas'].includes(String(member.role || '').normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' '))) {
             return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
         }
 
