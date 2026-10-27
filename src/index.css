@@ -222,39 +222,39 @@ html.dark .swal2-html-container { color: #cbd5e1 !important; }
   --nebula-sky-ink: #1d2e42;
 }
 html[data-sky-phase="morning"] {
-  --nebula-sky-canvas: #eaf6ff;
-  --nebula-sky-line: #b9d8ec;
-  --nebula-sky-accent: #68b7e5;
-  --nebula-sky-warm: #fff0d9;
-  --nebula-sky-action: #247cae;
-  --nebula-sky-action-hover: #185e88;
+  --nebula-sky-canvas: #dcefff;
+  --nebula-sky-line: #9bcbed;
+  --nebula-sky-accent: #49a9e5;
+  --nebula-sky-warm: #ffe7bd;
+  --nebula-sky-action: #176fbd;
+  --nebula-sky-action-hover: #10548e;
   --nebula-sky-ink: #16334b;
 }
 html[data-sky-phase="day"] {
-  --nebula-sky-canvas: #f0f8ff;
-  --nebula-sky-line: #c3dff1;
-  --nebula-sky-accent: #389bd2;
-  --nebula-sky-warm: #e6f4ff;
-  --nebula-sky-action: #17699e;
-  --nebula-sky-action-hover: #104d78;
+  --nebula-sky-canvas: #e0f4ff;
+  --nebula-sky-line: #a7d8ef;
+  --nebula-sky-accent: #1598d0;
+  --nebula-sky-warm: #d5f0ff;
+  --nebula-sky-action: #075985;
+  --nebula-sky-action-hover: #06466b;
   --nebula-sky-ink: #102b43;
 }
 html[data-sky-phase="sunset"] {
-  --nebula-sky-canvas: #fff0e8;
-  --nebula-sky-line: #efc6b1;
-  --nebula-sky-accent: #dc8b68;
-  --nebula-sky-warm: #ffe0cf;
-  --nebula-sky-action: #a64d35;
-  --nebula-sky-action-hover: #813a29;
+  --nebula-sky-canvas: #ffdfcc;
+  --nebula-sky-line: #e8ae92;
+  --nebula-sky-accent: #e67e55;
+  --nebula-sky-warm: #ffd2ad;
+  --nebula-sky-action: #a63d20;
+  --nebula-sky-action-hover: #7f2e18;
   --nebula-sky-ink: #45251f;
 }
 html[data-sky-phase="night"] {
-  --nebula-sky-canvas: #e9eef8;
-  --nebula-sky-line: #bdcce2;
-  --nebula-sky-accent: #6b82b1;
-  --nebula-sky-warm: #e0e6f3;
-  --nebula-sky-action: #3d5684;
-  --nebula-sky-action-hover: #2b3f67;
+  --nebula-sky-canvas: #dbe4f4;
+  --nebula-sky-line: #a5b9d9;
+  --nebula-sky-accent: #526da3;
+  --nebula-sky-warm: #d1d9eb;
+  --nebula-sky-action: #293c68;
+  --nebula-sky-action-hover: #1c2c51;
   --nebula-sky-ink: #1d2942;
 }
 html.dark[data-sky-phase] {
@@ -360,7 +360,7 @@ html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .06; color: #c49a83; tr
   right: 8%;
   width: clamp(7rem, 18vw, 15rem);
   height: clamp(7rem, 18vw, 15rem);
-  opacity: .07;
+  opacity: .11;
   filter: drop-shadow(0 0 2rem currentColor);
   transition: opacity 1.4s ease, transform 1.8s ease, color 1.8s ease;
 }
@@ -379,8 +379,8 @@ html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .06; color: #c49a83; tr
   transition: opacity 1.4s ease;
 }
 html[data-sky-phase="night"] .nebula-kiosk-sun { display: none; }
-html[data-sky-phase="night"] .nebula-kiosk-moon { display: block; opacity: .09; transform: rotate(-12deg); }
-html[data-sky-phase="night"] .nebula-kiosk-stars { opacity: .18; }
+html[data-sky-phase="night"] .nebula-kiosk-moon { display: block; opacity: .13; transform: rotate(-12deg); }
+html[data-sky-phase="night"] .nebula-kiosk-stars { opacity: .26; }
 html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; transform: translateY(1rem); }
 
 
@@ -388,9 +388,9 @@ html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; 
 .sky-kiosk-hero {
   color: var(--nebula-sky-ink, #1d2e42) !important;
   background-image: linear-gradient(132deg,
-    color-mix(in srgb, var(--nebula-sky-accent) 26%, #ffffff) 0%,
+    color-mix(in srgb, var(--nebula-sky-accent) 36%, #ffffff) 0%,
     color-mix(in srgb, var(--nebula-sky-warm) 88%, #ffffff) 48%,
-    color-mix(in srgb, var(--nebula-sky-accent) 16%, #ffffff) 100%) !important;
+    color-mix(in srgb, var(--nebula-sky-accent) 24%, #ffffff) 100%) !important;
   border-color: var(--nebula-sky-line) !important;
   transition: background-color 1.2s ease, border-color 1.2s ease, color 1.2s ease, box-shadow 1.2s ease;
 }
@@ -407,8 +407,8 @@ html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; 
 /* Kiosk surfaces inherit the current time-of-day palette instead of staying amber/white. */
 .sky-kiosk-panel {
   background-image: linear-gradient(145deg,
-    color-mix(in srgb, var(--nebula-sky-accent) 9%, #ffffff) 0%,
-    color-mix(in srgb, var(--nebula-sky-warm) 58%, #ffffff) 100%) !important;
+    color-mix(in srgb, var(--nebula-sky-accent) 17%, #ffffff) 0%,
+    color-mix(in srgb, var(--nebula-sky-warm) 72%, #ffffff) 100%) !important;
   border-color: var(--nebula-sky-line) !important;
   transition: background-color 1.2s ease, background-image 1.2s ease, border-color 1.2s ease, box-shadow 1.2s ease;
 }
