@@ -382,8 +382,9 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // 1.5. PUSH TEACHING SCHEDULES: snapshot penuh agar Portal tidak menyimpan jadwal usang.
         emitStage('schedules', 'Mengirim dan mencocokkan jadwal pelajaran...', { progress: 55 });
         try {
-            const scheduleSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_schedules');
-            const assignmentSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_assignments');
+            // COUNT(*) AS count is portable across SQLite and PostgreSQL adapters.
+            const scheduleSourceCount = await pool.query('SELECT COUNT(*) AS count FROM teaching_schedules');
+            const assignmentSourceCount = await pool.query('SELECT COUNT(*) AS count FROM teaching_assignments');
             const scheduleRes = await pool.query(`
                 SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
                        teacher.identity_number AS teacher_identity_number,
@@ -401,8 +402,34 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 const sourceSchedules = Number(scheduleSourceCount.rows[0]?.count || 0);
                 const sourceAssignments = Number(assignmentSourceCount.rows[0]?.count || 0);
                 if (sourceSchedules > 0) {
-                    syncErrors.push(`Jadwal tersimpan (${sourceSchedules}) tetapi tidak ada yang lolos relasi sinkronisasi; periksa assignment, guru, kelas, dan mata pelajaran.`);
-                    console.warn(`[Cloud Sync Schedules] Source schedules=${sourceSchedules}, assignments=${sourceAssignments}, query result=0; periksa relasi yang hilang.`);
+                    syncErrors.push(`Jadwal tersimpan (${sourceSchedules}) tetapi tidak ada yang lolos relasi sinkronisasi; periksa rincian [Cloud Sync Schedules Audit] di log backend.`);
+                    console.warn(`[Cloud Sync Schedules Audit] Mulai diagnosis: source schedules=${sourceSchedules}, assignments=${sourceAssignments}, hasil join wajib=0.`);
+                    try {
+                        const diagnosticRes = await pool.query(`
+                            SELECT ts.id AS schedule_id, ts.assignment_id,
+                                   ta.id AS matched_assignment_id, ta.teacher_id, teacher.id AS matched_teacher_id,
+                                   ta.division_id, d.id AS matched_division_id,
+                                   ta.subject_id, s.id AS matched_subject_id
+                            FROM teaching_schedules ts
+                            LEFT JOIN teaching_assignments ta ON ta.id = ts.assignment_id
+                            LEFT JOIN members teacher ON teacher.id = ta.teacher_id
+                            LEFT JOIN divisions d ON d.id = ta.division_id
+                            LEFT JOIN subjects s ON s.id = ta.subject_id
+                            ORDER BY ts.id ASC
+                        `);
+                        for (const row of diagnosticRes.rows || []) {
+                            const missing = [];
+                            if (!row.matched_assignment_id) missing.push(`assignment_id=${row.assignment_id} tidak ditemukan`);
+                            else {
+                                if (!row.matched_teacher_id) missing.push(`teacher_id=${row.teacher_id} tidak ditemukan di members`);
+                                if (!row.matched_division_id) missing.push(`division_id=${row.division_id} tidak ditemukan di divisions`);
+                                if (!row.matched_subject_id) missing.push(`subject_id=${row.subject_id} tidak ditemukan di subjects`);
+                            }
+                            console.warn(`[Cloud Sync Schedules Audit] schedule_id=${row.schedule_id}; ${missing.length ? missing.join('; ') : 'relasi dasar ada; periksa nilai identitas/format data'}`);
+                        }
+                    } catch (diagnosticError) {
+                        console.warn('[Cloud Sync Schedules Audit] Diagnosis relasi gagal:', diagnosticError.message);
+                    }
                 } else {
                     console.info(`[Cloud Sync Schedules] Belum ada jadwal sumber. teaching_assignments=${sourceAssignments}.`);
                 }
