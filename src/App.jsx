@@ -224,9 +224,9 @@ function App() {
             <Route path="reports-monthly" element={<LaporanBulanan />} />
             <Route path="settings" element={<Settings />} />
             <Route path="database" element={<Database />} />
-            {/* URL lama tetap berfungsi, tetapi manajemen backup/restore berada di halaman database khusus. */}
-            <Route path="backup" element={<BackupPage />} />
-            <Route path="restore" element={<RestorePage />} />
+            {/* URL lama tetap berfungsi dan diarahkan ke tab di pusat manajemen database. */}
+            <Route path="backup" element={<Navigate to="/admin/database?tab=backup" replace />} />
+            <Route path="restore" element={<Navigate to="/admin/database?tab=restore" replace />} />
             <Route path="profile" element={<Profile />} />
             <Route path="license" element={<License />} /> 
             <Route path="devices" element={<Devices />} />
