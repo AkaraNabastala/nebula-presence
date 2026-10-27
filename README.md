@@ -4,14 +4,12 @@
 
 ## 🌟 Fitur Unggulan
 
-- **Anti-Resale & Hardware Locked**: Lisensi diikat secara presisi dengan `Machine ID` dari perangkat (*hardware*) klien. Klien tidak bisa mengubah nama instansi/perusahaan, menyalin file lisensi ke komputer lain, atau menjual kembali (*resale*) aplikasi ini.
-- **Smart UI/UX**: Antarmuka modern, *compact*, efisien, dengan efek gradien dan animasi premium.
-- **Mode Edukasi & Korporat**: Mendukung terminologi dinamis (Karyawan vs Siswa) dan jadwal kerja/belajar yang fleksibel (Shift, Libur, dll).
-- **Auto Alfa & Cron Jobs**: Sistem secara otomatis mengkalkulasi ketidakhadiran (ALFA) pada pukul 23:55 setiap harinya (dengan mengecualikan hari libur operasional instansi).
-- **Support & Monetization Funnel**: 
-  - Dilengkapi fitur "Lupa Kata Sandi" yang dikunci ke perangkat keras.
-  - Untuk mereset kata sandi, klien diwajibkan menghubungi Teknisi Nebula Tech (pesan WA terintegrasi otomatis dengan `Machine ID`).
-  - *Developer* dapat menggunakan `generator_reset.js` untuk membuat kode reset khusus dan menagihkan layanan dukungan (monetisasi sekunder).
+- **Absensi RFID dan manajemen identitas** untuk sekolah dan organisasi.
+- **Mode Edukasi & Korporat** dengan dukungan terminologi dan jadwal yang fleksibel.
+- **Auto Alfa & Cron Jobs** untuk kalkulasi ketidakhadiran terjadwal.
+- **Lisensi berbasis perangkat** dengan validasi aktivasi.
+
+> **Catatan keamanan:** fitur pemulihan kata sandi melalui kode lama sementara dinonaktifkan karena protokol sebelumnya menggunakan kata sandi tetap dan secret yang tertanam dalam aplikasi. Jangan mengembalikan alur tersebut sebelum mekanisme pemulihan satu kali, kedaluwarsa, dan ditandatangani secara aman tersedia.
 
 ## 🛠 Teknologi
 
@@ -19,19 +17,21 @@
 - **Backend**: Node.js, Express.js, PostgreSQL (pg), node-cron.
 - **Keamanan**: `node-machine-id` (Hardware ID Fingerprinting), `bcrypt` & `crypto` (Hashing & Salt: `NebulaTech_MasterReset_2026`).
 
-## 🔑 Mode Pengembang (Developer)
+## 🔐 Konfigurasi keamanan
 
-### 1. Menghasilkan Lisensi Klien (Aktivasi)
-Gunakan API/Skrip *License Generator* terpisah untuk mencetak file `license.key` yang terenkripsi. Pada saat men-generate lisensi, isi variabel `Owner` dengan nama sekolah/perusahaan klien. Nama ini akan menjadi judul utama aplikasi secara permanen!
+Backend harus memiliki variabel lingkungan `JWT_SECRET` yang kuat dan unik. Aplikasi tidak lagi memakai secret JWT bawaan. Jika variabel ini tidak diatur, login dan endpoint terlindungi akan menolak permintaan sampai konfigurasi diperbaiki.
 
-### 2. Mengatasi Klien Lupa Password (Mesin Cuan)
-Saat klien mengeklik "Lupa Kata Sandi", klien akan mengirimkan `Machine ID` (contoh: `8c9e...`). 
-Jalankan perintah ini di Terminal Anda:
+Buat secret acak di lingkungan server (contoh Linux):
+
 ```bash
-node generator_reset.js <MACHINE_ID_DARI_KLIEN>
+openssl rand -hex 32
 ```
-Sistem akan memberikan **6 Digit Kode Reset**.
-Berikan kode tersebut kepada klien. Jika dimasukkan, kata sandi Super Admin akan kembali menjadi `admin`.
+
+Simpan hasilnya di file `backend/.env` sebagai `JWT_SECRET=<hasil-random>`. Jangan commit file `.env` atau membagikan nilainya. Setelah melakukan rotasi secret, token login lama harus dianggap tidak berlaku dan pengguna perlu login kembali.
+
+### Aktivasi lisensi
+
+Gunakan proses penerbitan lisensi yang terpisah. Kunci privat penerbitan lisensi tidak boleh ditanamkan di aplikasi klien. Kode lisensi lama yang berjenis reset kata sandi akan ditolak; kode tersebut tidak akan mengubah kata sandi administrator.
 
 ## 📜 Hak Cipta & Kepemilikan
 Dikembangkan oleh **Nebula Tech Digital Solution**. Seluruh logika lisensi dan hak milik intelektual sepenuhnya dilindungi oleh hukum.
