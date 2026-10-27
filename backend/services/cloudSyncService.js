@@ -167,6 +167,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
             membersSent: 0,
             membersConfirmed: 0,
             membersSkipped: 0,
+            teacherCredentialsSent: 0,
+            teacherCredentialsConfirmed: 0,
             schedulesSent: 0,
             schedulesConfirmed: 0,
             schedulesSkipped: 0,
@@ -333,6 +335,48 @@ const performCloudSync = async (pool, io, isManual = false) => {
         } catch (memErr) {
             syncErrors.push(`Data siswa/guru: ${memErr.message}`);
             console.warn("[Cloud Sync Member Error]:", memErr.message);
+        }
+
+        // 1.25. PUSH TEACHER CREDENTIALS: perubahan password guru tidak selalu menandai member sebagai baru.
+        // Kirim ulang akun guru aktif setiap siklus, hanya jika koneksi aman untuk mengirim hash.
+        try {
+            const teacherAccountsRes = await pool.query(`
+                SELECT m.id, m.sync_id, m.identity_number AS nipd, m.identity_reference AS nisn,
+                       m.full_name, m.role, m.rfid_code, m.photo, m.phone_number,
+                       d.name AS division_name, d.supervisor_name,
+                       ta.username AS login_username, ta.password_hash AS login_password_hash
+                FROM members m
+                JOIN teacher_accounts ta ON ta.member_id = m.id AND ta.is_active = 1
+                LEFT JOIN divisions d ON m.division_id = d.id
+                WHERE LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN
+                    ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas')
+                ORDER BY m.id ASC
+            `);
+
+            if (teacherAccountsRes.rows.length > 0 && canSendCredentialHashes) {
+                const teacherPush = await makeSyncRequest(`${syncBaseUrl}/push-members`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${syncToken}` }
+                }, { members: teacherAccountsRes.rows, full_snapshot: false });
+
+                const acknowledged = Array.isArray(teacherPush.data?.synced_ids)
+                    ? teacherPush.data.synced_ids.length : 0;
+                syncSummary.teacherCredentialsSent = teacherAccountsRes.rows.length;
+                syncSummary.teacherCredentialsConfirmed = acknowledged;
+                if (teacherPush.status !== 200 || !teacherPush.data?.success ||
+                    acknowledged < teacherAccountsRes.rows.length || Number(teacherPush.data?.skipped || 0) > 0) {
+                    syncErrors.push(`Kredensial guru belum tersinkron lengkap: ${acknowledged} dari ${teacherAccountsRes.rows.length} akun dikonfirmasi.`);
+                    console.warn(`[Cloud Sync Teacher Credentials] Konfirmasi ${acknowledged}/${teacherAccountsRes.rows.length}; HTTP ${teacherPush.status}${responseHint(teacherPush)}`);
+                } else {
+                    console.info(`[Cloud Sync Portal] Kredensial ${acknowledged} akun guru diperiksa dan disinkronkan.`);
+                }
+            } else if (teacherAccountsRes.rows.length > 0) {
+                syncErrors.push('Kredensial guru tidak dikirim karena koneksi bukan HTTPS atau loopback HTTP.');
+                console.warn('[Cloud Sync Teacher Credentials] Kredensial guru tidak dikirim melalui koneksi yang tidak aman.');
+            }
+        } catch (teacherCredentialErr) {
+            syncErrors.push(`Kredensial guru: ${teacherCredentialErr.message}`);
+            console.warn('[Cloud Sync Teacher Credentials Error]:', teacherCredentialErr.message);
         }
 
         // 1.5. PUSH TEACHING SCHEDULES: snapshot penuh agar Portal tidak menyimpan jadwal usang.
