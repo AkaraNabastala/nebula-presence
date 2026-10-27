@@ -90,11 +90,13 @@ const Laporan = () => {
                 params: { start_date: startDate, end_date: endDate, kelas: selectedClass }
             });
             setReportData(Array.isArray(res.data) ? res.data : []);
-        } catch {
-            console.error("Gagal tarik laporan");
+        } catch (error) {
+            console.error("Gagal tarik laporan:", error);
             setReportData([]);
+            toast.error(error.response?.data?.message || "Gagal memuat laporan. Periksa koneksi server.");
+        } finally {
+            setLoading(false);
         }
-        finally { setLoading(false); }
     };
 
     // 2. Perbaiki fungsi format jam agar lebih rapi (Surgical Fix)
@@ -231,7 +233,7 @@ const Laporan = () => {
             document.body.appendChild(downloadLink);
             downloadLink.click();
             downloadLink.remove();
-            window.setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+            window.setTimeout(() => URL.revokeObjectURL(fileUrl), 10000);
 
             toast.update(exportToast, {
                 render: "File Excel berhasil dibuat.",
