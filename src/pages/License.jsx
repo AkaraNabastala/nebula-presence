@@ -81,7 +81,7 @@ const License = () => {
       )}
 
       {/* 1. HEADER SIMPLE */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-br from-sky-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 p-5 rounded-2xl border border-sky-100 dark:border-slate-700 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 schedule-hero bg-white dark:bg-slate-900 p-5 rounded-2xl border border-sky-100 dark:border-slate-700 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800 tracking-tight">Lisensi & Keamanan</h2>
           <p className="text-slate-500 text-xs mt-1 flex items-center gap-2 font-medium">
