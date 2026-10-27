@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { UploadCloud, AlertTriangle, RefreshCw, FileText, CheckCircle2, X, ShieldAlert } from 'lucide-react';
 import api from '../api/axios';
 
-const RestorePage = () => {
+const RestorePage = ({ compact = false } = {}) => {
   const inputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -53,6 +53,7 @@ const RestorePage = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-10">
+      {!compact && (
       <section className="relative isolate overflow-hidden rounded-[2rem] border border-orange-200/80 bg-gradient-to-br from-orange-50 via-white to-sky-50 p-5 shadow-[0_18px_55px_rgba(160,90,28,0.08)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-orange-950/20 sm:p-8">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-500 via-amber-400 to-sky-400" />
         <div className="relative flex items-start gap-4">
@@ -60,6 +61,7 @@ const RestorePage = () => {
           <div><span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-orange-800 dark:text-orange-300">Pemulihan Data</span><h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Pulihkan Database</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Impor file backup SQLite untuk mengganti database aktif. Pemulihan hanya dijalankan setelah file dipilih dan konfirmasi diberikan.</p></div>
         </div>
       </section>
+      )}
 
       <section className="rounded-[1.75rem] border border-orange-100 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
         <input ref={inputRef} type="file" accept=".sqlite,.db" className="hidden" onChange={chooseFile} />
