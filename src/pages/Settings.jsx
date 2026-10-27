@@ -803,11 +803,21 @@ const Settings = () => {
                             {syncDialog.type === 'progress' ? <RefreshCw size={24} className="mt-0.5 animate-spin text-sky-600" /> : syncDialog.type === 'success' ? <CheckCircle size={24} className="mt-0.5 text-emerald-600" /> : <AlertCircle size={24} className="mt-0.5 text-rose-600" />}
                             <div className="min-w-0 flex-1">
                                 <h3 className="font-bold text-slate-900 dark:text-white">{syncDialog.type === 'progress' ? 'Sinkronisasi Berjalan' : syncDialog.type === 'success' ? 'Sinkronisasi Berhasil' : 'Sinkronisasi Perlu Diperiksa'}</h3>
-                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{syncDialog.message}</p>
+                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{syncDialog.type === 'progress' ? (cloudSyncLive.message || syncDialog.message) : syncDialog.message}</p>
+                                {syncDialog.type === 'progress' && cloudSyncLive.total > 0 && (
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        {cloudSyncLive.processed || 0} dari {cloudSyncLive.total} data diproses
+                                        {cloudSyncLive.skipped > 0 ? ` · ${cloudSyncLive.skipped} dilewati` : ''}
+                                    </p>
+                                )}
                             </div>
                             {syncDialog.type !== 'progress' && <button onClick={() => setSyncDialog(null)} aria-label="Tutup"><X size={18} /></button>}
                         </div>
-                        {syncDialog.type === 'progress' && <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><div className="h-full w-2/3 animate-pulse rounded-full bg-sky-600" /></div>}
+                        {syncDialog.type === 'progress' && (
+                            <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                                <div className="h-full rounded-full bg-sky-600 transition-[width] duration-500" style={{ width: `${Math.max(0, Math.min(100, Number(cloudSyncLive.progress) || 0))}%` }} />
+                            </div>
+                        )}
                         {Array.isArray(syncDialog.errors) && syncDialog.errors.length > 0 && <ul className="mt-4 max-h-36 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-700 dark:text-rose-300">{syncDialog.errors.slice(0, 8).map((err, index) => <li key={index}>{String(err)}</li>)}</ul>}
                         {syncDialog.type !== 'progress' && <button onClick={() => setSyncDialog(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white dark:bg-slate-700">Tutup</button>}
                     </div>
