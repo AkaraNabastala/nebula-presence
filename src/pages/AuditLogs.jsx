@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Clock, User, Target, Cloud, CloudOff, Server, CircleCheck } from 'lucide-react';
+import { ShieldAlert, Clock, User, Target, Cloud, CloudOff, Server, CircleCheck, ListChecks } from 'lucide-react';
 import api from '../api/axios';
 
 const AuditLogs = () => {
@@ -70,6 +70,26 @@ const AuditLogs = () => {
                     <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">{syncStatus?.lastStatus === 'synced' ? <Cloud size={18} /> : <CloudOff size={18} />}</span><div><p className="text-sm font-bold text-slate-900 dark:text-white">Sinkronisasi Portal</p><p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan koneksi dan antrean kirim</p></div></div>
                     <div className="mt-4 flex flex-wrap items-center gap-2"><span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${syncStatus?.lastStatus === 'synced' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : syncStatus?.lastStatus === 'partial' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{syncStatus?.lastStatus || 'Belum ada status'}</span><span className="text-xs text-slate-500">{Number(syncStatus?.pendingCount || 0)} antrean belum terkirim</span></div>
                     <p className="mt-2 break-all text-[11px] text-slate-500">{syncStatus?.url || 'URL Portal belum diatur'}</p><p className="mt-1 text-[11px] text-slate-500">Sinkronisasi terakhir: {syncStatus?.lastTime ? new Date(syncStatus.lastTime).toLocaleString('id-ID') : 'Belum tercatat'}</p>
+                    {syncStatus?.lastSummary && (
+                        <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60">
+                            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100"><ListChecks size={15} className="text-sky-600 dark:text-sky-300" /> Data pada sinkronisasi terakhir</div>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                {[
+                                    ['Kelas', syncStatus.lastSummary.classesSent],
+                                    ['Siswa/guru dikonfirmasi', syncStatus.lastSummary.membersConfirmed],
+                                    ['Jadwal', syncStatus.lastSummary.schedulesConfirmed],
+                                    ['Log presensi', syncStatus.lastSummary.attendanceConfirmed],
+                                    ['Izin dari portal diterapkan', syncStatus.lastSummary.remoteUpdatesApplied],
+                                    ['Data dilewati', Number(syncStatus.lastSummary.membersSkipped || 0) + Number(syncStatus.lastSummary.schedulesSkipped || 0)]
+                                ].map(([label, value]) => (
+                                    <div key={label} className="rounded-lg border border-white/80 bg-white/80 px-2.5 py-2 dark:border-slate-800 dark:bg-slate-900">
+                                        <div className="text-lg font-extrabold text-slate-900 dark:text-white">{Number(value || 0).toLocaleString('id-ID')}</div>
+                                        <div className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">{label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {Array.isArray(syncStatus?.lastErrors) && syncStatus.lastErrors.length > 0 && <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/60 dark:bg-orange-950/20"><p className="text-[10px] font-extrabold uppercase tracking-wide text-orange-800 dark:text-orange-300">Masalah sinkronisasi terakhir</p><ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-orange-900 dark:text-orange-200">{syncStatus.lastErrors.slice(0, 4).map((error, index) => <li key={index} className="flex gap-2"><span className="shrink-0">•</span><span>{error}</span></li>)}</ul>{syncStatus.lastErrors.length > 4 && <p className="mt-2 text-[10px] text-orange-700 dark:text-orange-300">+{syncStatus.lastErrors.length - 4} masalah lainnya</p>}</div>}
                 </div>
             </div>
