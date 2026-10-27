@@ -39,7 +39,7 @@ const extracurricularController = {
             }
 
             const teacherResult = await pool.query(
-                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(role) = 'guru'",
+                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(TRIM(role)) IN ('guru', 'guru mapel', 'guru_mapel', 'teacher', 'pengajar')",
                 [teacherId]
             );
             const teacher = teacherResult.rows[0];
@@ -99,7 +99,7 @@ const extracurricularController = {
             }
 
             const teacherResult = await pool.query(
-                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(role) = 'guru'",
+                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(TRIM(role)) IN ('guru', 'guru mapel', 'guru_mapel', 'teacher', 'pengajar')",
                 [teacherId]
             );
             const teacher = teacherResult.rows[0];
