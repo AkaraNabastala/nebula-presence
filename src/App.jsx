@@ -20,7 +20,8 @@ const ManualAttendance = React.lazy(() => import('./pages/ManualAttendance'));
 const Laporan = React.lazy(() => import('./pages/Laporan'));
 const LaporanBulanan = React.lazy(() => import('./pages/LaporanBulanan'));
 const Profile = React.lazy(() => import('./pages/Profile'));
-const Database = React.lazy(() => import('./pages/Database'));
+const BackupPage = React.lazy(() => import('./pages/BackupPage'));
+const RestorePage = React.lazy(() => import('./pages/RestorePage'));
 const License = React.lazy(() => import('./pages/License')); 
 const Devices = React.lazy(() => import('./pages/Devices'));
 const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
@@ -221,10 +222,10 @@ function App() {
             <Route path="reports" element={<Laporan />} />
             <Route path="reports-monthly" element={<LaporanBulanan />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="database" element={<Database />} />
+            <Route path="database" element={<Navigate to="/admin/backup" replace />} />
             {/* URL lama tetap berfungsi, tetapi manajemen backup/restore berada di halaman database khusus. */}
-            <Route path="backup" element={<Navigate to="/admin/database" replace />} />
-            <Route path="restore" element={<Navigate to="/admin/database" replace />} />
+            <Route path="backup" element={<BackupPage />} />
+            <Route path="restore" element={<RestorePage />} />
             <Route path="profile" element={<Profile />} />
             <Route path="license" element={<License />} /> 
             <Route path="devices" element={<Devices />} />
