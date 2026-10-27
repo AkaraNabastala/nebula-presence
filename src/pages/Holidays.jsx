@@ -81,7 +81,7 @@ const Holidays = () => {
 
     return (
         <div className="sky-time-canvas p-6 max-w-6xl mx-auto space-y-6">
-            <div className="bg-gradient-to-br from-sky-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 rounded-2xl shadow-sm border border-sky-100 dark:border-slate-700 p-6 flex justify-between items-center">
+            <div className="schedule-hero bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-sky-100 dark:border-slate-700 p-6 flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                         <Calendar className="w-6 h-6 text-sky-700" />
