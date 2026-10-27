@@ -179,6 +179,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             if (io) io.emit('cloud_sync_status', { state: 'syncing', stage, message, ...details });
         };
         emitStage('connecting', 'Menghubungkan ke Portal...', { progress: 5 });
+        console.info(`[Cloud Sync] Target portal sync base: ${syncBaseUrl}`);
         let portalNeedsBootstrap = false;
         try {
             const handshake = await makeSyncRequest(`${syncBaseUrl}/handshake`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } });
@@ -233,7 +234,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     const accountRes = await makeSyncRequest(`${syncBaseUrl}/push-admin-account`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { username: admin.username, password_hash: admin.password_hash });
                     if (accountRes.status !== 200 || !accountRes.data?.success) {
                         syncErrors.push(`Akun administrator gagal dikirim (POST ${syncBaseUrl}/push-admin-account, HTTP ${accountRes.status}${responseHint(accountRes)}).`);
-                        console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
+                        console.warn(`[Cloud Sync Admin Error] POST ${syncBaseUrl}/push-admin-account -> HTTP ${accountRes.status}${responseHint(accountRes)}`);
                     } else {
                         syncSummary.adminAccounts = 1;
                         console.info('[Cloud Sync Portal] Kredensial administrator berhasil dikirim melalui koneksi aman.');
@@ -351,7 +352,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
                 const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
                 syncErrors.push(`Jadwal tidak tersinkron sempurna: ${detail}`);
-                console.warn('[Cloud Sync Schedules Error]:', detail);
+                console.warn(`[Cloud Sync Schedules Error] POST ${syncBaseUrl}/push-teaching-schedules -> HTTP ${schedulePush.status}${responseHint(schedulePush)}; ${detail}`);
             }
             syncSummary.schedulesSent = scheduleRes.rows.length;
             syncSummary.schedulesConfirmed = Number(schedulePush.data?.synced || 0);
