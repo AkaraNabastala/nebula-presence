@@ -217,30 +217,45 @@ html.dark .swal2-html-container { color: #cbd5e1 !important; }
   --nebula-sky-line: #dce9f5;
   --nebula-sky-accent: #83b8d5;
   --nebula-sky-warm: #fff7ef;
+  --nebula-sky-action: #316e9d;
+  --nebula-sky-action-hover: #24597f;
+  --nebula-sky-ink: #1d2e42;
 }
 html[data-sky-phase="morning"] {
   --nebula-sky-canvas: #f5faff;
   --nebula-sky-line: #dceaf6;
   --nebula-sky-accent: #91c4df;
   --nebula-sky-warm: #fff7ed;
+  --nebula-sky-action: #397fa8;
+  --nebula-sky-action-hover: #2d6688;
+  --nebula-sky-ink: #1d3448;
 }
 html[data-sky-phase="day"] {
   --nebula-sky-canvas: #f7fbff;
   --nebula-sky-line: #d9e8f5;
   --nebula-sky-accent: #75b2d5;
   --nebula-sky-warm: #f3f9ff;
+  --nebula-sky-action: #256a9b;
+  --nebula-sky-action-hover: #1d557e;
+  --nebula-sky-ink: #172b40;
 }
 html[data-sky-phase="sunset"] {
   --nebula-sky-canvas: #fbf8f5;
   --nebula-sky-line: #eadfd7;
   --nebula-sky-accent: #c49a83;
   --nebula-sky-warm: #fff0e7;
+  --nebula-sky-action: #a65c42;
+  --nebula-sky-action-hover: #874832;
+  --nebula-sky-ink: #392b2a;
 }
 html[data-sky-phase="night"] {
   --nebula-sky-canvas: #f4f7fb;
   --nebula-sky-line: #d8e1ee;
   --nebula-sky-accent: #5c789b;
   --nebula-sky-warm: #f3f3f8;
+  --nebula-sky-action: #425c83;
+  --nebula-sky-action-hover: #344766;
+  --nebula-sky-ink: #202b40;
 }
 html.dark[data-sky-phase] {
   --nebula-sky-canvas: #0b1324;
@@ -367,3 +382,23 @@ html[data-sky-phase="night"] .nebula-kiosk-sun { display: none; }
 html[data-sky-phase="night"] .nebula-kiosk-moon { display: block; opacity: .09; transform: rotate(-12deg); }
 html[data-sky-phase="night"] .nebula-kiosk-stars { opacity: .18; }
 html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; transform: translateY(1rem); }
+
+
+/* Attendance kiosk: stronger time-aware surfaces, still soft enough for readability. */
+.sky-kiosk-hero {
+  color: var(--nebula-sky-ink, #1d2e42) !important;
+  background-image: linear-gradient(132deg,
+    color-mix(in srgb, var(--nebula-sky-accent) 26%, #ffffff) 0%,
+    color-mix(in srgb, var(--nebula-sky-warm) 88%, #ffffff) 48%,
+    color-mix(in srgb, var(--nebula-sky-accent) 16%, #ffffff) 100%) !important;
+  border-color: var(--nebula-sky-line) !important;
+  transition: background-color 1.2s ease, border-color 1.2s ease, color 1.2s ease, box-shadow 1.2s ease;
+}
+.sky-kiosk-action {
+  background-color: var(--nebula-sky-action, #316e9d) !important;
+  color: #fff !important;
+  transition: background-color 1.2s ease, box-shadow 1.2s ease, color 1.2s ease;
+}
+.sky-kiosk-action:hover,
+.sky-kiosk-action-hover:hover { background-color: var(--nebula-sky-action-hover, #24597f) !important; }
+.sky-kiosk-accent-text { color: var(--nebula-sky-action, #316e9d) !important; transition: color 1.2s ease; }
