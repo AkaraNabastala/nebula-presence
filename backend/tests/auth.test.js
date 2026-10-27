@@ -26,13 +26,12 @@ describe('Auth & License API Tests', () => {
         expect(res.headers['set-cookie']).toBeDefined();
     });
 
-    it('Harus gagal mereset password jika tipe token bukan reset_password', async () => {
-        // Simulasi token lisensi AKTIVASI (bukan reset_password)
+    it('Harus menolak alur reset kata sandi lama yang tidak aman', async () => {
         const res = await request(app)
             .post('/api/reset-password')
-            .send({ machineId: 'TEST-HWID', resetCode: 'U2FsdGVkX1+TokenPalsuTipePerdana' }); // Token AES bohongan
-        
-        expect(res.status).toBe(401);
-        expect(res.body.message).toContain('tidak valid');
+            .send({ machineId: 'TEST-HWID', resetCode: 'U2FsdGVkX1+TokenPalsuTipePerdana' });
+
+        expect(res.status).toBe(410);
+        expect(res.body.message).toContain('dinonaktifkan');
     });
 });
