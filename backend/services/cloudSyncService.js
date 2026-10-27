@@ -304,7 +304,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 const memRes = await makeSyncRequest(memEndpoint, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${syncToken}` }
-                }, { members: pendingMembers.rows });
+                }, {
+                    members: pendingMembers.rows,
+                    full_snapshot: Boolean(isManual || portalNeedsBootstrap)
+                });
 
                 if (memRes.status === 200 && Array.isArray(memRes.data?.synced_ids)) {
                     syncSummary.membersConfirmed = memRes.data.synced_ids.length;
