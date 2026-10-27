@@ -299,6 +299,9 @@ const performCloudSync = async (pool, io, isManual = false) => {
             const pendingMembers = await pool.query(memberQuery);
             syncSummary.membersSent = pendingMembers.rows.length;
             console.info(`[Cloud Sync Portal] Data anggota disiapkan untuk dikirim: ${pendingMembers.rows.length} siswa/guru.`);
+            if (pendingMembers.rows.length === 0 && !isManual && !portalNeedsBootstrap) {
+                console.info('[Cloud Sync Portal] Tidak ada anggota baru yang menunggu sinkronisasi otomatis; jalankan sinkronisasi manual untuk mengirim snapshot lengkap.');
+            }
 
             if (pendingMembers.rows.length > 0 || isManual || portalNeedsBootstrap) {
                 const memEndpoint = `${syncBaseUrl}/push-members`;
@@ -502,6 +505,12 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const nowSql = nowStr.slice(0, 19).replace('T', ' ');
         const syncStatus = pullSucceeded && syncErrors.length === 0 ? 'synced' : 'partial';
         syncSummary.attendanceConfirmed = pushSuccessCount;
+        if (syncErrors.length > 0) {
+            console.warn(`[Cloud Sync] Sinkronisasi selesai dengan ${syncErrors.length} masalah:`);
+            syncErrors.forEach((message, index) => {
+                console.warn(`[Cloud Sync Error ${index + 1}/${syncErrors.length}] ${String(message).slice(0, 500)}`);
+            });
+        }
         const safeSyncErrors = syncErrors.slice(0, 20).map(message =>
             String(message).replace(/(password|token|secret|authorization)\s*[:=]\s*[^,\s]+/gi, '$1=[REDACTED]').slice(0, 500)
         );
