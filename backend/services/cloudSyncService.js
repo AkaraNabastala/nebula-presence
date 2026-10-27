@@ -282,7 +282,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                           d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
-                   LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
+                   LEFT JOIN teacher_accounts ta ON ta.member_id = m.id AND ta.is_active = 1
                         AND LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas')
                    ORDER BY m.id ASC`
                  : `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
@@ -290,7 +290,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                           d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
-                   LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
+                   LEFT JOIN teacher_accounts ta ON ta.member_id = m.id AND ta.is_active = 1
                         AND LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas')
                    WHERE (m.is_synced = 0 OR m.is_synced IS NULL)
                    ORDER BY m.id ASC
