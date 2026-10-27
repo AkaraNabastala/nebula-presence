@@ -56,13 +56,13 @@ const makeSyncRequest = (urlStr, options = {}, payload = null) => {
 
 const responseHint = (response) => {
     const raw = String(response?.raw || '').trim();
-    if (/^<!doctype html|^<html[\\s>]/i.test(raw)) {
+    if (/^<!doctype html|^<html[\s>]/i.test(raw)) {
         return ' — Server mengembalikan HTML, bukan JSON API. Periksa URL/port: arahkan ke backend Portal (lokal default http://localhost:5000), bukan server frontend Vite.';
     }
     const detail = response?.data?.message || response?.data?.error || raw;
     const safeDetail = String(detail)
-        .replace(/(password|token|secret|authorization)\\s*[:=]\\s*[^,\\s]+/gi, '$1=[REDACTED]')
-        .replace(/[\\r\\n\\t]+/g, ' ').trim().slice(0, 180);
+        .replace(/(password|token|secret|authorization)\s*[:=]\s*[^,\s]+/gi, '$1=[REDACTED]')
+        .replace(/[\r\n\t]+/g, ' ').trim().slice(0, 180);
     return safeDetail ? ` — ${safeDetail}` : '';
 };
 
