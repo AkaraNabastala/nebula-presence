@@ -416,3 +416,14 @@ html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; 
   background: radial-gradient(circle, color-mix(in srgb, var(--nebula-sky-accent) 32%, transparent) 0%, transparent 70%) !important;
   transition: background 1.2s ease;
 }
+
+
+/* Objek langit bergerak di busur matahari terbit hingga terbenam; bulan mengambil alih saat malam. */
+.nebula-sky-orb { left: var(--nebula-sky-object-x, 78%); right: auto; top: var(--nebula-sky-object-y, 12%); opacity: .18; width: clamp(5rem, 9vw, 8.5rem); height: clamp(5rem, 9vw, 8.5rem); filter: drop-shadow(0 0 1.6rem currentColor); }
+.nebula-sky-sun { color: #f59e0b; }
+.nebula-sky-moon { color: #dbeafe; }
+html[data-sky-phase="morning"] .nebula-sky-sun { opacity: .25; }
+html[data-sky-phase="day"] .nebula-sky-sun { opacity: .2; }
+html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .15; }
+html[data-sky-phase="night"] .nebula-sky-moon { opacity: .24; }
+.nebula-sky-stars { background-size: 100% 100%; }
