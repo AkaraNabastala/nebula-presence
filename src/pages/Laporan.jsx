@@ -119,20 +119,28 @@ const Laporan = () => {
     };
 
     const handleExportExcel = async () => {
-        if (reportData.length === 0) {
-            toast.error("Tidak ada data untuk diekspor.");
+        if (loading) {
+            toast.info("Tunggu proses pemuatan laporan selesai.");
             return;
         }
 
+        const exportToast = toast.loading("Menyiapkan file Excel...");
         try {
             const res = await api.get(`/attendance/report`, {
                 params: { start_date: startDate, end_date: endDate, kelas: selectedClass }
             });
 
-            const fullMonthData = res.data || [];
+            const fullMonthData = Array.isArray(res.data)
+                ? res.data
+                : (Array.isArray(res.data?.data) ? res.data.data : []);
 
             if (fullMonthData.length === 0) {
-                toast.error("Tidak ada data pada periode ini.");
+                toast.update(exportToast, {
+                    render: "Tidak ada data pada periode yang dipilih.",
+                    type: "error",
+                    isLoading: false,
+                    autoClose: 3500
+                });
                 return;
             }
 
@@ -209,11 +217,36 @@ const Laporan = () => {
             }
 
             XLSX.utils.book_append_sheet(wb, ws, "Rekap_Kehadiran");
-            XLSX.writeFile(wb, `Rekap_Absensi_${startDate}_to_${endDate}.xlsx`);
-            toast.success("Data kehadiran berhasil diekspor.");
+
+            // Buat Blob secara eksplisit agar unduhan bekerja konsisten di browser desktop.
+            const fileArray = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            const fileBlob = new Blob([fileArray], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            });
+            const fileUrl = URL.createObjectURL(fileBlob);
+            const downloadLink = document.createElement("a");
+            downloadLink.href = fileUrl;
+            downloadLink.download = `Rekap_Absensi_${startDate}_to_${endDate}.xlsx`;
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            window.setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+
+            toast.update(exportToast, {
+                render: "File Excel berhasil dibuat.",
+                type: "success",
+                isLoading: false,
+                autoClose: 3000
+            });
         } catch (error) {
             console.error("Export error:", error);
-            toast.error("Terjadi kesalahan saat mengekspor data.");
+            toast.update(exportToast, {
+                render: error?.response?.data?.message || error?.message || "Gagal membuat file Excel.",
+                type: "error",
+                isLoading: false,
+                autoClose: 5000
+            });
         }
     };
 
