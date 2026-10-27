@@ -327,3 +327,43 @@ html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .06; color: #c49a83; tr
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Kiosk: ikon matahari/bulan dan bintang sangat transparan di belakang kartu. */
+.nebula-kiosk-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--nebula-sky-accent);
+}
+.nebula-kiosk-sun,
+.nebula-kiosk-moon {
+  position: absolute;
+  top: 10%;
+  right: 8%;
+  width: clamp(7rem, 18vw, 15rem);
+  height: clamp(7rem, 18vw, 15rem);
+  opacity: .07;
+  filter: drop-shadow(0 0 2rem currentColor);
+  transition: opacity 1.4s ease, transform 1.8s ease, color 1.8s ease;
+}
+.nebula-kiosk-moon { display: none; }
+.nebula-kiosk-stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image:
+    radial-gradient(circle at 12% 20%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 26% 37%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 57% 14%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 73% 32%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 44% 52%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 88% 62%, currentColor 0 1px, transparent 1.8px);
+  transition: opacity 1.4s ease;
+}
+html[data-sky-phase="night"] .nebula-kiosk-sun { display: none; }
+html[data-sky-phase="night"] .nebula-kiosk-moon { display: block; opacity: .09; transform: rotate(-12deg); }
+html[data-sky-phase="night"] .nebula-kiosk-stars { opacity: .18; }
+html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; transform: translateY(1rem); }
