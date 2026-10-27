@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Database, DownloadCloud, ShieldCheck, HardDrive, RefreshCw, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import api from '../api/axios';
 
-const BackupPage = () => {
+const BackupPage = ({ compact = false } = {}) => {
   const [dialog, setDialog] = useState(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -43,6 +43,7 @@ const BackupPage = () => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-10">
+      {!compact && (
       <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-8">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
         <div className="pointer-events-none absolute -right-8 -top-10 h-44 w-44 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
@@ -55,6 +56,7 @@ const BackupPage = () => {
           </div>
         </div>
       </section>
+      )}
 
       <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
         <div className="rounded-[1.75rem] border border-sky-100 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
