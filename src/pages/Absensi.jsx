@@ -201,9 +201,9 @@ const Absensi = () => {
           alt="Latar Belakang Sekolah"
           className="w-full h-full object-cover scale-105 opacity-[0.05] filter blur-[1px] mix-blend-multiply"
         />
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-amber-300/20 rounded-full blur-[140px]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] sky-kiosk-glow rounded-full blur-[140px]" />
         <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-[140px]" />
-        <div className="absolute -bottom-40 right-1/3 w-[500px] h-[500px] bg-amber-400/15 rounded-full blur-[140px]" />
+        <div className="absolute -bottom-40 right-1/3 w-[500px] h-[500px] sky-kiosk-glow rounded-full blur-[140px]" />
       </div>
 
       <div className="nebula-kiosk-sky" aria-hidden="true">
@@ -307,7 +307,7 @@ const Absensi = () => {
           </div>
 
           {/* SCANNER CONSOLE CARD */}
-          <div className="flex-1 bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-amber-100 flex flex-col justify-between min-h-0">
+          <div className="flex-1 sky-kiosk-panel rounded-[2rem] p-5 md:p-6 shadow-sm border flex flex-col justify-between min-h-0">
             {lastScanResult ? (
               <div className={`p-4 md:p-5 rounded-2xl border transition-all animate-in fade-in zoom-in-95 duration-200 my-auto ${
                 lastScanResult.success
@@ -439,7 +439,7 @@ const Absensi = () => {
         </section>
 
         {/* RIGHT COLUMN: PRESENSI TERKINI */}
-        <section className="lg:col-span-5 bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-amber-100 flex flex-col justify-between min-h-0">
+        <section className="lg:col-span-5 sky-kiosk-panel rounded-[2rem] p-5 md:p-6 shadow-sm border flex flex-col justify-between min-h-0">
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
