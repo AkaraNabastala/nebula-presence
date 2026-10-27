@@ -246,7 +246,8 @@ const MainLayout = () => {
       items: [
         { name: 'Sistem Aplikasi', path: '/admin/settings', icon: Settings },
         { name: 'Perangkat Kehadiran', path: '/admin/devices', icon: Laptop },
-        { name: 'Manajemen Database', path: '/admin/database', icon: HardDrive },
+        { name: 'Backup Database', path: '/admin/backup', icon: HardDrive },
+        { name: 'Pulihkan Database', path: '/admin/restore', icon: Database },
         { name: 'Log Aktivitas', path: '/admin/audit-logs', icon: Activity },
         { name: 'Profil Akun', path: '/admin/profile', icon: User },
         { name: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key },
@@ -268,7 +269,9 @@ const MainLayout = () => {
     if (path.includes('/mata-pelajaran')) return { title: 'Mata Pelajaran', category: 'Kegiatan' };
     if (path.includes('/extracurricular')) return { title: 'Monitoring Ekstrakurikuler', category: 'Kegiatan' };
     if (path.includes('/settings')) return { title: 'Pengaturan Sistem', category: 'Pengaturan' };
-    if (path.includes('/database') || path.includes('/backup') || path.includes('/restore')) return { title: 'Manajemen Database', category: 'Pengaturan' };
+    if (path.includes('/backup')) return { title: 'Backup Database', category: 'Pengaturan' };
+    if (path.includes('/restore')) return { title: 'Pulihkan Database', category: 'Pengaturan' };
+    if (path.includes('/database')) return { title: 'Manajemen Database', category: 'Pengaturan' };
     if (path.includes('/license')) return { title: 'Lisensi & Aktivasi', category: 'Pengaturan' };
     if (path.includes('/devices')) return { title: 'Mesin Kehadiran', category: 'Pengaturan' };
     if (path.includes('/audit-logs')) return { title: 'Log Aktivitas Sistem', category: 'Pengaturan' };
