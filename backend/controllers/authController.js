@@ -18,8 +18,12 @@ exports.login = async (req, res) => {
         }
         delete user.password;
 
-        // Wajib mengamankan Secret Key
-        const secretKey = process.env.JWT_SECRET || 'Nabastala_Secret_Key_2026_XYZ!';
+        // Jangan pernah memakai secret JWT bawaan yang tertanam di source code.
+        const secretKey = process.env.JWT_SECRET;
+        if (!secretKey) {
+            console.error('[Auth] JWT_SECRET belum dikonfigurasi.');
+            return res.status(503).json({ message: 'Autentikasi belum dikonfigurasi oleh administrator.' });
+        }
 
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role || 'SuperAdmin' }, 
@@ -75,44 +79,12 @@ exports.updateProfile = async (req, res) => {
 };
 
 exports.resetPassword = async (req, res) => {
-    const { machineId, resetCode } = req.body;
-    
-    if (!machineId || !resetCode) {
-        return res.status(400).json({ message: "Data tidak lengkap." });
-    }
-
-    try {
-        let isValid = false;
-
-        // Hanya gunakan AES decrypt (Satu metode saja sesuai permintaan User)
-        const { processActivationData } = require('../utils/licenseManager');
-        try {
-            const newData = processActivationData(resetCode);
-            if (newData && newData.type === 'reset_password' && newData.machineId === machineId) {
-                isValid = true;
-            }
-        } catch (err) {
-            // Ignore error parsing, isValid remains false
-        }
-
-        if (!isValid) {
-            return res.status(401).json({ message: "Kode Reset tidak valid atau sudah kadaluarsa!" });
-        }
-
-        // Reset password ke default (admin123) agar konsisten dengan licenseController
-        const defaultPassword = "admin123";
-        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-        
-        // Update password untuk semua admin (karena lupa) atau admin dengan role 'SuperAdmin'
-        await pool.query("UPDATE admins SET password = $1 WHERE role = 'SuperAdmin'", [hashedPassword]);
-        
-        await addAuditLog('System', 'Reset Password', 'SuperAdmin password reset via System Code');
-        
-        res.json({ success: true, message: "Kata sandi berhasil di-reset menjadi 'admin123'. Silakan login." });
-    } catch (error) {
-        console.error("Reset Password Error:", error);
-        res.status(500).json({ message: "Terjadi kesalahan server." });
-    }
+    // Pemulihan lama memakai secret lisensi yang tertanam di aplikasi dan mengatur
+    // kata sandi tetap. Endpoint dinonaktifkan sampai protokol pemulihan aman tersedia.
+    return res.status(410).json({
+        success: false,
+        message: 'Pemulihan kata sandi melalui kode lama dinonaktifkan demi keamanan. Gunakan prosedur pemulihan administrator yang tervalidasi.'
+    });
 };
 
 // Login guru terpisah dari login admin.
@@ -141,7 +113,11 @@ exports.teacherLogin = async (req, res) => {
             return res.status(401).json({ message: 'Username atau password salah.' });
         }
 
-        const secret = process.env.JWT_SECRET || 'Nabastala_Secret_Key_2026_XYZ!';
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            console.error('[Teacher Auth] JWT_SECRET belum dikonfigurasi.');
+            return res.status(503).json({ message: 'Autentikasi belum dikonfigurasi oleh administrator.' });
+        }
         const token = jwt.sign({
             id: account.member_id,
             member_id: account.member_id,
