@@ -89,26 +89,11 @@ exports.activate = async (req, res) => {
             throw new Error("KODE DITOLAK: Komputer ini belum pernah di-setup awal (atau HWID berubah). Anda wajib menggunakan Lisensi Perdana (Setup Awal)!");
         }
 
-        // --- TAMBAHAN RESET PASSWORD ADMIN ---
+        // Jalur reset kata sandi lama menggunakan kata sandi tetap dan tidak aman.
+        // Tolak sebelum mengubah database; pemulihan aman harus memakai protokol terpisah.
         if (keyType === 'reset_password') {
-            const bcrypt = require('bcryptjs'); // Pastikan bcrypt tersedia, kalau tidak pakai crypto
-            const newPasswordHash = await bcrypt.hash('admin123', 10);
-            await client.query(`
-                INSERT INTO admins (username, password, nama_admin, role) 
-                VALUES ('admin', $1, 'Administrator', 'SuperAdmin')
-                ON CONFLICT (username) DO UPDATE SET password = $2
-            `, [newPasswordHash, newPasswordHash]);
-            
-            // Catat kunci agar tidak bisa dipakai lagi
-            await client.query('INSERT INTO used_licenses (license_hash, used_at) VALUES ($1, NOW())', [codeHash]);
-            await client.query('COMMIT');
-            
-            return res.json({ 
-                success: true, 
-                message: "RESET BERHASIL: Password Admin telah dikembalikan menjadi 'admin123'." 
-            });
+            throw new Error('Pemulihan kata sandi melalui kode lisensi lama dinonaktifkan demi keamanan.'); 
         }
-        // --- AKHIR TAMBAHAN ANTI-PEMBAJAKAN ---
 
         // 3. Logika Akumulasi Masa Aktif
         let finalExpiredDate = new Date(newData.expired);

@@ -167,6 +167,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
             membersSent: 0,
             membersConfirmed: 0,
             membersSkipped: 0,
+            teacherCredentialsSent: 0,
+            teacherCredentialsConfirmed: 0,
             schedulesSent: 0,
             schedulesConfirmed: 0,
             schedulesSkipped: 0,
@@ -335,9 +337,53 @@ const performCloudSync = async (pool, io, isManual = false) => {
             console.warn("[Cloud Sync Member Error]:", memErr.message);
         }
 
+        // 1.25. PUSH TEACHER CREDENTIALS: perubahan password guru tidak selalu menandai member sebagai baru.
+        // Kirim ulang akun guru aktif setiap siklus, hanya jika koneksi aman untuk mengirim hash.
+        try {
+            const teacherAccountsRes = await pool.query(`
+                SELECT m.id, m.sync_id, m.identity_number AS nipd, m.identity_reference AS nisn,
+                       m.full_name, m.role, m.rfid_code, m.photo, m.phone_number,
+                       d.name AS division_name, d.supervisor_name,
+                       ta.username AS login_username, ta.password_hash AS login_password_hash
+                FROM members m
+                JOIN teacher_accounts ta ON ta.member_id = m.id AND ta.is_active = 1
+                LEFT JOIN divisions d ON m.division_id = d.id
+                WHERE LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN
+                    ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas')
+                ORDER BY m.id ASC
+            `);
+
+            if (teacherAccountsRes.rows.length > 0 && canSendCredentialHashes) {
+                const teacherPush = await makeSyncRequest(`${syncBaseUrl}/push-members`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${syncToken}` }
+                }, { members: teacherAccountsRes.rows, full_snapshot: false });
+
+                const acknowledged = Array.isArray(teacherPush.data?.synced_ids)
+                    ? teacherPush.data.synced_ids.length : 0;
+                syncSummary.teacherCredentialsSent = teacherAccountsRes.rows.length;
+                syncSummary.teacherCredentialsConfirmed = acknowledged;
+                if (teacherPush.status !== 200 || !teacherPush.data?.success ||
+                    acknowledged < teacherAccountsRes.rows.length || Number(teacherPush.data?.skipped || 0) > 0) {
+                    syncErrors.push(`Kredensial guru belum tersinkron lengkap: ${acknowledged} dari ${teacherAccountsRes.rows.length} akun dikonfirmasi.`);
+                    console.warn(`[Cloud Sync Teacher Credentials] Konfirmasi ${acknowledged}/${teacherAccountsRes.rows.length}; HTTP ${teacherPush.status}${responseHint(teacherPush)}`);
+                } else {
+                    console.info(`[Cloud Sync Portal] Kredensial ${acknowledged} akun guru diperiksa dan disinkronkan.`);
+                }
+            } else if (teacherAccountsRes.rows.length > 0) {
+                syncErrors.push('Kredensial guru tidak dikirim karena koneksi bukan HTTPS atau loopback HTTP.');
+                console.warn('[Cloud Sync Teacher Credentials] Kredensial guru tidak dikirim melalui koneksi yang tidak aman.');
+            }
+        } catch (teacherCredentialErr) {
+            syncErrors.push(`Kredensial guru: ${teacherCredentialErr.message}`);
+            console.warn('[Cloud Sync Teacher Credentials Error]:', teacherCredentialErr.message);
+        }
+
         // 1.5. PUSH TEACHING SCHEDULES: snapshot penuh agar Portal tidak menyimpan jadwal usang.
         emitStage('schedules', 'Mengirim dan mencocokkan jadwal pelajaran...', { progress: 55 });
         try {
+            const scheduleSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_schedules');
+            const assignmentSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_assignments');
             const scheduleRes = await pool.query(`
                 SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
                        teacher.identity_number AS teacher_identity_number,
@@ -351,6 +397,16 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 JOIN subjects s ON s.id = ta.subject_id
                 ORDER BY ts.id ASC
             `);
+            if (scheduleRes.rows.length === 0) {
+                const sourceSchedules = Number(scheduleSourceCount.rows[0]?.count || 0);
+                const sourceAssignments = Number(assignmentSourceCount.rows[0]?.count || 0);
+                if (sourceSchedules > 0) {
+                    syncErrors.push(`Jadwal tersimpan (${sourceSchedules}) tetapi tidak ada yang lolos relasi sinkronisasi; periksa assignment, guru, kelas, dan mata pelajaran.`);
+                    console.warn(`[Cloud Sync Schedules] Source schedules=${sourceSchedules}, assignments=${sourceAssignments}, query result=0; periksa relasi yang hilang.`);
+                } else {
+                    console.info(`[Cloud Sync Schedules] Belum ada jadwal sumber. teaching_assignments=${sourceAssignments}.`);
+                }
+            }
             const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
             if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
                 const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
