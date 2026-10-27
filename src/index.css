@@ -261,10 +261,10 @@ html.dark[data-sky-phase] {
   --nebula-sky-canvas: #0b1324;
   --nebula-sky-line: #29394f;
 }
-html.dark[data-sky-phase="morning"] { --nebula-sky-accent: #345b79; --nebula-sky-warm: #1b2638; }
-html.dark[data-sky-phase="day"] { --nebula-sky-accent: #2b5b7c; --nebula-sky-warm: #17263a; }
-html.dark[data-sky-phase="sunset"] { --nebula-sky-accent: #76564e; --nebula-sky-warm: #2b2028; }
-html.dark[data-sky-phase="night"] { --nebula-sky-accent: #243b5d; --nebula-sky-warm: #171c2b; }
+html.dark[data-sky-phase="morning"] { --nebula-sky-canvas: #101f33; --nebula-sky-line: #36516b; --nebula-sky-accent: #4c83a8; --nebula-sky-warm: #243447; }
+html.dark[data-sky-phase="day"] { --nebula-sky-canvas: #0e2233; --nebula-sky-line: #2d536d; --nebula-sky-accent: #3d8cb9; --nebula-sky-warm: #1a3040; }
+html.dark[data-sky-phase="sunset"] { --nebula-sky-canvas: #281c25; --nebula-sky-line: #654238; --nebula-sky-accent: #bb755b; --nebula-sky-warm: #3c2b32; }
+html.dark[data-sky-phase="night"] { --nebula-sky-canvas: #090f1e; --nebula-sky-line: #29394f; --nebula-sky-accent: #526b9d; --nebula-sky-warm: #151d30; }
 
 .sky-time-canvas {
   background-color: var(--nebula-sky-canvas) !important;
