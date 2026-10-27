@@ -658,8 +658,16 @@ const Settings = () => {
                                         </div>
                                         <p className="text-[11px] text-gray-500 dark:text-slate-400">
                                             {cloudSyncLive.pendingCount > 0 ? (
-                                                <b className="text-amber-600 dark:text-amber-400">{cloudSyncLive.pendingCount} data antre terkirim</b>
-                                            ) : 'Semua log tersinkron'}{' '}
+                                                <b className="text-amber-600 dark:text-amber-400">{cloudSyncLive.pendingCount} data menunggu kirim</b>
+                                            ) : cloudSyncLive.lastStatus === 'synced' ? (
+                                                'Semua log tersinkron'
+                                            ) : cloudSyncLive.lastStatus === 'offline' ? (
+                                                'Portal tidak terhubung'
+                                            ) : cloudSyncLive.lastStatus === 'partial' ? (
+                                                'Sebagian data perlu diperiksa'
+                                            ) : (
+                                                'Belum ada sinkronisasi'
+                                            )}{' '}
                                             {cloudSyncLive.lastTime ? `• Jam: ${new Date(cloudSyncLive.lastTime).toLocaleTimeString('id-ID')} WIB` : ''}
                                         </p>
                                     </div>
