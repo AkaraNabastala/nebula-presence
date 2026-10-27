@@ -75,7 +75,10 @@ exports.getAllMembers = async (req, res) => {
         `;
         const r = await pool.query(q);
         res.json({ data: r.rows || [], labels });
-    } catch (e) { res.json({ data: [], labels: {} }); }
+    } catch (e) {
+        console.error('getAllMembers failed:', e);
+        res.status(500).json({ message: 'Gagal memuat daftar anggota. Periksa koneksi database dan log server.' });
+    }
 };
 
 exports.getFaceMembers = async (req, res) => {
