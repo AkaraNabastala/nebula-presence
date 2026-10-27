@@ -52,6 +52,12 @@ router.get('/extracurriculars', (req, res) =>
 router.post('/extracurriculars', roleGuard(['SuperAdmin']), (req, res) =>
     extracurricularController.create(req, res)
 );
+router.put('/extracurriculars/:id', roleGuard(['SuperAdmin']), (req, res) =>
+    extracurricularController.update(req, res)
+);
+router.delete('/extracurriculars/:id', roleGuard(['SuperAdmin']), (req, res) =>
+    extracurricularController.remove(req, res)
+);
 
 router.get('/extracurriculars/attendance', (req, res) =>
     extracurricularController.getAttendance(req, res)
