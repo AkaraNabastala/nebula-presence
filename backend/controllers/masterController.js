@@ -384,7 +384,7 @@ exports.getTeacherAccounts = async (req, res) => {
             FROM members m
             LEFT JOIN divisions d ON d.id = m.division_id
             LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
-            WHERE LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')
+            WHERE LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas')
             ORDER BY m.full_name ASC
         `);
         res.json({ success: true, data: result.rows });
