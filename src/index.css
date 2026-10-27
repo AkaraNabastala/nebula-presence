@@ -282,3 +282,48 @@ html[data-sky-phase="sunset"] { --nebula-sky-atmosphere: radial-gradient(circle 
 html[data-sky-phase="night"] { --nebula-sky-atmosphere: radial-gradient(circle at 82% 14%, rgba(180, 203, 239, .14) 0 2.7rem, transparent 2.8rem), radial-gradient(circle at 12% 18%, rgba(255,255,255,.42) 0 1px, transparent 1.8px), radial-gradient(circle at 24% 31%, rgba(255,255,255,.32) 0 1px, transparent 1.8px), radial-gradient(circle at 58% 13%, rgba(255,255,255,.30) 0 1px, transparent 1.8px), radial-gradient(circle at 68% 27%, rgba(255,255,255,.36) 0 1px, transparent 1.8px), radial-gradient(circle at 43% 42%, rgba(255,255,255,.26) 0 1px, transparent 1.8px), radial-gradient(circle at 12% 18%, rgba(77, 121, 179, .13), transparent 24rem), radial-gradient(circle at 70% 35%, rgba(105, 144, 198, .10), transparent 18rem); }
 .sky-time-canvas { position: relative; isolation: isolate; }
 .sky-time-canvas::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--nebula-sky-atmosphere); opacity: .85; }
+
+
+/* Dekor langit transparan berada di belakang konten dan tidak menghalangi klik. */
+.nebula-sky-decor {
+  position: fixed;
+  inset: 4rem 0 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--nebula-sky-accent);
+  opacity: .8;
+}
+.nebula-sky-orb {
+  position: absolute;
+  width: clamp(5rem, 11vw, 10rem);
+  height: clamp(5rem, 11vw, 10rem);
+  right: clamp(1.5rem, 7vw, 7rem);
+  top: clamp(4.5rem, 12vh, 9rem);
+  opacity: .075;
+  filter: drop-shadow(0 0 1.5rem currentColor);
+  transition: opacity 1.2s ease, transform 1.8s ease, color 1.8s ease;
+}
+.nebula-sky-moon { display: none; }
+.nebula-sky-stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image:
+    radial-gradient(circle at 12% 20%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 26% 37%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 57% 14%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 73% 32%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 44% 52%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 88% 62%, currentColor 0 1px, transparent 1.8px);
+  transition: opacity 1.4s ease;
+}
+html[data-sky-phase="night"] .nebula-sky-sun { display: none; }
+html[data-sky-phase="night"] .nebula-sky-moon { display: block; opacity: .09; transform: rotate(-12deg); }
+html[data-sky-phase="night"] .nebula-sky-stars { opacity: .18; }
+html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .06; color: #c49a83; transform: translateY(1rem); }
+@media (prefers-reduced-motion: reduce) {
+  .sky-time-canvas, .sky-time-header, .schedule-hero, .nebula-sky-orb, .nebula-sky-stars {
+    transition-duration: .01ms !important;
+  }
+}
