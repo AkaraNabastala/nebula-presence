@@ -1,61 +1,128 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Clock, User, Target } from 'lucide-react';
+import { ShieldAlert, Clock, User, Target, Cloud, CloudOff, Server, CircleCheck, ListChecks } from 'lucide-react';
 import api from '../api/axios';
 
 const AuditLogs = () => {
     const [logs, setLogs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [syncStatus, setSyncStatus] = useState(null);
+    const [runtimeLogs, setRuntimeLogs] = useState([]);
+    const [activeLogType, setActiveLogType] = useState('audit');
+    const [backendReachable, setBackendReachable] = useState(null);
+    const [lastChecked, setLastChecked] = useState(null);
+
+    const fetchLogs = async () => {
+        try {
+            const [logsResult, syncResult, runtimeResult] = await Promise.allSettled([
+                api.get('/audit-logs'),
+                api.get('/cloud-sync/status'),
+                api.get('/system-logs?limit=100')
+            ]);
+            if (logsResult.status === 'fulfilled') {
+                const res = logsResult.value;
+                setLogs(res.data?.data || (Array.isArray(res.data) ? res.data : []));
+            }
+            if (syncResult.status === 'fulfilled') {
+                setSyncStatus(syncResult.value.data?.data || syncResult.value.data || null);
+            }
+            setBackendReachable(logsResult.status === 'fulfilled' || syncResult.status === 'fulfilled');
+            if (runtimeResult.status === 'fulfilled') setRuntimeLogs(runtimeResult.value.data?.data || []);
+            setLastChecked(new Date());
+        } catch (error) {
+            console.error('Gagal memuat pemantauan sistem', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchLogs = async () => {
-            try {
-                const res = await api.get('/audit-logs');
-                setLogs(res.data?.data || (Array.isArray(res.data) ? res.data : []));
-            } catch (error) {
-                console.error("Gagal memuat audit log", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchLogs();
+        const timer = setInterval(() => fetchLogs(), 30000);
+        return () => clearInterval(timer);
     }, []);
 
-    const safeLogs = Array.isArray(logs) ? logs : [];
+    const safeRuntimeLogs = Array.isArray(runtimeLogs) ? runtimeLogs : [];
+    const portalLogs = safeRuntimeLogs.filter(log => /cloud sync|portal|handshake|sinkron|push|pull/i.test(String(log.message || '')));
+    const safeLogs = activeLogType === 'audit' ? (Array.isArray(logs) ? logs : []) : activeLogType === 'portal' ? portalLogs : safeRuntimeLogs;
 
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex justify-between items-center dark:bg-slate-800 dark:border-slate-700">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 dark:bg-slate-900 dark:border-slate-800">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                        <ShieldAlert className="w-6 h-6 text-indigo-500" />
+                        <ShieldAlert className="w-6 h-6 text-blue-500" />
                         Log Aktivitas (Audit Trail)
                     </h1>
                     <p className="text-slate-500 mt-1 dark:text-slate-400">
                         Pantau seluruh riwayat aktivitas krusial yang dilakukan oleh Administrator. (Hanya SuperAdmin)
                     </p>
                 </div>
+
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"><Server size={18} /></span><div><p className="text-sm font-bold text-slate-900 dark:text-white">Backend Nebula</p><p className="text-xs text-slate-500 dark:text-slate-400">Status diperiksa melalui endpoint API</p></div></div>
+                    <div className="mt-4 flex items-center gap-2 text-sm font-semibold"><CircleCheck size={16} className={backendReachable === false ? "text-rose-500" : "text-emerald-500"} /> {backendReachable === true ? 'API merespons' : backendReachable === false ? 'Backend tidak merespons' : 'Memeriksa koneksi...'}</div>
+                    <p className="mt-1 text-[11px] text-slate-500">Pemeriksaan terakhir: {lastChecked ? lastChecked.toLocaleTimeString('id-ID') : '—'}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">{syncStatus?.lastStatus === 'synced' ? <Cloud size={18} /> : <CloudOff size={18} />}</span><div><p className="text-sm font-bold text-slate-900 dark:text-white">Sinkronisasi Portal</p><p className="text-xs text-slate-500 dark:text-slate-400">Ringkasan koneksi dan antrean kirim</p></div></div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2"><span className={`rounded-lg px-2.5 py-1 text-xs font-bold ${syncStatus?.lastStatus === 'synced' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : syncStatus?.lastStatus === 'partial' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{syncStatus?.lastStatus || 'Belum ada status'}</span><span className="text-xs text-slate-500">{Number(syncStatus?.pendingCount || 0)} antrean belum terkirim</span></div>
+                    <p className="mt-2 break-all text-[11px] text-slate-500">{syncStatus?.url || 'URL Portal belum diatur'}</p><p className="mt-1 text-[11px] text-slate-500">Sinkronisasi terakhir: {syncStatus?.lastTime ? new Date(syncStatus.lastTime).toLocaleString('id-ID') : 'Belum tercatat'}</p>
+                    {syncStatus?.lastSummary && (
+                        <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50/70 p-3 dark:border-slate-700 dark:bg-slate-950/60">
+                            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100"><ListChecks size={15} className="text-sky-600 dark:text-sky-300" /> Data pada sinkronisasi terakhir</div>
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                {[
+                                    ['Identitas sekolah', syncStatus.lastSummary.schoolInfo],
+                                    ['Akun admin', syncStatus.lastSummary.adminAccounts],
+                                    ['Kelas', syncStatus.lastSummary.classesSent],
+                                    ['Siswa/guru', syncStatus.lastSummary.membersConfirmed],
+                                    ['Jadwal', syncStatus.lastSummary.schedulesConfirmed],
+                                    ['Log presensi', syncStatus.lastSummary.attendanceConfirmed],
+                                    ['Izin diterapkan', syncStatus.lastSummary.remoteUpdatesApplied],
+                                    ['Dilewati', Number(syncStatus.lastSummary.membersSkipped || 0) + Number(syncStatus.lastSummary.schedulesSkipped || 0)]
+                                ].map(([label, value]) => (
+                                    <div key={label} className="rounded-lg border border-white/80 bg-white/80 px-2.5 py-2 dark:border-slate-800 dark:bg-slate-900">
+                                        <div className="text-lg font-extrabold text-slate-900 dark:text-white">{Number(value || 0).toLocaleString('id-ID')}</div>
+                                        <div className="text-[10px] leading-tight text-slate-500 dark:text-slate-400">{label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {Array.isArray(syncStatus?.lastErrors) && syncStatus.lastErrors.length > 0 && <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/60 dark:bg-orange-950/20"><p className="text-[10px] font-extrabold uppercase tracking-wide text-orange-800 dark:text-orange-300">Masalah sinkronisasi terakhir</p><ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-orange-900 dark:text-orange-200">{syncStatus.lastErrors.slice(0, 4).map((error, index) => <li key={index} className="flex gap-2"><span className="shrink-0">•</span><span>{error}</span></li>)}</ul>{syncStatus.lastErrors.length > 4 && <p className="mt-2 text-[10px] text-orange-700 dark:text-orange-300">+{syncStatus.lastErrors.length - 4} masalah lainnya</p>}</div>}
+                </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
+                    <div className="inline-flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                        <button type="button" onClick={() => setActiveLogType('audit')} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${activeLogType === 'audit' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'text-slate-500'}`}>Audit Trail</button>
+                        <button type="button" onClick={() => setActiveLogType('backend')} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${activeLogType === 'backend' ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'text-slate-500'}`}>Log Backend ({runtimeLogs.length})</button>
+                        <button type="button" onClick={() => setActiveLogType('portal')} className={activeLogType === 'portal' ? 'rounded-lg px-3 py-2 text-xs font-bold bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-sky-300' : 'rounded-lg px-3 py-2 text-xs font-bold text-slate-500'}>Log Portal ({portalLogs.length})</button>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Log proses aktif disimpan sementara di memori dan dibatasi hingga 300 entri.</p>
+                </div>
                 <div className="p-6 overflow-x-auto">
                     {isLoading ? (
                         <div className="flex justify-center p-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                         </div>
                     ) : safeLogs.length === 0 ? (
                         <div className="text-center p-8 text-slate-400 dark:text-slate-500">
-                            Belum ada riwayat aktivitas yang tercatat.
+                            {activeLogType === 'backend' ? 'Belum ada log backend yang terekam sejak proses server berjalan.' : activeLogType === 'portal' ? 'Belum ada pesan sinkronisasi Portal pada buffer log backend saat ini.' : 'Belum ada aktivitas admin yang tercatat pada audit trail.'}
                         </div>
                     ) : (
                         <div className="relative border-l-2 border-slate-100 dark:border-slate-700 ml-3 space-y-8 py-2">
                             {safeLogs.map((log, index) => (
                                 <div key={log.id || index} className="relative pl-6 group">
-                                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-indigo-400 group-hover:border-indigo-600 transition-colors dark:bg-slate-800 dark:border-indigo-500"></span>
+                                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-blue-400 group-hover:border-blue-600 transition-colors dark:bg-slate-800 dark:border-blue-500"></span>
 
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1">
-                                        <h3 className="font-semibold text-slate-800 text-base dark:text-slate-200">
-                                            {log.action}
+                                        <h3 className="break-words font-semibold text-slate-800 text-base dark:text-slate-200">
+                                            {activeLogType !== 'audit' ? log.message : log.action}
                                         </h3>
                                         <div className="flex items-center text-xs text-slate-400 gap-1 mt-1 sm:mt-0 font-mono">
                                             <Clock className="w-3 h-3" />
@@ -63,16 +130,14 @@ const AuditLogs = () => {
                                         </div>
                                     </div>
 
-                                    <div className="text-sm text-slate-600 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 dark:text-slate-400">
-                                        <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700">
-                                            <User className="w-3.5 h-3.5 text-slate-400" />
-                                            <span className="font-medium">{log.admin_name}</span>
+                                    {activeLogType !== 'audit' ? (
+                                        <div className="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">{log.level || 'info'} · {activeLogType === 'portal' ? 'Portal Sync' : 'Backend'}</div>
+                                    ) : (
+                                        <div className="text-sm text-slate-600 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 dark:text-slate-400">
+                                            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700"><User className="w-3.5 h-3.5 text-slate-400" /><span className="font-medium">{log.admin_name}</span></div>
+                                            <div className="flex items-center gap-1.5 text-slate-500"><Target className="w-3.5 h-3.5" /><span>Target: <span className="text-slate-700 font-medium dark:text-slate-300">{log.target}</span></span></div>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Target className="w-3.5 h-3.5" />
-                                            <span>Target: <span className="text-slate-700 font-medium dark:text-slate-300">{log.target}</span></span>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             ))}
                         </div>

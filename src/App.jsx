@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'; 
 import api from "./api/axios";
 import { Lock, MessageCircle, Copy, Check } from 'lucide-react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // --- IMPORT LAYOUTS & PAGES ---
 import MainLayout from './layouts/MainLayout';
@@ -15,12 +17,12 @@ const Classes = React.lazy(() => import('./pages/Classes.jsx'));
 const Students = React.lazy(() => import('./pages/Students.jsx'));
 const Settings = React.lazy(() => import('./pages/Settings.jsx'));
 const ManualAttendance = React.lazy(() => import('./pages/ManualAttendance'));
-const BackupPage = React.lazy(() => import('./pages/BackupPage'));
-const RestorePage = React.lazy(() => import('./pages/RestorePage'));
 const Laporan = React.lazy(() => import('./pages/Laporan'));
 const LaporanBulanan = React.lazy(() => import('./pages/LaporanBulanan'));
 const Profile = React.lazy(() => import('./pages/Profile'));
 const Database = React.lazy(() => import('./pages/Database'));
+const BackupPage = React.lazy(() => import('./pages/BackupPage'));
+const RestorePage = React.lazy(() => import('./pages/RestorePage'));
 const License = React.lazy(() => import('./pages/License')); 
 const Devices = React.lazy(() => import('./pages/Devices'));
 const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
@@ -36,8 +38,18 @@ const MonitoringAkademik = React.lazy(
 import backgroundSekolah from './assets/gedung.jpg'; 
 
 const ProtectedRoute = ({ children }) => {
-  const user = localStorage.getItem('user');
-  if (!user) return <Navigate to="/login" replace />;
+  let user = null;
+  try {
+    user = JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    localStorage.removeItem('user');
+  }
+
+  // Nebula Presence hanya untuk admin; role lain tidak boleh membuka konsol.
+  if (!user || user.role !== 'SuperAdmin') {
+    localStorage.removeItem('user');
+    return <Navigate to="/login" replace />;
+  }
   return children;
 };
 
@@ -134,6 +146,23 @@ const LockScreen = ({ onUnlock }) => {
 };
 
 function App() {
+  // Apply the sky palette throughout the app, including the login screen.
+  useEffect(() => {
+    const updateSkyPhase = () => {
+      const hour = new Date().getHours();
+      const phase = hour >= 5 && hour < 10
+        ? 'morning'
+        : hour >= 10 && hour < 16
+          ? 'day'
+          : hour >= 16 && hour < 19
+            ? 'sunset'
+            : 'night';
+      document.documentElement.dataset.skyPhase = phase;
+    };
+    updateSkyPhase();
+    const timer = window.setInterval(updateSkyPhase, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [isLocked, setIsLocked] = useState(false);
   const [dbWaiting, setDbWaiting] = useState(true);
 
@@ -195,8 +224,9 @@ function App() {
             <Route path="reports-monthly" element={<LaporanBulanan />} />
             <Route path="settings" element={<Settings />} />
             <Route path="database" element={<Database />} />
-            <Route path="backup" element={<BackupPage />} />
-            <Route path="restore" element={<RestorePage />} />
+            {/* URL lama tetap berfungsi dan diarahkan ke tab di pusat manajemen database. */}
+            <Route path="backup" element={<Navigate to="/admin/database?tab=backup" replace />} />
+            <Route path="restore" element={<Navigate to="/admin/database?tab=restore" replace />} />
             <Route path="profile" element={<Profile />} />
             <Route path="license" element={<License />} /> 
             <Route path="devices" element={<Devices />} />
@@ -219,12 +249,12 @@ function App() {
             />
             <Route path="jadwal-pembelajaran" element={<JadwalPembelajaran />} />
             <Route path="mata-pelajaran" element={<Subjects />} />
-            <Route path="monitoring-akademik" element={<MonitoringAkademik />} />
           
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </React.Suspense>
+      <ToastContainer position="top-right" autoClose={3200} newestOnTop closeOnClick pauseOnFocusLoss draggable theme={localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'} toastClassName="!rounded-2xl !border !border-slate-200 !shadow-xl dark:!border-slate-700" />
     </BrowserRouter>
   );
 }

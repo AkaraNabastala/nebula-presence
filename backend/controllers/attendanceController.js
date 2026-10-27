@@ -225,10 +225,19 @@ exports.processScanCore = async (rfid_code, historicalDateObj, io) => {
             if (log.scan_out) return { success: false, message: "Anda Sudah Absen Pulang" };
 
             if (log.scan_time) {
-                const lastScan = new Date(log.scan_time);
-                const diffSeconds = (now - lastScan) / 1000;
-                if (diffSeconds > 0 && diffSeconds < 60) {
-                    return { success: false, message: "Sistem mengunci absen beruntun. Tunggu 1 menit." };
+                // Bandingkan jam lokal yang disimpan, bukan Date(string) yang dapat
+                // ditafsirkan sebagai UTC dan meloloskan scan beruntun karena selisih zona waktu.
+                const lastTime = String(log.scan_time).includes('T')
+                    ? String(log.scan_time).split('T')[1].slice(0, 8)
+                    : String(log.scan_time).split(' ').pop().slice(0, 8);
+                const toSeconds = (value) => {
+                    const [hours = 0, minutes = 0, seconds = 0] = String(value || '00:00:00')
+                        .split(':').map(Number);
+                    return (hours * 3600) + (minutes * 60) + seconds;
+                };
+                const diffSeconds = toSeconds(currentTime) - toSeconds(lastTime);
+                if (diffSeconds >= 0 && diffSeconds < 120) {
+                    return { success: false, message: "Sistem mengunci absen beruntun. Tunggu 2 menit." };
                 }
             }
 
@@ -475,7 +484,11 @@ exports.getReport = async (req, res) => {
         res.json([]);
     } catch (e) {
         console.error("Error getReport:", e);
-        res.status(500).json([]);
+        res.status(500).json({
+            success: false,
+            message: "Gagal memuat laporan kehadiran. Periksa log backend.",
+            detail: process.env.NODE_ENV === 'production' ? undefined : e.message
+        });
     }
 };
 

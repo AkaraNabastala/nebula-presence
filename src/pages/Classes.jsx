@@ -21,6 +21,7 @@ const Classes = () => {
   // Modal States
   const [showFormModal, setShowFormModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ show: false, type: '', id: null, count: 0, name: '' });
+  const [memberConfirmModal, setMemberConfirmModal] = useState({ show: false, type: '', member: null, count: 0 });
 
   // Edit & Form Data
   const [isEditMode, setIsEditMode] = useState(false);
@@ -370,36 +371,44 @@ const Classes = () => {
 
   const sortedMembers = sortData(filteredMembers);
 
-  const handleKickMemberSingle = async (member) => {
-    if (!window.confirm(`Keluarkan ${member.nama_lengkap} dari ${labelKelompok.toLowerCase()} ini?`)) return;
-    try {
-      await api.put(`/members/${member.id}`, { ...member, kelas: '', division_id: null, division_name: '' });
-      showToast('success', `${labelPengguna} berhasil dikeluarkan.`);
-      fetchDivisionMembers(selectedDivision.nama_kelas);
-      fetchDivisions();
-    } catch { showToast('error', `Gagal mengeluarkan ${labelPengguna.toLowerCase()}.`); }
+  const handleKickMemberSingle = (member) => {
+    setMemberConfirmModal({ show: true, type: 'SINGLE', member, count: 1 });
   };
 
-  const handleKickMemberBulk = async () => {
-    if (!window.confirm(`Keluarkan ${selectedMemberIds.length} ${labelPengguna.toLowerCase()} yang dipilih dari ${labelKelompok.toLowerCase()} ini?`)) return;
+  const handleKickMemberBulk = () => {
+    if (selectedMemberIds.length === 0) return;
+    setMemberConfirmModal({ show: true, type: 'BULK', member: null, count: selectedMemberIds.length });
+  };
+
+  const executeKickMembers = async () => {
+    if (!memberConfirmModal.show || !selectedDivision) return;
     setBtnLoading(true);
     try {
-      await Promise.all(selectedMemberIds.map(id => {
-        const member = divisionMembers.find(m => m.id === id);
-        return api.put(`/members/${id}`, { ...member, kelas: '', division_id: null, division_name: '' });
-      }));
-      showToast('success', `${selectedMemberIds.length} ${labelPengguna.toLowerCase()} berhasil dikeluarkan.`);
-      fetchDivisionMembers(selectedDivision.nama_kelas);
-      fetchDivisions();
-    } catch {
-      showToast('error', `Gagal mengeluarkan ${labelPengguna.toLowerCase()}.`);
+      if (memberConfirmModal.type === 'SINGLE' && memberConfirmModal.member) {
+        const member = memberConfirmModal.member;
+        await api.put('/members/' + member.id, { ...member, kelas: '', division_id: null, division_name: '' });
+        showToast('success', (labelPengguna + ' berhasil dikeluarkan.'));
+      } else {
+        const ids = [...selectedMemberIds];
+        await Promise.all(ids.map(id => {
+          const member = divisionMembers.find(item => item.id === id);
+          if (!member) throw new Error('Data anggota terpilih tidak ditemukan.');
+          return api.put('/members/' + id, { ...member, kelas: '', division_id: null, division_name: '' });
+        }));
+        showToast('success', ids.length + ' ' + labelPengguna.toLowerCase() + ' berhasil dikeluarkan.');
+      }
+      setMemberConfirmModal({ show: false, type: '', member: null, count: 0 });
+      await fetchDivisionMembers(selectedDivision.nama_kelas);
+      await fetchDivisions();
+    } catch (error) {
+      showToast('error', error?.response?.data?.message || ('Gagal mengeluarkan ' + labelPengguna.toLowerCase() + '.'));
     } finally {
       setBtnLoading(false);
     }
   };
 
   return (
-    <div className="space-y-6 pb-20 md:pb-0 relative h-full font-sans flex flex-col">
+    <div className="sky-time-canvas space-y-6 pb-20 md:pb-0 relative h-full font-sans flex flex-col">
 
       {notification.show && (
         <div className={`fixed top-4 right-4 z-[99] flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl animate-in slide-in-from-right fade-in duration-300 border bg-white dark:bg-slate-800 ${notification.type === 'success' ? 'border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'}`}>
@@ -416,13 +425,13 @@ const Classes = () => {
         // ==============================================
         <>
           {/* HEADER CARD */}
-          <div className="relative bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+          <div className="relative schedule-hero bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-sky-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-50/50 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-200/20 dark:bg-orange-900/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
             <div className="relative z-10">
               <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
-                <Building2 className="text-indigo-600" size={32} />
+                <Building2 className="text-sky-700 dark:text-sky-300" size={32} />
                 {isEdu ? 'Daftar Kelas' : 'Daftar Divisi'}
               </h2>
               <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Kelola daftar {labelKelompok.toLowerCase()} dan penanggung jawab.</p>
@@ -818,6 +827,19 @@ const Classes = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {memberConfirmModal.show && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/55 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="member-kick-title">
+          <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700 p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"><AlertTriangle size={23} /></div>
+            <h3 id="member-kick-title" className="mt-4 text-lg font-extrabold text-slate-900 dark:text-white">Keluarkan anggota?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{memberConfirmModal.type === 'SINGLE' ? ('Keluarkan ' + (memberConfirmModal.member?.nama_lengkap || memberConfirmModal.member?.full_name || labelPengguna.toLowerCase()) + ' dari ' + labelKelompok.toLowerCase() + ' ini?') : ('Sebanyak ' + memberConfirmModal.count + ' ' + labelPengguna.toLowerCase() + ' terpilih akan dikeluarkan dari ' + labelKelompok.toLowerCase() + ' ini.')}</p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" disabled={btnLoading} onClick={() => setMemberConfirmModal({ show: false, type: '', member: null, count: 0 })} className="rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-200 disabled:opacity-50">Batal</button>
+              <button type="button" disabled={btnLoading} onClick={executeKickMembers} className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{btnLoading ? <RefreshCcw size={15} className="animate-spin" /> : <UserMinus size={15} />}{btnLoading ? 'Memproses…' : 'Ya, keluarkan'}</button>
+            </div>
+          </section>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, RefreshCw, Power } from 'lucide-react';
+import { Plus, Power, KeyRound, ShieldCheck } from 'lucide-react';
 import api from '../api/axios';
 
 const currentYear = () => {
@@ -23,6 +23,9 @@ export default function TeachingAssignments() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [teacherAccounts, setTeacherAccounts] = useState([]);
+  const [accountForm, setAccountForm] = useState({ member_id: '', username: '', password: '' });
+  const [accountSaving, setAccountSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -36,7 +39,7 @@ export default function TeachingAssignments() {
       ]);
       const list = value => Array.isArray(value) ? value : value?.data || [];
       setAssignments(list(a.data));
-      setTeachers(list(m.data).filter(x => String(x.role || '').toLowerCase() === 'guru'));
+      setTeachers(list(m.data).filter(x => String(x.role || '').trim().toLowerCase() === 'guru'));
       setDivisions(list(d.data));
       setSubjects(list(s.data).filter(x => Number(x.is_active) === 1));
     } catch (e) {
@@ -46,7 +49,48 @@ export default function TeachingAssignments() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadTeacherAccounts = async () => {
+    try {
+      const res = await api.get('/teacher-accounts');
+      setTeacherAccounts(res.data?.data || []);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Gagal memuat akun login guru.');
+    }
+  };
+
+  useEffect(() => { load(); loadTeacherAccounts(); }, []);
+
+  useEffect(() => {
+    if (!accountForm.member_id && teachers.length) {
+      setAccountForm(prev => ({ ...prev, member_id: String(teachers[0].id) }));
+    }
+  }, [teachers, accountForm.member_id]);
+
+  useEffect(() => {
+    if (!accountForm.member_id) return;
+    const existing = teacherAccounts.find(item => String(item.member_id) === String(accountForm.member_id));
+    setAccountForm(prev => ({ ...prev, username: existing?.username || '', password: '' }));
+  }, [accountForm.member_id, teacherAccounts]);
+
+  const saveTeacherAccount = async (event) => {
+    event.preventDefault();
+    setAccountSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await api.put(`/teacher-accounts/${accountForm.member_id}`, {
+        username: accountForm.username,
+        password: accountForm.password
+      });
+      setNotice(response.data?.message || 'Akun guru berhasil disimpan.');
+      setAccountForm(prev => ({ ...prev, password: '' }));
+      await loadTeacherAccounts();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Gagal menyimpan akun guru.');
+    } finally {
+      setAccountSaving(false);
+    }
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -92,11 +136,39 @@ export default function TeachingAssignments() {
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Penugasan Guru</h1>
           <p className="mt-1 text-sm text-slate-500">Satu guru dapat mengajar beberapa kelas dan mata pelajaran.</p>
         </div>
-        <button onClick={load} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"><RefreshCw size={16} /> Muat ulang</button>
       </div>
 
       {error && <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {notice && <div role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
+
+      <section className="rounded-2xl border border-sky-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 md:p-5">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="rounded-xl bg-sky-100 p-2 text-sky-800 dark:bg-sky-950 dark:text-sky-300"><KeyRound size={19} /></span>
+          <div>
+            <h2 className="font-bold text-slate-900 dark:text-white">Akun Login Guru</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Buat akun di aplikasi, lalu sinkronkan ke portal.</p>
+          </div>
+        </div>
+        {teachers.length === 0 ? <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500 dark:bg-slate-800">Tambahkan data guru terlebih dahulu.</p> : (
+          <form onSubmit={saveTeacherAccount} className="grid gap-3 md:grid-cols-3">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Guru
+              <select required value={accountForm.member_id} onChange={e => setAccountForm(prev => ({ ...prev, member_id: e.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Username
+              <input required minLength={3} maxLength={80} value={accountForm.username} onChange={e => setAccountForm(prev => ({ ...prev, username: e.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="username.guru" />
+            </label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Kata sandi {teacherAccounts.some(item => String(item.member_id) === String(accountForm.member_id)) ? '(opsional)' : '*'}
+              <input type="password" minLength={8} maxLength={200} required={!teacherAccounts.some(item => String(item.member_id) === String(accountForm.member_id))} value={accountForm.password} onChange={e => setAccountForm(prev => ({ ...prev, password: e.target.value }))} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white" placeholder="Minimal 8 karakter" />
+            </label>
+            <div className="md:col-span-3 flex flex-wrap items-center gap-3">
+              <button disabled={accountSaving} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-900 disabled:opacity-50 dark:bg-sky-700 dark:hover:bg-sky-600"><ShieldCheck size={16} /> {accountSaving ? 'Menyimpan…' : 'Simpan Akun Guru'}</button>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">Kata sandi disimpan sebagai hash aman.</span>
+            </div>
+          </form>
+        )}
+      </section>
 
       <form onSubmit={submit} className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 md:grid-cols-3">
         <label className="text-sm font-medium">Guru *

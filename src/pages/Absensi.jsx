@@ -5,7 +5,7 @@ import attendanceService from '../services/attendanceService';
 import {
   Clock, Scan, CheckCircle2,
   AlertCircle, Sparkles, UserCheck, ShieldCheck,
-  Radio, LogIn, Calendar, Eye, ArrowRight
+  Radio, LogIn, Calendar, Eye, ArrowRight, Sun, Moon
 } from 'lucide-react';
 import logoDefault from '../assets/logo-nabastala.png';
 import bgDefault from '../assets/gedung.jpg';
@@ -192,7 +192,7 @@ const Absensi = () => {
   const activeBg = appConfig.background_absensi || bgDefault;
 
   return (
-    <div className="h-screen w-screen bg-[#fbf8f0] text-[#111827] flex flex-col justify-between font-['Poppins'] selection:bg-amber-400/30 relative overflow-hidden p-3 md:p-5">
+    <div className="sky-time-canvas h-screen w-screen bg-transparent text-[#111827] flex flex-col justify-between font-['Poppins'] selection:bg-amber-400/30 relative overflow-hidden p-3 md:p-5">
       
       {/* 1. ATMOSPHERIC WATERMARK DENGAN WARM AMBER GLOW */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
@@ -201,9 +201,15 @@ const Absensi = () => {
           alt="Latar Belakang Sekolah"
           className="w-full h-full object-cover scale-105 opacity-[0.05] filter blur-[1px] mix-blend-multiply"
         />
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-amber-300/20 rounded-full blur-[140px]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] sky-kiosk-glow rounded-full blur-[140px]" />
         <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-[140px]" />
-        <div className="absolute -bottom-40 right-1/3 w-[500px] h-[500px] bg-amber-400/15 rounded-full blur-[140px]" />
+        <div className="absolute -bottom-40 right-1/3 w-[500px] h-[500px] sky-kiosk-glow rounded-full blur-[140px]" />
+      </div>
+
+      <div className="nebula-kiosk-sky" aria-hidden="true">
+        <Sun className="nebula-kiosk-sun" strokeWidth={1} />
+        <Moon className="nebula-kiosk-moon" strokeWidth={1} />
+        <div className="nebula-kiosk-stars" />
       </div>
 
       {/* 2. TOP BRANDING SECTION */}
@@ -217,8 +223,8 @@ const Absensi = () => {
               <span className="font-black text-[#111827] text-sm md:text-base tracking-tight">
                 {appConfig.nama_instansi}
               </span>
-              <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-[#1b5bf5]"></span>
-              <span className="hidden sm:inline-block text-[11px] font-bold text-[#1b5bf5] uppercase tracking-wider">
+              <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full sky-kiosk-action"></span>
+              <span className="hidden sm:inline-block text-[11px] font-bold sky-kiosk-accent-text uppercase tracking-wider">
                 Presensi Mandiri
               </span>
             </div>
@@ -236,11 +242,11 @@ const Absensi = () => {
 
           <button
             onClick={() => navigate('/login')}
-            className="flex items-center gap-2 text-xs font-bold text-white bg-[#1b5bf5] hover:bg-[#1349d4] px-4 py-2 rounded-full transition-all shadow-md shadow-blue-500/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            className="flex items-center gap-2 text-xs font-bold text-white sky-kiosk-action sky-kiosk-action-hover px-4 py-2 rounded-full transition-all shadow-md shadow-blue-500/20 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             title="Masuk ke Konsol Operator"
           >
             <span>Konsol Operator</span>
-            <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#1b5bf5]">
+            <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center sky-kiosk-accent-text">
               <LogIn size={10} />
             </div>
           </button>
@@ -254,13 +260,13 @@ const Absensi = () => {
         <section className="lg:col-span-7 flex flex-col gap-4 justify-between min-h-0">
           
           {/* HERO CLOCK CARD */}
-          <div className="bg-gradient-to-br from-[#ffd043] via-[#fbb034] to-[#f59e0b] rounded-[2rem] p-5 md:p-6 text-[#111827] shadow-lg shadow-amber-500/15 relative overflow-hidden flex flex-col justify-between shrink-0 border border-amber-300/40">
+          <div className="sky-kiosk-hero rounded-[2rem] p-5 md:p-6 text-[#111827] shadow-lg shadow-amber-500/15 relative overflow-hidden flex flex-col justify-between shrink-0 border border-amber-300/40">
             <div className="flex items-center justify-between gap-2 z-10">
               <div className="flex items-center gap-2 text-[#111827]">
-                <Calendar size={15} className="text-[#1b5bf5]" />
+                <Calendar size={15} className="sky-kiosk-accent-text" />
                 <span className="text-xs md:text-sm font-extrabold">{formattedDate}</span>
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#1b5bf5] px-3 py-1 rounded-full shadow-sm">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-white sky-kiosk-action px-3 py-1 rounded-full shadow-sm">
                 <Clock size={12} />
                 <span>Masuk: {appConfig.jam_masuk}</span>
                 <span className="opacity-60">·</span>
@@ -274,7 +280,7 @@ const Absensi = () => {
                 <span className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight text-[#111827] drop-shadow-sm tabular-nums font-['Poppins']">
                   {formattedHours}
                 </span>
-                <span className="text-xl sm:text-2xl md:text-3xl font-black text-[#1b5bf5] font-mono tabular-nums">
+                <span className="text-xl sm:text-2xl md:text-3xl font-black sky-kiosk-accent-text font-mono tabular-nums">
                   :{formattedSeconds}
                 </span>
               </div>
@@ -295,13 +301,13 @@ const Absensi = () => {
               </div>
               <div className="pl-1">
                 <p className="text-[9px] uppercase font-bold text-[#111827]/70">Status</p>
-                <p className="text-sm font-black font-['Poppins'] text-[#1b5bf5]">Siaga Scan</p>
+                <p className="text-sm font-black font-['Poppins'] sky-kiosk-accent-text">Siaga Scan</p>
               </div>
             </div>
           </div>
 
           {/* SCANNER CONSOLE CARD */}
-          <div className="flex-1 bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-amber-100 flex flex-col justify-between min-h-0">
+          <div className="flex-1 sky-kiosk-panel rounded-[2rem] p-5 md:p-6 shadow-sm border flex flex-col justify-between min-h-0">
             {lastScanResult ? (
               <div className={`p-4 md:p-5 rounded-2xl border transition-all animate-in fade-in zoom-in-95 duration-200 my-auto ${
                 lastScanResult.success
@@ -327,7 +333,7 @@ const Absensi = () => {
                         <span className={`px-3 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase shadow-sm ${
                           lastScanResult.status === 'TERLAMBAT'
                             ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                            : 'bg-[#1b5bf5] text-white'
+                            : 'sky-kiosk-action text-white'
                         }`}>
                           {lastScanResult.status === 'TERLAMBAT' ? 'Terlambat' : 'Hadir Tepat Waktu'}
                         </span>
@@ -345,7 +351,7 @@ const Absensi = () => {
                     </div>
 
                     <div className="shrink-0 hidden sm:block">
-                      <CheckCircle2 size={36} className={lastScanResult.status === 'TERLAMBAT' ? 'text-amber-500' : 'text-[#1b5bf5]'} />
+                      <CheckCircle2 size={36} className={lastScanResult.status === 'TERLAMBAT' ? 'text-amber-500' : 'sky-kiosk-accent-text'} />
                     </div>
                   </div>
                 ) : (
@@ -361,11 +367,11 @@ const Absensi = () => {
             ) : (
               <div className="flex flex-col items-center justify-center py-2 text-center my-auto">
                 <div className="relative mb-2.5">
-                  <div className="w-16 h-16 rounded-full bg-[#fef3c7] border-2 border-amber-300 flex items-center justify-center text-[#1b5bf5] shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-[#fef3c7] border-2 border-amber-300 flex items-center justify-center sky-kiosk-accent-text shadow-sm">
                     <Scan size={30} className={isLoading ? 'animate-spin' : 'animate-pulse'} />
                   </div>
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#1b5bf5] rounded-full border-2 border-white animate-ping" />
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#1b5bf5] rounded-full border-2 border-white" />
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sky-kiosk-action rounded-full border-2 border-white animate-ping" />
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sky-kiosk-action rounded-full border-2 border-white" />
                 </div>
                 <h3 className="text-base font-black text-[#111827] tracking-tight">Sensor Presensi Siaga</h3>
                 <p className="text-[11px] text-slate-500 max-w-sm mt-0.5 font-medium">
@@ -392,7 +398,7 @@ const Absensi = () => {
                 <button
                   type="submit"
                   disabled={isLoading || !manualCode.trim()}
-                  className="bg-[#1b5bf5] hover:bg-[#1349d4] disabled:opacity-40 text-white font-bold text-xs px-4 py-2 rounded-full transition-all shadow-md shadow-blue-500/20 cursor-pointer whitespace-nowrap active:scale-[0.98]"
+                  className="sky-kiosk-action sky-kiosk-action-hover disabled:opacity-40 text-white font-bold text-xs px-4 py-2 rounded-full transition-all shadow-md shadow-blue-500/20 cursor-pointer whitespace-nowrap active:scale-[0.98]"
                 >
                   {isLoading ? 'Memproses...' : 'Proses Tap'}
                 </button>
@@ -433,7 +439,7 @@ const Absensi = () => {
         </section>
 
         {/* RIGHT COLUMN: PRESENSI TERKINI */}
-        <section className="lg:col-span-5 bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-amber-100 flex flex-col justify-between min-h-0">
+        <section className="lg:col-span-5 sky-kiosk-panel rounded-[2rem] p-5 md:p-6 shadow-sm border flex flex-col justify-between min-h-0">
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3 shrink-0">
               <div className="flex items-center gap-2.5">
@@ -496,7 +502,7 @@ const Absensi = () => {
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
                           isLate
                             ? 'bg-amber-100 text-amber-800'
-                            : 'bg-blue-100 text-[#1b5bf5]'
+                            : 'bg-blue-100 sky-kiosk-accent-text'
                         }`}>
                           {isLate ? '↓ Terlambat' : '↑ Hadir'}
                         </span>
@@ -514,7 +520,7 @@ const Absensi = () => {
           {/* Bottom Card Helper */}
           <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
             <span className="flex items-center gap-1.5 font-medium">
-              <ShieldCheck size={13} className="text-[#1b5bf5]" />
+              <ShieldCheck size={13} className="sky-kiosk-accent-text" />
               Tervalidasi Lokal & Terproteksi
             </span>
             <span className="font-bold text-[#111827]">v2.6 Kiosk</span>

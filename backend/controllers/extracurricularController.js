@@ -5,30 +5,60 @@ const extracurricularController = {
     // Daftar ekskul beserta jumlah peserta
     async getAll(req, res) {
         try {
-            const result = await pool.query(`
-                SELECT e.*,
-                    COALESCE(m.full_name, e.supervisor_name) AS assigned_supervisor_name,
-                    (
-                        SELECT COUNT(*)
-                        FROM extracurricular_members em
-                        WHERE em.extracurricular_id = e.id
-                    ) AS total_peserta
-                FROM extracurriculars e
-                LEFT JOIN members m ON m.id = e.supervisor_id
-                ORDER BY e.name
-            `);
+            // Query lengkap untuk database yang sudah memakai relasi pembina dan peserta.
+            try {
+                const result = await pool.query(`
+                    SELECT e.*,
+                        COALESCE(m.full_name, e.supervisor_name) AS assigned_supervisor_name,
+                        (
+                            SELECT COUNT(*)
+                            FROM extracurricular_members em
+                            WHERE em.extracurricular_id = e.id
+                        ) AS total_peserta
+                    FROM extracurriculars e
+                    LEFT JOIN members m ON m.id = e.supervisor_id
+                    ORDER BY e.name
+                `);
+                return res.json({ success: true, data: result.rows || [] });
+            } catch (schemaError) {
+                // Database lama mungkin belum memiliki kolom/tabel relasi terbaru.
+                // Jangan gagalkan seluruh halaman: tampilkan data ekskul yang tersedia.
+                console.warn('[GET /api/extracurriculars] Query relasi lengkap gagal; mencoba kompatibilitas database lama:', schemaError.message);
+            }
 
-            res.json({ success: true, data: result.rows });
+            try {
+                const result = await pool.query(`
+                    SELECT e.*, e.supervisor_name AS assigned_supervisor_name,
+                        0 AS total_peserta
+                    FROM extracurriculars e
+                    ORDER BY e.name
+                `);
+                return res.json({
+                    success: true,
+                    data: result.rows || [],
+                    warning: 'Database belum memiliki seluruh relasi ekskul terbaru.'
+                });
+            } catch (legacyError) {
+                console.error('[GET /api/extracurriculars] Query kompatibilitas juga gagal:', {
+                    message: legacyError.message,
+                    code: legacyError.code || null
+                });
+                return res.status(500).json({
+                    success: false,
+                    message: 'Gagal mengambil data ekskul. Periksa log backend dan struktur database.',
+                    detail: process.env.NODE_ENV === 'production' ? undefined : legacyError.message
+                });
+            }
         } catch (err) {
-            console.error('getAll extracurricular:', err);
-            res.status(500).json({ success: false, message: 'Gagal mengambil data ekskul.' });
+            console.error('[GET /api/extracurriculars] Error:', err);
+            return res.status(500).json({ success: false, message: 'Gagal mengambil data ekskul.' });
         }
     },
 
     // Tambah ekskul
     async create(req, res) {
         try {
-            const { name, supervisor_id, description } = req.body;
+            const { name, supervisor_id, description, schedule } = req.body;
             if (!name || !name.trim()) {
                 return res.status(400).json({ success: false, message: 'Nama ekskul wajib diisi.' });
             }
@@ -39,7 +69,7 @@ const extracurricularController = {
             }
 
             const teacherResult = await pool.query(
-                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(role) = 'guru'",
+                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')",
                 [teacherId]
             );
             const teacher = teacherResult.rows[0];
@@ -51,9 +81,15 @@ const extracurricularController = {
             const result = await pool.query(`
                 INSERT INTO extracurriculars
                     (name, supervisor_id, supervisor_name, schedule, description)
-                VALUES ($1, $2, $3, NULL, $4)
+                VALUES ($1, $2, $3, $4, $5)
                 RETURNING *
-            `, [name.trim(), teacher.id, teacher.full_name, description || null]);
+            `, [
+                name.trim(),
+                teacher.id,
+                teacher.full_name,
+                schedule && String(schedule).trim() ? String(schedule).trim() : null,
+                description || null
+            ]);
 
             res.status(201).json({ success: true, data: result.rows[0] });
         } catch (err) {
@@ -62,6 +98,110 @@ const extracurricularController = {
             }
             console.error('create extracurricular:', err);
             res.status(500).json({ success: false, message: 'Gagal menambahkan ekskul.' });
+        }
+    },
+
+
+    // Ubah data dasar ekstrakurikuler.
+    async update(req, res) {
+        try {
+            const id = Number(req.params.id);
+            const { name, supervisor_id, description, schedule } = req.body;
+
+            if (!Number.isInteger(id) || id <= 0) {
+                return res.status(400).json({ success: false, message: 'ID ekskul tidak valid.' });
+            }
+            if (!name || !String(name).trim()) {
+                return res.status(400).json({ success: false, message: 'Nama ekskul wajib diisi.' });
+            }
+
+            const teacherId = Number(supervisor_id);
+            if (!Number.isInteger(teacherId) || teacherId <= 0) {
+                return res.status(400).json({ success: false, message: 'Pilih guru Pembina yang valid.' });
+            }
+
+            const existing = await pool.query(
+                'SELECT id FROM extracurriculars WHERE id = $1',
+                [id]
+            );
+            if (!existing.rows.length) {
+                return res.status(404).json({ success: false, message: 'Ekskul tidak ditemukan.' });
+            }
+
+            const teacherResult = await pool.query(
+                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')",
+                [teacherId]
+            );
+            const teacher = teacherResult.rows[0];
+            if (!teacher) {
+                return res.status(400).json({ success: false, message: 'Guru Pembina tidak ditemukan.' });
+            }
+
+            const result = await pool.query(`
+                UPDATE extracurriculars
+                SET name = $1,
+                    supervisor_id = $2,
+                    supervisor_name = $3,
+                    schedule = $4,
+                    description = $5
+                WHERE id = $6
+                RETURNING *
+            `, [
+                String(name).trim(),
+                teacher.id,
+                teacher.full_name,
+                schedule && String(schedule).trim() ? String(schedule).trim() : null,
+                description || null,
+                id
+            ]);
+
+            res.json({ success: true, data: result.rows[0] });
+        } catch (err) {
+            if (err.code === '23505' || err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                return res.status(409).json({ success: false, message: 'Nama ekskul sudah digunakan.' });
+            }
+            console.error('update extracurricular:', err);
+            res.status(500).json({ success: false, message: 'Gagal memperbarui data ekskul.' });
+        }
+    },
+
+    // Hapus hanya ekskul yang belum memiliki riwayat atau anggota terkait.
+    async remove(req, res) {
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id <= 0) {
+                return res.status(400).json({ success: false, message: 'ID ekskul tidak valid.' });
+            }
+
+            const existing = await pool.query(
+                'SELECT id FROM extracurriculars WHERE id = $1',
+                [id]
+            );
+            if (!existing.rows.length) {
+                return res.status(404).json({ success: false, message: 'Ekskul tidak ditemukan.' });
+            }
+
+            const references = await pool.query(`
+                SELECT
+                    (SELECT COUNT(*) FROM extracurricular_members WHERE extracurricular_id = $1) AS members,
+                    (SELECT COUNT(*) FROM extracurricular_attendance WHERE extracurricular_id = $1) AS attendance,
+                    (SELECT COUNT(*) FROM extracurricular_journals WHERE extracurricular_id = $1) AS journals
+            `, [id]);
+            const counts = references.rows[0] || {};
+            if (Number(counts.members || 0) > 0 ||
+                Number(counts.attendance || 0) > 0 ||
+                Number(counts.journals || 0) > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Ekskul ini masih memiliki anggota atau riwayat absensi/jurnal. Hapus atau pindahkan data terkait terlebih dahulu agar riwayat tidak hilang.'
+                });
+            }
+
+            await pool.query('DELETE FROM extracurriculars WHERE id = $1', [id]);
+            res.json({ success: true, message: 'Data ekskul berhasil dihapus.' });
+        } catch (err) {
+            console.error('remove extracurricular:', err);
+            res.status(500).json({ success: false, message: 'Gagal menghapus data ekskul.' });
         }
     },
 

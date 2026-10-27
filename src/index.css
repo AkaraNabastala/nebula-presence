@@ -16,8 +16,8 @@
 
 body {
   font-family: 'Poppins', system-ui, -apple-system, sans-serif;
-  background-color: #ede8e1;
-  color: #111625;
+  background-color: #f4f8ff;
+  color: #101a2e;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -39,12 +39,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #ded9ce;
+  background: #cbd8eb;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c7c1b5;
+  background: #94afd4;
 }
 
 /* Card surfaces matching the reference theme */
@@ -177,4 +177,242 @@ html.dark input::placeholder {
   tfoot {
     display: table-footer-group;
   }
+}
+
+
+/* Nebula blue-forward design system */
+:root { --nebula-navy: #0b1730; --nebula-blue: #1d4ed8; --nebula-sky: #38bdf8; --nebula-orange: #f59e0b; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), a { transition-property: color, background-color, border-color, box-shadow, transform, opacity; transition-duration: 180ms; }
+::selection { background: rgba(56, 189, 248, .24); }
+.nebula-transfer-glow { background-size: 200% 100%; animation: nebula-transfer 1.8s linear infinite; }
+@keyframes nebula-transfer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+
+/* Harmonize remaining SweetAlert confirmations with Nebula surfaces */
+.swal2-popup { border: 1px solid #dbeafe !important; border-radius: 1.5rem !important; font-family: 'Poppins', system-ui, sans-serif !important; box-shadow: 0 28px 80px rgba(8, 25, 58, .22) !important; }
+.swal2-title { color: #0b1730 !important; font-weight: 800 !important; letter-spacing: -.02em !important; }
+.swal2-html-container { color: #64748b !important; font-size: .875rem !important; }
+.swal2-styled.swal2-confirm { border-radius: .85rem !important; background: linear-gradient(110deg, #0b1730, #1d4ed8) !important; box-shadow: 0 8px 18px rgba(29, 78, 216, .18) !important; }
+.swal2-styled.swal2-cancel, .swal2-styled.swal2-deny { border-radius: .85rem !important; }
+html.dark .swal2-popup { background: #0f172a !important; border-color: #334155 !important; }
+html.dark .swal2-title { color: #f8fafc !important; }
+html.dark .swal2-html-container { color: #cbd5e1 !important; }
+
+
+/* Warna langit berubah bertahap; aksen warna memakai custom property yang dapat dianimasikan. */
+@property --nebula-sky-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6faed1;
+}
+@property --nebula-sky-warm {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fff6ed;
+}
+:root {
+  --nebula-sky-canvas: #f5faff;
+  --nebula-sky-line: #dce9f5;
+  --nebula-sky-accent: #83b8d5;
+  --nebula-sky-warm: #fff7ef;
+  --nebula-sky-action: #316e9d;
+  --nebula-sky-action-hover: #24597f;
+  --nebula-sky-ink: #1d2e42;
+}
+html[data-sky-phase="morning"] {
+  --nebula-sky-canvas: #dcefff;
+  --nebula-sky-line: #9bcbed;
+  --nebula-sky-accent: #49a9e5;
+  --nebula-sky-warm: #ffe7bd;
+  --nebula-sky-action: #176fbd;
+  --nebula-sky-action-hover: #10548e;
+  --nebula-sky-ink: #16334b;
+}
+html[data-sky-phase="day"] {
+  --nebula-sky-canvas: #e0f4ff;
+  --nebula-sky-line: #a7d8ef;
+  --nebula-sky-accent: #1598d0;
+  --nebula-sky-warm: #d5f0ff;
+  --nebula-sky-action: #075985;
+  --nebula-sky-action-hover: #06466b;
+  --nebula-sky-ink: #102b43;
+}
+html[data-sky-phase="sunset"] {
+  --nebula-sky-canvas: #ffdfcc;
+  --nebula-sky-line: #e8ae92;
+  --nebula-sky-accent: #e67e55;
+  --nebula-sky-warm: #ffd2ad;
+  --nebula-sky-action: #a63d20;
+  --nebula-sky-action-hover: #7f2e18;
+  --nebula-sky-ink: #45251f;
+}
+html[data-sky-phase="night"] {
+  --nebula-sky-canvas: #dbe4f4;
+  --nebula-sky-line: #a5b9d9;
+  --nebula-sky-accent: #526da3;
+  --nebula-sky-warm: #d1d9eb;
+  --nebula-sky-action: #293c68;
+  --nebula-sky-action-hover: #1c2c51;
+  --nebula-sky-ink: #1d2942;
+}
+html.dark[data-sky-phase] {
+  --nebula-sky-canvas: #0b1324;
+  --nebula-sky-line: #29394f;
+}
+html.dark[data-sky-phase="morning"] { --nebula-sky-canvas: #101f33; --nebula-sky-line: #36516b; --nebula-sky-accent: #4c83a8; --nebula-sky-warm: #243447; }
+html.dark[data-sky-phase="day"] { --nebula-sky-canvas: #0e2233; --nebula-sky-line: #2d536d; --nebula-sky-accent: #3d8cb9; --nebula-sky-warm: #1a3040; }
+html.dark[data-sky-phase="sunset"] { --nebula-sky-canvas: #281c25; --nebula-sky-line: #654238; --nebula-sky-accent: #bb755b; --nebula-sky-warm: #3c2b32; }
+html.dark[data-sky-phase="night"] { --nebula-sky-canvas: #090f1e; --nebula-sky-line: #29394f; --nebula-sky-accent: #526b9d; --nebula-sky-warm: #151d30; }
+
+.sky-time-canvas {
+  background-color: var(--nebula-sky-canvas) !important;
+  background-image: radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--nebula-sky-accent) 10%, transparent) 0, transparent 34rem);
+  transition: background-color 16s linear, --nebula-sky-accent 16s linear, --nebula-sky-warm 16s linear;
+}
+.sky-time-header {
+  background-image: linear-gradient(112deg, #10243b 0%, #1d4263 58%, var(--nebula-sky-accent) 100%) !important;
+  transition: border-color 16s linear, --nebula-sky-accent 16s linear;
+  border-bottom-color: var(--nebula-sky-line) !important;
+}
+.schedule-hero {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--nebula-sky-accent) 12%, #ffffff) 0%, #ffffff 58%, var(--nebula-sky-warm) 100%) !important;
+  transition: border-color .9s ease, --nebula-sky-accent 1.8s ease, --nebula-sky-warm 1.8s ease;
+  border-color: var(--nebula-sky-line) !important;
+}
+.schedule-table { border-collapse: separate; border-spacing: 0; }
+.schedule-table thead th { border-bottom: 1px solid var(--nebula-sky-line); }
+.schedule-table tbody td { border-bottom: 1px solid var(--nebula-sky-line); }
+.schedule-table tbody tr:last-child td { border-bottom: 0; }
+.schedule-table th, .schedule-table td { border-left: 0; border-right: 0; }
+html.dark .schedule-table thead th,
+html.dark .schedule-table tbody td { border-color: var(--nebula-sky-line); }
+
+/* Subtle atmospheric accents remain behind cards and never block interaction. */
+:root { --nebula-sky-atmosphere: radial-gradient(circle at 82% 14%, rgba(255, 219, 125, .20) 0 3.5rem, transparent 3.6rem), radial-gradient(circle at 14% 22%, rgba(125, 190, 235, .13), transparent 22rem); }
+html[data-sky-phase="morning"] { --nebula-sky-atmosphere: radial-gradient(circle at 84% 13%, rgba(255, 214, 119, .22) 0 3rem, transparent 3.1rem), radial-gradient(circle at 18% 25%, rgba(125, 190, 235, .14), transparent 22rem); }
+html[data-sky-phase="day"] { --nebula-sky-atmosphere: radial-gradient(circle at 86% 12%, rgba(255, 223, 145, .19) 0 3.6rem, transparent 3.7rem), radial-gradient(circle at 12% 28%, rgba(88, 169, 220, .10), transparent 24rem); }
+html[data-sky-phase="sunset"] { --nebula-sky-atmosphere: radial-gradient(circle at 84% 14%, rgba(237, 156, 112, .20) 0 3.5rem, transparent 3.6rem), radial-gradient(circle at 10% 30%, rgba(112, 163, 205, .13), transparent 24rem); }
+html[data-sky-phase="night"] { --nebula-sky-atmosphere: radial-gradient(circle at 82% 14%, rgba(180, 203, 239, .14) 0 2.7rem, transparent 2.8rem), radial-gradient(circle at 12% 18%, rgba(255,255,255,.42) 0 1px, transparent 1.8px), radial-gradient(circle at 24% 31%, rgba(255,255,255,.32) 0 1px, transparent 1.8px), radial-gradient(circle at 58% 13%, rgba(255,255,255,.30) 0 1px, transparent 1.8px), radial-gradient(circle at 68% 27%, rgba(255,255,255,.36) 0 1px, transparent 1.8px), radial-gradient(circle at 43% 42%, rgba(255,255,255,.26) 0 1px, transparent 1.8px), radial-gradient(circle at 12% 18%, rgba(77, 121, 179, .13), transparent 24rem), radial-gradient(circle at 70% 35%, rgba(105, 144, 198, .10), transparent 18rem); }
+.sky-time-canvas { position: relative; isolation: isolate; }
+.sky-time-canvas::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--nebula-sky-atmosphere); opacity: .85; }
+
+
+/* Dekor langit transparan berada di belakang konten dan tidak menghalangi klik. */
+.nebula-sky-decor {
+  position: fixed;
+  inset: 4rem 0 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--nebula-sky-accent);
+  opacity: .8;
+}
+.nebula-sky-orb {
+  position: absolute;
+  width: clamp(5rem, 11vw, 10rem);
+  height: clamp(5rem, 11vw, 10rem);
+  right: clamp(1.5rem, 7vw, 7rem);
+  top: clamp(4.5rem, 12vh, 9rem);
+  opacity: .075;
+  filter: drop-shadow(0 0 1.5rem currentColor);
+  transition: opacity 1.2s ease, transform 1.8s ease, color 1.8s ease;
+}
+.nebula-sky-moon { display: none; }
+.nebula-sky-stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image:
+    radial-gradient(circle at 12% 20%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 26% 37%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 57% 14%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 73% 32%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 44% 52%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 88% 62%, currentColor 0 1px, transparent 1.8px);
+  transition: opacity 1.4s ease;
+}
+html[data-sky-phase="night"] .nebula-sky-sun { display: none; }
+html[data-sky-phase="night"] .nebula-sky-moon { display: block; opacity: .09; transform: rotate(-12deg); }
+html[data-sky-phase="night"] .nebula-sky-stars { opacity: .18; }
+html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .06; color: #c49a83; transform: translateY(1rem); }
+@media (prefers-reduced-motion: reduce) {
+  .sky-time-canvas, .sky-time-header, .schedule-hero, .nebula-sky-orb, .nebula-sky-stars {
+    transition-duration: .01ms !important;
+  }
+}
+
+
+/* Kiosk: ikon matahari/bulan dan bintang sangat transparan di belakang kartu. */
+.nebula-kiosk-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--nebula-sky-accent);
+}
+.nebula-kiosk-sun,
+.nebula-kiosk-moon {
+  position: absolute;
+  top: 10%;
+  right: 8%;
+  width: clamp(7rem, 18vw, 15rem);
+  height: clamp(7rem, 18vw, 15rem);
+  opacity: .11;
+  filter: drop-shadow(0 0 2rem currentColor);
+  transition: opacity 1.4s ease, transform 1.8s ease, color 1.8s ease;
+}
+.nebula-kiosk-moon { display: none; }
+.nebula-kiosk-stars {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-image:
+    radial-gradient(circle at 12% 20%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 26% 37%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 57% 14%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 73% 32%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 44% 52%, currentColor 0 1px, transparent 1.8px),
+    radial-gradient(circle at 88% 62%, currentColor 0 1px, transparent 1.8px);
+  transition: opacity 1.4s ease;
+}
+html[data-sky-phase="night"] .nebula-kiosk-sun { display: none; }
+html[data-sky-phase="night"] .nebula-kiosk-moon { display: block; opacity: .13; transform: rotate(-12deg); }
+html[data-sky-phase="night"] .nebula-kiosk-stars { opacity: .26; }
+html[data-sky-phase="sunset"] .nebula-kiosk-sun { opacity: .06; color: #c49a83; transform: translateY(1rem); }
+
+
+/* Attendance kiosk: stronger time-aware surfaces, still soft enough for readability. */
+.sky-kiosk-hero {
+  color: var(--nebula-sky-ink, #1d2e42) !important;
+  background-image: linear-gradient(132deg,
+    color-mix(in srgb, var(--nebula-sky-accent) 36%, #ffffff) 0%,
+    color-mix(in srgb, var(--nebula-sky-warm) 88%, #ffffff) 48%,
+    color-mix(in srgb, var(--nebula-sky-accent) 24%, #ffffff) 100%) !important;
+  border-color: var(--nebula-sky-line) !important;
+  transition: background-color 1.2s ease, border-color 1.2s ease, color 1.2s ease, box-shadow 1.2s ease;
+}
+.sky-kiosk-action {
+  background-color: var(--nebula-sky-action, #316e9d) !important;
+  color: #fff !important;
+  transition: background-color 1.2s ease, box-shadow 1.2s ease, color 1.2s ease;
+}
+.sky-kiosk-action:hover,
+.sky-kiosk-action-hover:hover { background-color: var(--nebula-sky-action-hover, #24597f) !important; }
+.sky-kiosk-accent-text { color: var(--nebula-sky-action, #316e9d) !important; transition: color 1.2s ease; }
+
+
+/* Kiosk surfaces inherit the current time-of-day palette instead of staying amber/white. */
+.sky-kiosk-panel {
+  background-image: linear-gradient(145deg,
+    color-mix(in srgb, var(--nebula-sky-accent) 17%, #ffffff) 0%,
+    color-mix(in srgb, var(--nebula-sky-warm) 72%, #ffffff) 100%) !important;
+  border-color: var(--nebula-sky-line) !important;
+  transition: background-color 1.2s ease, background-image 1.2s ease, border-color 1.2s ease, box-shadow 1.2s ease;
+}
+.sky-kiosk-glow {
+  background: radial-gradient(circle, color-mix(in srgb, var(--nebula-sky-accent) 32%, transparent) 0%, transparent 70%) !important;
+  transition: background 1.2s ease;
 }

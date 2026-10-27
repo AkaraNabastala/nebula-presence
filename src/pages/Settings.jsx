@@ -8,11 +8,13 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
+import { toast } from 'react-toastify';
 
 const Settings = () => {
     const [loading, setLoading] = useState(false);
     const [testLoading, setTestLoading] = useState(false);
     const [syncLoading, setSyncLoading] = useState(false);
+    const [syncDialog, setSyncDialog] = useState(null);
     const [notification, setNotification] = useState({ show: false, type: '', message: '' });
 
     // Konfigurasi Dasar, Notifikasi & Cloud Sync
@@ -40,7 +42,14 @@ const Settings = () => {
         enabled: false,
         pendingCount: 0,
         lastStatus: 'idle',
-        lastTime: ''
+        lastTime: '',
+        stage: '',
+        message: '',
+        progress: 0,
+        processed: 0,
+        total: 0,
+        skipped: 0,
+        errors: []
     });
 
     // Konfigurasi Jadwal Sekolah / Hari
@@ -62,12 +71,13 @@ const Settings = () => {
         try {
             const res = await api.get('/cloud-sync/status');
             if (res.data && res.data.success) {
-                setCloudSyncLive({
+                setCloudSyncLive(prev => ({
+                    ...prev,
                     enabled: res.data.enabled,
                     pendingCount: res.data.pendingCount || 0,
-                    lastStatus: res.data.lastStatus || 'idle',
-                    lastTime: res.data.lastTime || ''
-                });
+                    lastStatus: res.data.lastStatus || prev.lastStatus || 'idle',
+                    lastTime: res.data.lastTime || prev.lastTime || ''
+                }));
             }
         } catch {
             // silent fallback
@@ -135,11 +145,19 @@ const Settings = () => {
         // Socket.IO Listener untuk Status Sinkronisasi Real-Time
         const socket = io(import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:6990') : window.location.origin);
         socket.on('cloud_sync_status', (data) => {
-            if (data.state === 'syncing') {
-                setCloudSyncLive(prev => ({ ...prev, lastStatus: 'syncing' }));
-            } else {
-                fetchCloudSyncStatus();
-            }
+            setCloudSyncLive(prev => ({
+                ...prev,
+                lastStatus: data.state || prev.lastStatus,
+                stage: data.stage || prev.stage,
+                message: data.message || prev.message,
+                progress: Number.isFinite(data.progress) ? data.progress : prev.progress,
+                processed: Number.isFinite(data.processed) ? data.processed : prev.processed,
+                total: Number.isFinite(data.total) ? data.total : prev.total,
+                skipped: Number.isFinite(data.skipped) ? data.skipped : prev.skipped,
+                errors: Array.isArray(data.errors) ? data.errors : prev.errors,
+                lastTime: data.lastTime || prev.lastTime
+            }));
+            if (data.state !== 'syncing') fetchCloudSyncStatus();
         });
 
         return () => {
@@ -232,10 +250,7 @@ const Settings = () => {
             };
 
             await api.post('/settings', payload);
-            showToast('success', "Pengaturan berhasil disimpan! Memuat ulang...");
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            showToast('success', "Pengaturan berhasil disimpan.");
 
         } catch {
             showToast('error', "Gagal menyimpan pengaturan.");
@@ -268,16 +283,23 @@ const Settings = () => {
             return;
         }
         setSyncLoading(true);
+        setSyncDialog({ type: 'progress', message: 'Menghubungkan ke Portal dan mengirim data…' });
+        setCloudSyncLive(prev => ({ ...prev, lastStatus: 'syncing', stage: 'connecting', message: 'Memulai sinkronisasi...', progress: 0, processed: 0, total: 0, skipped: 0, errors: [] }));
         try {
             const res = await api.post('/cloud-sync/trigger');
             if (res.data && res.data.success) {
                 showToast('success', res.data.message || "Sinkronisasi berhasil!");
+                setSyncDialog({ type: res.data.errors?.length ? 'error' : 'success', message: res.data.message || 'Sinkronisasi selesai.', errors: res.data.errors || [] });
                 fetchCloudSyncStatus();
             } else {
+                setCloudSyncLive(prev => ({ ...prev, lastStatus: 'partial', stage: 'complete', progress: 100, message: res.data?.message || 'Sinkronisasi gagal.', errors: res.data?.errors || [] }));
                 showToast('error', res.data?.message || "Sinkronisasi gagal.");
+                setSyncDialog({ type: 'error', message: res.data?.message || 'Sinkronisasi gagal.', errors: res.data?.errors || [] });
             }
         } catch (err) {
+            setCloudSyncLive(prev => ({ ...prev, lastStatus: 'offline', stage: 'complete', message: err.response?.data?.message || 'Gagal menghubungi server Cloud.' }));
             showToast('error', err.response?.data?.message || "Gagal menghubungi server Cloud.");
+            setSyncDialog({ type: 'error', message: err.response?.data?.message || 'Gagal menghubungi server Cloud.' });
         } finally {
             setSyncLoading(false);
         }
@@ -307,7 +329,7 @@ const Settings = () => {
             </div>
 
             {/* ======================================================== */}
-            {/* 📅 1. JADWAL OPERASIONAL & SHIFT (DITARUH DI PALING ATAS) */}
+            {/* 1. JADWAL OPERASIONAL & SHIFT */}
             {/* ======================================================== */}
             <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-gray-100 dark:border-slate-700/80">
@@ -322,8 +344,9 @@ const Settings = () => {
                                 : 'Atur pembagian jam masuk dan kepulangan shift karyawan.'}
                         </p>
                     </div>
-                    <span className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-xl border border-blue-100 dark:border-blue-800/80 shrink-0">
-                        {config.app_mode === 'edukasi' ? '🏫 Mode Sekolah' : '🏢 Mode Perusahaan'}
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-xl border border-blue-100 dark:border-blue-800/80 shrink-0">
+                        <Building2 size={14} />
+                        {config.app_mode === 'edukasi' ? 'Mode Sekolah' : 'Mode Perusahaan'}
                     </span>
                 </div>
 
@@ -582,7 +605,7 @@ const Settings = () => {
                 {/* --- KOLOM KANAN: CLOUD SYNC & NOTIFIKASI TELEGRAM --- */}
                 <div className="space-y-8">
 
-                    {/* 🌐 CLOUD SYNC (LOCAL-FIRST ENGINE) */}
+                    {/* CLOUD SYNC */}
                     <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 space-y-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -623,6 +646,10 @@ const Settings = () => {
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400">
                                                     <CloudOff size={12} /> Offline (Mode Mandiri)
                                                 </span>
+                                            ) : cloudSyncLive.lastStatus === 'partial' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400">
+                                                    <AlertCircle size={12} /> Sinkronisasi Sebagian
+                                                </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
                                                     Siaga (Idle)
@@ -631,8 +658,16 @@ const Settings = () => {
                                         </div>
                                         <p className="text-[11px] text-gray-500 dark:text-slate-400">
                                             {cloudSyncLive.pendingCount > 0 ? (
-                                                <b className="text-amber-600 dark:text-amber-400">{cloudSyncLive.pendingCount} data antre terkirim</b>
-                                            ) : 'Semua log tersinkron'}{' '}
+                                                <b className="text-amber-600 dark:text-amber-400">{cloudSyncLive.pendingCount} data menunggu kirim</b>
+                                            ) : cloudSyncLive.lastStatus === 'synced' ? (
+                                                'Semua log tersinkron'
+                                            ) : cloudSyncLive.lastStatus === 'offline' ? (
+                                                'Portal tidak terhubung'
+                                            ) : cloudSyncLive.lastStatus === 'partial' ? (
+                                                'Sebagian data perlu diperiksa'
+                                            ) : (
+                                                'Belum ada sinkronisasi'
+                                            )}{' '}
                                             {cloudSyncLive.lastTime ? `• Jam: ${new Date(cloudSyncLive.lastTime).toLocaleTimeString('id-ID')} WIB` : ''}
                                         </p>
                                     </div>
@@ -648,6 +683,8 @@ const Settings = () => {
                                     </button>
                                 </div>
 
+
+
                                 <div className="space-y-3">
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
@@ -660,10 +697,11 @@ const Settings = () => {
                                                 name="cloud_sync_url"
                                                 value={config.cloud_sync_url || ''}
                                                 onChange={handleConfigChange}
-                                                placeholder="https://presensi.sekolah.sch.id/api/sync"
+                                                placeholder="http://localhost:5000"
                                                 className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-mono text-gray-800 dark:text-white outline-none focus:border-sky-500"
                                             />
                                         </div>
+                                        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500 dark:text-slate-400">Untuk pengembangan lokal gunakan http://localhost:5000 (backend Portal). Jangan gunakan port Vite 5173/5174 karena itu server frontend, bukan API sinkronisasi.</p>
                                     </div>
 
                                     <div>
@@ -685,13 +723,13 @@ const Settings = () => {
                                 </div>
 
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/40 border border-slate-200/60 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300">
-                                    💡 <b>Local-First:</b> Scanner di sekolah tetap mencatat secepat kilat (&lt;50ms) walau tanpa internet. Log antrean akan otomatis terkirim saat internet online.
+                                    Pencatatan tetap berjalan saat offline. Data akan dikirim kembali saat koneksi pulih.
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* 🔔 NOTIFIKASI TELEGRAM */}
+                    {/* NOTIFIKASI TELEGRAM */}
                     <div className="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 space-y-5">
                         <div className="flex items-center justify-between">
                             <div>
@@ -760,21 +798,40 @@ const Settings = () => {
                             </div>
                         )}
 
-                        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-amber-700 dark:text-amber-400">
-                            <div className="flex items-center gap-3">
-                                <span className="text-lg">💬</span>
-                                <div>
-                                    <p className="text-xs font-bold">WhatsApp Gateway</p>
-                                    <p className="text-[11px] opacity-80">Nomor kontak anggota tersimpan di database & siap diaktifkan saat modul gateway selesai diriset.</p>
-                                </div>
-                            </div>
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-[10px] font-extrabold uppercase shrink-0">Riset</span>
-                        </div>
+
                     </div>
 
                 </div>
 
             </div>
+
+            {syncDialog && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-4" role="dialog" aria-modal="true" aria-live="polite">
+                    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+                        <div className="flex items-start gap-3">
+                            {syncDialog.type === 'progress' ? <RefreshCw size={24} className="mt-0.5 animate-spin text-sky-600" /> : syncDialog.type === 'success' ? <CheckCircle size={24} className="mt-0.5 text-emerald-600" /> : <AlertCircle size={24} className="mt-0.5 text-rose-600" />}
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-bold text-slate-900 dark:text-white">{syncDialog.type === 'progress' ? 'Sinkronisasi Berjalan' : syncDialog.type === 'success' ? 'Sinkronisasi Berhasil' : 'Sinkronisasi Perlu Diperiksa'}</h3>
+                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{syncDialog.type === 'progress' ? (cloudSyncLive.message || syncDialog.message) : syncDialog.message}</p>
+                                {syncDialog.type === 'progress' && cloudSyncLive.total > 0 && (
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                        {cloudSyncLive.processed || 0} dari {cloudSyncLive.total} data diproses
+                                        {cloudSyncLive.skipped > 0 ? ` · ${cloudSyncLive.skipped} dilewati` : ''}
+                                    </p>
+                                )}
+                            </div>
+                            {syncDialog.type !== 'progress' && <button onClick={() => setSyncDialog(null)} aria-label="Tutup"><X size={18} /></button>}
+                        </div>
+                        {syncDialog.type === 'progress' && (
+                            <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                                <div className="h-full rounded-full bg-sky-600 transition-[width] duration-500" style={{ width: `${Math.max(0, Math.min(100, Number(cloudSyncLive.progress) || 0))}%` }} />
+                            </div>
+                        )}
+                        {Array.isArray(syncDialog.errors) && syncDialog.errors.length > 0 && <ul className="mt-4 max-h-36 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-700 dark:text-rose-300">{syncDialog.errors.slice(0, 8).map((err, index) => <li key={index}>{String(err)}</li>)}</ul>}
+                        {syncDialog.type !== 'progress' && <button onClick={() => setSyncDialog(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white dark:bg-slate-700">Tutup</button>}
+                    </div>
+                </div>
+            )}
 
             {/* TOMBOL SIMPAN PENGATURAN */}
             <div className="fixed bottom-6 right-6 md:static md:flex md:justify-end z-40">

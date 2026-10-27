@@ -18,6 +18,7 @@ const jadwalMapelController = require('../controllers/jadwalMapelController');
 // Middleware
 const upload = require('../middleware/upload');
 const authGuard = require('../middleware/authGuard');
+const { getRuntimeLogs } = require('../utils/runtimeLogBuffer');
 const roleGuard = require('../middleware/roleGuard');
 
 // Rate Limiter
@@ -50,6 +51,12 @@ router.get('/extracurriculars', (req, res) =>
 );
 router.post('/extracurriculars', roleGuard(['SuperAdmin']), (req, res) =>
     extracurricularController.create(req, res)
+);
+router.put('/extracurriculars/:id', roleGuard(['SuperAdmin']), (req, res) =>
+    extracurricularController.update(req, res)
+);
+router.delete('/extracurriculars/:id', roleGuard(['SuperAdmin']), (req, res) =>
+    extracurricularController.remove(req, res)
 );
 
 router.get('/extracurriculars/attendance', (req, res) =>
@@ -158,6 +165,10 @@ router.post('/teaching-schedules', (req, res) => jadwalMapelController.createSch
 router.put('/teaching-schedules/:id', (req, res) => jadwalMapelController.updateSchedule(req, res));
 router.patch('/teaching-schedules/:id/status', (req, res) => jadwalMapelController.setScheduleStatus(req, res));
 
+// AKUN LOGIN GURU (dikelola dari aplikasi desktop, lalu dikirim melalui cloud sync)
+router.get('/teacher-accounts', roleGuard(['SuperAdmin']), (req, res) => masterController.getTeacherAccounts(req, res));
+router.put('/teacher-accounts/:memberId', roleGuard(['SuperAdmin']), (req, res) => masterController.upsertTeacherAccount(req, res));
+
 // MASTER DATA MEMBERS
 router.get('/members', (req, res) => masterController.getAllMembers(req, res));
 router.post('/members', (req, res) => masterController.createMember(req, res));
@@ -182,6 +193,7 @@ router.post('/settings', roleGuard(['SuperAdmin']), (req, res) => masterControll
 router.get('/backup', roleGuard(['SuperAdmin']), (req, res) => systemController.backupDatabase(req, res));
 router.post('/restore', roleGuard(['SuperAdmin']), upload.single('backup_file'), (req, res) => systemController.restoreDatabase(req, res));
 router.get('/audit-logs', roleGuard(['SuperAdmin']), (req, res) => systemController.getAuditLogs(req, res));
+router.get('/system-logs', roleGuard(['SuperAdmin']), (req, res) => res.json({ success: true, data: getRuntimeLogs(req.query.limit || 100) }));
 
 // DEVICES (Hanya SuperAdmin)
 router.get('/devices', roleGuard(['SuperAdmin']), (req, res) => deviceController.getAllDevices(req, res));

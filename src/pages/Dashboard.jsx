@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { io } from 'socket.io-client';
 import {
   Users, CheckCircle2, AlertTriangle, Clock,
-  RefreshCw, Cloud, Cpu, ArrowUpRight,
+  Cloud, Cpu, ArrowUpRight,
   FileText, Calendar, Search, ArrowRight,
-  MoreHorizontal, Bell, Maximize2, ExternalLink,
-  ChevronDown, MessageSquare, ThumbsUp
+  MoreHorizontal, Bell, ExternalLink,
+  ChevronDown, MessageSquare, ThumbsUp, CloudUpload, X, Sparkles, Database
 } from 'lucide-react';
 import logoNabastala from '../assets/logo-nabastala.png';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncingPortal, setSyncingPortal] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncMessage, setSyncMessage] = useState('Menyiapkan koneksi Portal...');
+  const [cloudSyncStatus, setCloudSyncStatus] = useState({ enabled: false, lastStatus: 'idle', url: '' });
+  const [weeklyStats, setWeeklyStats] = useState([]);
   const [activeTab, setActiveTab] = useState('activity');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -30,7 +35,8 @@ const Dashboard = () => {
   const [appConfig, setAppConfig] = useState({
     timezone: 'Asia/Jakarta',
     nama_instansi: 'Sistem Kehadiran',
-    labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' }
+    labels: { label_pengguna: 'Siswa', label_kelompok: 'Kelas' },
+    cloud_sync_active: '0'
   });
 
   const fetchDashboardData = useCallback(async () => {
@@ -40,11 +46,13 @@ const Dashboard = () => {
       const localDate = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
 
       // Ambil data dashboard, members & daily attendance untuk akurasi optimal
-      const [resMembers, resDaily, resSettings] = await Promise.all([
+      const [resMembers, resDaily, resSettings, resCloudSync] = await Promise.all([
         api.get('/members').catch(() => ({ data: [] })),
         api.get('/attendance/daily', { params: { tanggal: localDate } }).catch(() => ({ data: [] })),
-        api.get('/settings').catch(() => ({ data: {} }))
+        api.get('/settings').catch(() => ({ data: {} })),
+        api.get('/cloud-sync/status').catch(() => ({ data: { enabled: false, lastStatus: 'idle', url: '' } }))
       ]);
+      setCloudSyncStatus(resCloudSync.data || { enabled: false, lastStatus: 'idle', url: '' });
 
       const membersArray = Array.isArray(resMembers.data) ? resMembers.data : (resMembers.data?.data || []);
       const attendanceArray = Array.isArray(resDaily.data) ? resDaily.data : (resDaily.data?.data || []);
@@ -64,13 +72,38 @@ const Dashboard = () => {
       const belumScan = Math.max(0, totalMembers - (totalHadir + sakitIzin + alfa));
 
       setData({
-        total: totalMembers || 120,
-        hadir: hadir || (totalMembers === 0 ? 94 : 0),
-        terlambat: terlambat || (totalMembers === 0 ? 14 : 0),
+        total: totalMembers,
+        hadir,
+        terlambat,
         sakit_izin: sakitIzin,
         alfa: alfa + belumScan,
         logs: attendanceArray.length > 0 ? attendanceArray : []
       });
+
+      const today = new Date();
+      const todayParts = new Intl.DateTimeFormat('en-CA', { timeZone: appConfig.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(today);
+      const todayKey = `${todayParts.find(p => p.type === 'year')?.value}-${todayParts.find(p => p.type === 'month')?.value}-${todayParts.find(p => p.type === 'day')?.value}`;
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - mondayOffset);
+      // Jangan tampilkan hari-hari mendatang sebagai nol; itu membuat grafik tampak tidak realistis.
+      const elapsedDays = mondayOffset + 1;
+      const weekResults = await Promise.all(Array.from({ length: elapsedDays }, async (_, index) => {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + index);
+        const parts = new Intl.DateTimeFormat('en-CA', { timeZone: appConfig.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+        const dateKey = `${parts.find(p => p.type === 'year')?.value}-${parts.find(p => p.type === 'month')?.value}-${parts.find(p => p.type === 'day')?.value}`;
+        const label = new Intl.DateTimeFormat('id-ID', { weekday: 'short', timeZone: appConfig.timezone }).format(date).replace('.', '');
+        if (dateKey > todayKey) return { label, count: null, date: dateKey };
+        try {
+          const response = await api.get('/attendance/daily', { params: { tanggal: dateKey } });
+          const rows = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+          return { label, count: rows.filter(row => ['HADIR', 'TERLAMBAT'].includes(String(row.status || '').toUpperCase())).length, date: dateKey };
+        } catch {
+          return { label, count: null, date: dateKey };
+        }
+      }));
+      setWeeklyStats(weekResults);
 
       if (resSettings.data) {
         const isEdu = (resSettings.data.app_mode || 'edukasi') === 'edukasi';
@@ -80,14 +113,14 @@ const Dashboard = () => {
           labels: resSettings.data.labels || {
             label_pengguna: isEdu ? 'Siswa' : 'Karyawan',
             label_kelompok: isEdu ? 'Kelas' : 'Divisi'
-          }
+          },
+          cloud_sync_active: resSettings.data.cloud_sync_active || '0'
         });
       }
     } catch (err) {
       console.warn("Gagal mengambil data dashboard:", err);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [appConfig.timezone]);
 
@@ -103,21 +136,58 @@ const Dashboard = () => {
       socket.on('new_scan', () => {
         fetchDashboardData();
       });
+      socket.on('cloud_sync_status', status => {
+        fetchDashboardData();
+        if (!status || typeof status !== 'object') return;
+        if (Number.isFinite(Number(status.progress))) {
+          setSyncProgress(current => Math.max(current, Math.min(100, Number(status.progress))));
+        }
+        if (status.message) setSyncMessage(status.message);
+        if (status.state === 'offline') {
+          setSyncMessage(status.error || status.message || 'Portal tidak dapat dijangkau.');
+        }
+      });
       return () => socket.disconnect();
     } catch {
       /* ignore socket */
     }
   }, [fetchDashboardData]);
 
-  const handleManualRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
+  const handlePortalSync = async () => {
+    setSyncModalOpen(true);
+    setSyncingPortal(true);
+    setSyncProgress(8);
+    setSyncMessage('Membuka jalur komunikasi dengan Portal...');
+    try {
+      setSyncMessage('Mengirim antrean data yang menunggu sinkronisasi...');
+      const response = await api.post('/cloud-sync/trigger');
+      if (response.data?.success === false) throw new Error(response.data.message || 'Portal menolak proses sinkronisasi.');
+      setSyncProgress(100);
+      setSyncMessage(response.data?.message || 'Permintaan sinkronisasi selesai diproses.');
+      toast.success('Proses sinkronisasi Portal selesai.');
+      fetchDashboardData();
+    } catch (error) {
+      setSyncMessage(error.response?.data?.message || error.message || 'Gagal mengirim data ke Portal. Periksa koneksi dan pengaturan sinkronisasi.');
+      toast.error('Sinkronisasi Portal gagal. Periksa status koneksi.');
+    } finally {
+      setSyncingPortal(false);
+    }
   };
 
   const totalEffective = data.total > 0 ? data.total : (data.hadir + data.terlambat + data.alfa || 1);
   const hadirPercent = Math.min(100, Math.round((data.hadir / totalEffective) * 100));
   const latePercent = Math.min(100, Math.round((data.terlambat / totalEffective) * 100));
   const absentPercent = Math.max(0, 100 - (hadirPercent + latePercent));
+  const lastSuccessfulSync = cloudSyncStatus?.lastTime ? new Date(cloudSyncStatus.lastTime).getTime() : 0;
+  const recentPortalConnection = Number.isFinite(lastSuccessfulSync) && lastSuccessfulSync > 0 && (Date.now() - lastSuccessfulSync) < 90000;
+  const portalHandshakeFailed = Array.isArray(cloudSyncStatus?.lastErrors)
+    && cloudSyncStatus.lastErrors.some(error => /handshake portal/i.test(String(error)));
+  const portalSyncAvailable = ['synced', 'partial'].includes(cloudSyncStatus?.lastStatus) && !portalHandshakeFailed;
+  const canSendToPortal = String(appConfig.cloud_sync_active) === '1'
+    && cloudSyncStatus?.enabled === true
+    && portalSyncAvailable
+    && Boolean(cloudSyncStatus?.url)
+    && recentPortalConnection;
 
   const filteredLogs = (data.logs || []).filter(log => {
     const name = (log.nama || log.nama_lengkap || log.full_name || '').toLowerCase();
@@ -127,12 +197,12 @@ const Dashboard = () => {
   });
 
   return (
-    <div className="space-y-7 font-['Poppins'] text-[#111625] dark:text-slate-100">
+    <div className="space-y-7 font-['Poppins'] text-[#0b1730] dark:text-slate-100">
       
       {/* 1. TOP HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-[#111625] dark:text-white">
+          <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-[#0b1730] dark:text-white">
             Analytics Presensi
           </h1>
           <p className="text-xs text-stone-600 dark:text-slate-400 mt-1 font-medium">
@@ -162,32 +232,19 @@ const Dashboard = () => {
           {/* Action button */}
           <Link
             to="/admin/attendance-manual"
-            className="bg-[#111625] hover:bg-slate-800 text-white font-semibold text-xs px-5 py-2.5 rounded-full transition-all shadow-md whitespace-nowrap"
+            className="bg-[#0b1730] hover:bg-slate-800 text-white font-semibold text-xs px-5 py-2.5 rounded-full transition-all shadow-md whitespace-nowrap"
           >
             + Input Presensi
           </Link>
 
-          {/* Fullscreen & Refresh Buttons */}
-          <div className="flex items-center gap-2">
-            <Link
-              to="/"
-              className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 flex items-center justify-center text-stone-700 dark:text-slate-300 hover:text-black dark:hover:text-white shadow-sm transition-transform hover:scale-105"
-              title="Buka Layar Kiosk"
-            >
-              <Maximize2 size={16} />
-            </Link>
-
-            <button
-              onClick={handleManualRefresh}
-              className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 flex items-center justify-center text-stone-700 dark:text-slate-300 hover:text-black dark:hover:text-white shadow-sm transition-transform hover:scale-105 relative cursor-pointer"
-              title="Segarkan Data"
-            >
-              <RefreshCw size={16} className={refreshing ? 'animate-spin text-blue-600' : ''} />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#f84a72] text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow-sm">
-                {data.logs.length > 9 ? '9+' : data.logs.length}
-              </span>
-            </button>
-          </div>
+          {canSendToPortal && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={handlePortalSync} disabled={syncingPortal} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-800 via-blue-700 to-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 disabled:opacity-60">
+                <CloudUpload size={15} className={syncingPortal ? 'animate-bounce' : ''} />
+                {syncingPortal ? 'Mengirim...' : 'Kirim ke Portal'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -200,7 +257,7 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* CARD 1: VIVID CORAL-ROSE SUNSET GRADIENT CARD */}
-            <div className="bg-gradient-to-br from-[#ff5e50] via-[#f84a72] to-[#df2e78] rounded-[2.25rem] p-7 text-white shadow-xl shadow-rose-500/15 flex flex-col justify-between relative overflow-hidden min-h-[260px]">
+            <div className="bg-gradient-to-br from-[#0b1730] via-[#1d4ed8] to-[#38bdf8] rounded-[2.25rem] p-7 text-white shadow-xl shadow-blue-900/20 flex flex-col justify-between relative overflow-hidden min-h-[260px]">
               
               <div className="flex items-center justify-between z-10">
                 <span className="text-xs font-semibold uppercase tracking-wider text-white/90">
@@ -274,7 +331,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between gap-4 py-3">
                 <div className="space-y-3">
                   <div>
-                    <span className="text-3xl font-extrabold text-[#111625] dark:text-white font-['Poppins']">
+                    <span className="text-3xl font-extrabold text-[#0b1730] dark:text-white font-['Poppins']">
                       {data.total}
                       <span className="text-sm font-semibold text-stone-400 ml-1">Total {appConfig.labels?.label_pengguna || 'Siswa'}</span>
                     </span>
@@ -282,20 +339,20 @@ const Dashboard = () => {
 
                   <div className="space-y-1.5 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#f84a72]" />
-                      <span className="font-extrabold text-[#111625] dark:text-white">%{hadirPercent}</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+                      <span className="font-extrabold text-[#0b1730] dark:text-white">%{hadirPercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Hadir</span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#fbb034]" />
-                      <span className="font-extrabold text-[#111625] dark:text-white">%{latePercent}</span>
+                      <span className="font-extrabold text-[#0b1730] dark:text-white">%{latePercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Terlambat</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#1b233a] dark:bg-slate-600" />
-                      <span className="font-extrabold text-[#111625] dark:text-white">%{absentPercent}</span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#64748b] dark:bg-slate-400" />
+                      <span className="font-extrabold text-[#0b1730] dark:text-white">%{absentPercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Belum Hadir</span>
                     </div>
                   </div>
@@ -317,7 +374,7 @@ const Dashboard = () => {
                       cx="50"
                       cy="50"
                       r="38"
-                      stroke="#f84a72"
+                      stroke="#f59e0b"
                       strokeWidth="10"
                       fill="none"
                       strokeDasharray="238.7"
@@ -335,10 +392,22 @@ const Dashboard = () => {
                       strokeDashoffset={175.9 - (175.9 * latePercent) / 100}
                       strokeLinecap="round"
                     />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="18"
+                      stroke="#64748b"
+                      strokeWidth="6"
+                      fill="none"
+                      strokeDasharray="113.1"
+                      strokeDashoffset={113.1 - (113.1 * absentPercent) / 100}
+                      strokeLinecap="round"
+                      className="dark:stroke-slate-300"
+                    />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-8 h-8 rounded-full bg-[#feebe8] dark:bg-rose-950 flex items-center justify-center text-[#f84a72] font-black text-xs shadow-inner">
-                      ✦
+                    <div className="w-8 h-8 rounded-full bg-[#eaf2ff] dark:bg-blue-950 flex items-center justify-center text-[#f59e0b] font-black text-xs shadow-inner">
+                      <Sparkles size={14} />
                     </div>
                   </div>
                 </div>
@@ -359,13 +428,13 @@ const Dashboard = () => {
                 onClick={() => setActiveTab('activity')}
                 className={`text-sm font-bold pb-2 transition-all relative ${
                   activeTab === 'activity'
-                    ? 'text-[#111625] dark:text-white'
+                    ? 'text-[#0b1730] dark:text-white'
                     : 'text-stone-400 hover:text-stone-600 dark:hover:text-slate-300'
                 }`}
               >
                 <span>Aktivitas Presensi Terakhir</span>
                 {activeTab === 'activity' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#111625] dark:bg-cyan-400 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0b1730] dark:bg-cyan-400 rounded-full" />
                 )}
               </button>
             </div>
@@ -403,7 +472,7 @@ const Dashboard = () => {
 
                         <div className="min-w-0 truncate">
                           <div className="flex items-center gap-2">
-                            <p className="font-bold text-[#111625] dark:text-white text-xs sm:text-sm truncate">
+                            <p className="font-bold text-[#0b1730] dark:text-white text-xs sm:text-sm truncate">
                               {name}
                             </p>
                           </div>
@@ -421,7 +490,7 @@ const Dashboard = () => {
                       <div className="flex items-center gap-3 shrink-0">
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${
                           isLate
-                            ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
                             : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
                         }`}>
                           {isLate ? '↓ Terlambat' : '↑ Hadir'}
@@ -437,7 +506,7 @@ const Dashboard = () => {
               <span className="text-stone-400 dark:text-slate-500">Menampilkan {Math.min(6, filteredLogs.length)} dari {filteredLogs.length} data</span>
               <Link
                 to="/admin/reports"
-                className="font-bold text-[#111625] dark:text-cyan-400 hover:text-blue-600 inline-flex items-center gap-1"
+                className="font-bold text-[#0b1730] dark:text-cyan-400 hover:text-blue-600 inline-flex items-center gap-1"
               >
                 <span>Buka Seluruh Laporan</span>
                 <ArrowRight size={13} />
@@ -452,114 +521,61 @@ const Dashboard = () => {
           
           {/* STAT CARD 1: COMMENTS / RASIO KEHADIRAN */}
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm border border-stone-200/70 dark:border-slate-700 flex items-center justify-between gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-rose-950/50 flex flex-col items-center justify-center shrink-0">
-              <span className="text-lg font-black text-[#111625] dark:text-white leading-none">
+            <div className="w-16 h-16 rounded-2xl bg-[#eaf2ff] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
+              <span className="text-lg font-black text-[#0b1730] dark:text-white leading-none">
                 {hadirPercent}%
               </span>
-              <MessageSquare size={14} className="text-[#f84a72] mt-1" />
+              <MessageSquare size={14} className="text-[#f59e0b] mt-1" />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#111625] dark:text-white truncate">Rasio Kehadiran Hari Ini</p>
+              <p className="text-xs font-bold text-[#0b1730] dark:text-white truncate">Rasio Kehadiran Hari Ini</p>
               <div className="mt-2 w-full bg-stone-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-[#ff6053] to-[#e13478] h-full rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-[#1d4ed8] to-[#38bdf8] h-full rounded-full transition-all duration-500"
                   style={{ width: `${hadirPercent}%` }}
                 />
               </div>
             </div>
           </div>
 
-          {/* STAT CARD 2: WEEKLY BAR CHART */}
-          <div className="bg-white dark:bg-slate-800 rounded-[2.25rem] p-7 shadow-sm border border-stone-200/70 dark:border-slate-700 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#111625] dark:text-white">
-                Statistik Mingguan
-              </span>
-              <span className="text-[10px] text-stone-400 font-semibold">Senin - Minggu</span>
+          {/* STAT CARD 2: REAL DATA WEEKLY CHART */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-sm font-bold text-slate-900 dark:text-white">Statistik Mingguan</p><p className="text-xs text-slate-500 mt-1">Jumlah hadir dan terlambat dibanding total anggota terdaftar</p></div>
+              <span className="rounded-lg bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">Aktual</span>
             </div>
-
-            <div className="relative pt-6 pb-2">
-              <div className="absolute inset-x-0 top-12 h-16 pointer-events-none z-10 opacity-70">
-                <svg viewBox="0 0 200 40" className="w-full h-full" fill="none">
-                  <path
-                    d="M 10 25 Q 40 10, 70 20 T 130 15 T 190 20"
-                    stroke="#111625"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    className="dark:stroke-slate-300"
-                  />
-                  <path
-                    d="M 10 32 Q 50 15, 90 28 T 150 10 T 190 25"
-                    stroke="#f84a72"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-
-              <div className="grid grid-cols-7 gap-2.5 items-end h-36 z-0">
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-20 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">S</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-28 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">S</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-24 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">R</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end relative">
-                  <span className="text-[#f84a72] text-[10px] -mb-1 animate-bounce">★</span>
-                  <div className="w-3.5 bg-gradient-to-t from-[#f84a72] to-[#ff7a68] h-32 rounded-full shadow-md shadow-rose-500/20" />
-                  <span className="text-[10px] font-extrabold text-[#f84a72]">K</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-24 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">J</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-16 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">S</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 h-full justify-end">
-                  <div className="w-3.5 bg-[#dedbd2] dark:bg-slate-700 h-26 rounded-full" />
-                  <span className="text-[10px] font-bold text-stone-400">M</span>
-                </div>
-              </div>
+            <div className="grid grid-cols-7 gap-2 items-end h-40 pt-2">
+              {(weeklyStats.length ? weeklyStats : ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(label => ({ label, count: 0 }))).map((day, index) => {
+                // Gunakan total anggota terdaftar sebagai skala tetap agar perbandingan antarhari tidak menyesatkan.
+                const maxCount = Math.max(1, Number(data.total) || 0);
+                const height = Number.isFinite(day.count) && day.count > 0 ? Math.min(112, Math.max(5, Math.round((day.count / maxCount) * 112))) : 4;
+                return <div key={day.date || day.label || index} className="flex h-full flex-col items-center justify-end gap-2 min-w-0">
+                  <span className="text-[10px] font-semibold text-slate-500">{Number.isFinite(day.count) ? day.count : "—"}</span>
+                  <div className="w-full max-w-5 rounded-t-lg bg-gradient-to-t from-blue-800 via-blue-600 to-sky-400 transition-all duration-500" style={{ height: `${height}px` }} title={`${day.label}: ${Number.isFinite(day.count) ? `${day.count} hadir` : 'data tidak tersedia'}`} />
+                  <span className="text-[10px] font-semibold text-slate-500 capitalize">{day.label}</span>
+                </div>;
+              })}
             </div>
-
-            <div className="pt-3 border-t border-stone-100 dark:border-slate-700 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#feebe8] dark:bg-rose-950/40 flex items-center justify-center text-[#f84a72]">
-                  <Calendar size={15} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-[#111625] dark:text-white">Presensi Aktif</p>
-                  <p className="text-[10px] text-stone-400 dark:text-slate-400">Hari Operasional</p>
-                </div>
-              </div>
-              <span className="text-base font-extrabold text-[#111625] dark:text-white font-['Poppins']">
-                {data.hadir + data.terlambat} Hadir
-              </span>
+            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
+              <div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"><Calendar size={16} /></div><div><p className="text-xs font-bold text-slate-900 dark:text-white">Presensi hari ini</p><p className="text-[10px] text-slate-500">Hadir + terlambat</p></div></div>
+              <span className="text-sm font-extrabold text-slate-900 dark:text-white">{data.hadir + data.terlambat}</span>
             </div>
           </div>
 
           {/* STAT CARD 3: QUICK LINK KE LAPORAN */}
           <div className="bg-white dark:bg-slate-800 rounded-[2rem] p-5 shadow-sm border border-stone-200/70 dark:border-slate-700 flex items-center justify-between gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#feebe8] dark:bg-rose-950/50 flex flex-col items-center justify-center shrink-0">
-              <span className="text-lg font-black text-[#111625] dark:text-white leading-none">
+            <div className="w-16 h-16 rounded-2xl bg-[#eaf2ff] dark:bg-blue-950/50 flex flex-col items-center justify-center shrink-0">
+              <span className="text-lg font-black text-[#0b1730] dark:text-white leading-none">
                 {data.logs.length}
               </span>
-              <ThumbsUp size={14} className="text-[#f84a72] mt-1" />
+              <ThumbsUp size={14} className="text-[#f59e0b] mt-1" />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#111625] dark:text-white truncate">Total Log Presensi Terkumpul</p>
+              <p className="text-xs font-bold text-[#0b1730] dark:text-white truncate">Total Log Presensi Terkumpul</p>
               <div className="mt-2 w-full bg-stone-100 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
-                <div className="bg-[#111625] dark:bg-cyan-400 h-full rounded-full w-full" />
+                <div className="bg-[#0b1730] dark:bg-cyan-400 h-full rounded-full w-full" />
               </div>
             </div>
           </div>
@@ -568,6 +584,40 @@ const Dashboard = () => {
 
       </div>
 
+      {syncModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 backdrop-blur-md p-4" role="dialog" aria-modal="true" aria-labelledby="portal-sync-title">
+          <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-blue-100/70 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-950 via-blue-600 to-orange-400" />
+            <button type="button" onClick={() => { if (!syncingPortal) setSyncModalOpen(false); }} disabled={syncingPortal} className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800" aria-label="Tutup dialog"><X size={18} /></button>
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-900 via-blue-700 to-sky-400 text-white shadow-lg shadow-blue-900/20">
+              {syncProgress === 100 ? <CheckCircle2 size={30} /> : <CloudUpload size={30} className={syncingPortal ? 'animate-pulse' : ''} />}
+            </div>
+            <div className="text-center"><p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.22em] text-blue-700 dark:text-blue-300">Nebula transfer channel</p><h2 id="portal-sync-title" className="text-xl font-extrabold text-slate-900 dark:text-white">{syncingPortal ? 'Mengirim data ke Portal' : syncProgress === 100 ? 'Proses sinkronisasi selesai' : 'Status pengiriman data'}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">{syncMessage}</p></div>
+            <div className="my-7 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-4 dark:border-slate-800 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/30">
+              <div className="mb-4 flex items-center justify-between text-xs"><span className="font-semibold text-slate-600 dark:text-slate-300">Kanal transfer data</span><span className="font-extrabold tabular-nums text-blue-800 dark:text-sky-300">{syncProgress}%</span></div>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-sky-100 bg-white/90 p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-950 text-sky-200 shadow-md"><Database size={18} /></span>
+                  <span className="text-[10px] font-extrabold tracking-wide text-slate-700 dark:text-slate-200">NEBULA</span>
+                  <span className="text-[9px] text-slate-400">Data lokal</span>
+                </div>
+                <div className="relative flex w-14 flex-col items-center justify-center">
+                  <ArrowRight size={20} className={syncingPortal ? 'animate-pulse text-blue-700 dark:text-sky-300' : 'text-slate-400'} />
+                  {syncingPortal && <><span className="absolute -top-3 left-2 h-1.5 w-1.5 animate-bounce rounded-full bg-sky-400" /><span className="absolute top-1 left-5 h-1.5 w-1.5 animate-ping rounded-full bg-orange-400" /><span className="absolute -bottom-3 right-2 h-1.5 w-1.5 animate-bounce rounded-full bg-blue-700 [animation-delay:180ms]" /></>}
+                </div>
+                <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-orange-100 bg-white/90 p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-700 text-white shadow-md"><Cloud size={18} /></span>
+                  <span className="text-[10px] font-extrabold tracking-wide text-slate-700 dark:text-slate-200">PORTAL</span>
+                  <span className="text-[9px] text-slate-400">Server tujuan</span>
+                </div>
+              </div>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400 transition-all duration-500" style={{ width: `${syncProgress}%` }} /></div>
+              <div className="mt-3 flex items-center justify-between gap-2 text-[10px] font-semibold text-slate-500"><span className="inline-flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${syncingPortal ? 'animate-pulse bg-orange-400' : syncProgress === 100 ? 'bg-emerald-500' : 'bg-slate-400'}`} />{syncingPortal ? 'Paket data sedang bergerak' : syncProgress === 100 ? 'Transfer selesai' : 'Kanal menunggu'}</span><span>LOCAL → CLOUD</span></div>
+            </div>
+            {!syncingPortal && <button type="button" onClick={() => setSyncModalOpen(false)} className="w-full rounded-xl bg-gradient-to-r from-blue-900 to-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:brightness-110">Tutup</button>}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

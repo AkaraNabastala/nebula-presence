@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/axios';
 import * as XLSX from 'xlsx-js-style';
-import { Download, ClipboardList, BookOpen, RefreshCw } from 'lucide-react';
+import { Download, ClipboardList, BookOpen } from 'lucide-react';
 
 const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -118,7 +118,7 @@ const PresensiEkskul = () => {
     ]);
 
     if (!attendanceRows.length && !journalRows.length) {
-      window.alert('Tidak ada data kehadiran maupun jurnal pada bulan ini.');
+      setError('Tidak ada data kehadiran maupun jurnal pada bulan ini.');
       return;
     }
 
@@ -177,13 +177,6 @@ const PresensiEkskul = () => {
           </label>
 
           <div className="flex items-end gap-2 flex-wrap">
-            <button
-              onClick={loadData}
-              disabled={loading}
-              className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-slate-700 flex items-center gap-2"
-            >
-              <RefreshCw size={16} /> Muat Ulang
-            </button>
             <button
               onClick={exportMonthlyReport}
               className="px-4 py-2 rounded-lg bg-emerald-600 text-white flex items-center gap-2"

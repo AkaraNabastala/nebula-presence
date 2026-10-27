@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Trash2, Plus, AlertCircle } from 'lucide-react';
+import { Calendar, Trash2, Plus, AlertCircle, X, ShieldAlert } from 'lucide-react';
 import api from '../api/axios';
-import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
 
 const Holidays = () => {
     const [holidays, setHolidays] = useState([]);
@@ -9,6 +9,8 @@ const Holidays = () => {
     const [date, setDate] = useState('');
     const [description, setDescription] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'holiday_date', direction: 'desc' });
+    const [deleteCandidate, setDeleteCandidate] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchHolidays = async () => {
         try {
@@ -16,6 +18,7 @@ const Holidays = () => {
             setHolidays(res.data?.data || (Array.isArray(res.data) ? res.data : []));
         } catch (error) {
             console.error("Gagal memuat hari libur", error);
+            toast.error(error.response?.data?.message || "Gagal memuat kalender libur.");
         } finally {
             setIsLoading(false);
         }
@@ -31,34 +34,27 @@ const Holidays = () => {
 
         try {
             await api.post('/holidays', { date, description });
-            Swal.fire('Berhasil', 'Hari libur ditambahkan', 'success');
+            toast.success('Hari libur ditambahkan.');
             setDate('');
             setDescription('');
             fetchHolidays();
         } catch (error) {
-            Swal.fire('Gagal', error.response?.data?.message || 'Gagal menambahkan data', 'error');
+            toast.error(error.response?.data?.message || 'Gagal menambahkan hari libur.');
         }
     };
 
-    const handleDelete = async (id) => {
-        const confirm = await Swal.fire({
-            title: 'Hapus Hari Libur?',
-            text: "Data yang dihapus tidak bisa dikembalikan!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: 'Ya, Hapus!'
-        });
-
-        if (confirm.isConfirmed) {
-            try {
-                await api.delete(`/holidays/${id}`);
-                Swal.fire('Terhapus!', 'Hari libur berhasil dihapus.', 'success');
-                fetchHolidays();
-            } catch {
-                Swal.fire('Gagal!', 'Terjadi kesalahan saat menghapus.', 'error');
-            }
+    const handleDelete = async () => {
+        if (!deleteCandidate) return;
+        setDeleting(true);
+        try {
+            await api.delete(`/holidays/${deleteCandidate.id}`);
+            toast.success('Hari libur berhasil dihapus.');
+            setDeleteCandidate(null);
+            await fetchHolidays();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Gagal menghapus hari libur.');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -84,11 +80,11 @@ const Holidays = () => {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex justify-between items-center dark:bg-slate-800 dark:border-slate-700">
+        <div className="sky-time-canvas p-6 max-w-6xl mx-auto space-y-6">
+            <div className="schedule-hero bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-sky-100 dark:border-slate-700 p-6 flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                        <Calendar className="w-6 h-6 text-red-500" />
+                        <Calendar className="w-6 h-6 text-sky-700" />
                         Kalender Libur (Tanggal Merah)
                     </h1>
                     <p className="text-slate-500 mt-1 dark:text-slate-400">
@@ -114,7 +110,7 @@ const Holidays = () => {
                                 required
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                             />
                         </div>
 
@@ -128,13 +124,13 @@ const Holidays = () => {
                                 placeholder="Cth: Hari Raya Idul Fitri"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500 outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                             />
                         </div>
 
                         <button
                             type="submit"
-                            className="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 rounded-xl transition-colors shadow-sm"
+                            className="w-full bg-sky-700 hover:bg-sky-800 text-white font-medium py-2 rounded-xl transition-colors shadow-sm"
                         >
                             Simpan Hari Libur
                         </button>
@@ -180,7 +176,7 @@ const Holidays = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <button
-                                                    onClick={() => handleDelete(h.id)}
+                                                    onClick={() => setDeleteCandidate({ id: h.id, description: h.description || h.keterangan || h.nama_libur || 'hari libur' })}
                                                     className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all dark:hover:bg-red-900/30"
                                                     title="Hapus"
                                                 >
@@ -195,6 +191,28 @@ const Holidays = () => {
                     </div>
                 </div>
             </div>
+
+            {deleteCandidate && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !deleting) setDeleteCandidate(null); }}>
+                    <div role="dialog" aria-modal="true" aria-labelledby="delete-holiday-title" className="w-full max-w-sm rounded-2xl border border-sky-100 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <span className="rounded-xl bg-rose-50 p-2.5 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300"><ShieldAlert size={20} /></span>
+                                <div>
+                                    <h3 id="delete-holiday-title" className="font-bold text-slate-900 dark:text-white">Hapus hari libur?</h3>
+                                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{deleteCandidate.description}</p>
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => setDeleteCandidate(null)} disabled={deleting} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Tutup"><X size={17} /></button>
+                        </div>
+                        <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Data yang dihapus tidak dapat dipulihkan.</p>
+                        <div className="mt-5 flex justify-end gap-2">
+                            <button type="button" onClick={() => setDeleteCandidate(null)} disabled={deleting} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button>
+                            <button type="button" onClick={handleDelete} disabled={deleting} className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50">{deleting ? 'Menghapus…' : 'Hapus'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

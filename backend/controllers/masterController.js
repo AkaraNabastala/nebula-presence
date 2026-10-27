@@ -1,4 +1,5 @@
 const { pool, rootPath, logDir } = require('../config/database');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 const { exec } = require('child_process');
 const xlsx = require('xlsx');
@@ -74,7 +75,10 @@ exports.getAllMembers = async (req, res) => {
         `;
         const r = await pool.query(q);
         res.json({ data: r.rows || [], labels });
-    } catch (e) { res.json({ data: [], labels: {} }); }
+    } catch (e) {
+        console.error('getAllMembers failed:', e);
+        res.status(500).json({ message: 'Gagal memuat daftar anggota. Periksa koneksi database dan log server.' });
+    }
 };
 
 exports.getFaceMembers = async (req, res) => {
@@ -357,5 +361,106 @@ exports.deleteDivision = async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ message: "Gagal menghapus data" });
+    }
+};
+
+
+/**
+ * Daftar akun login guru yang dikelola dari Nebula Presence.
+ * Kata sandi/hash tidak pernah dikirim kembali ke UI.
+ */
+exports.getTeacherAccounts = async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                m.id AS member_id,
+                m.full_name,
+                m.identity_number,
+                m.identity_reference,
+                m.role,
+                d.name AS division_name,
+                ta.username,
+                ta.created_at
+            FROM members m
+            LEFT JOIN divisions d ON d.id = m.division_id
+            LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
+            WHERE LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas')
+            ORDER BY m.full_name ASC
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        console.error('[Teacher Accounts] Gagal memuat akun:', error);
+        res.status(500).json({ success: false, message: 'Gagal memuat akun login guru.' });
+    }
+};
+
+exports.upsertTeacherAccount = async (req, res) => {
+    const memberId = Number(req.params.memberId);
+    const username = String(req.body?.username || '').trim();
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+    if (!Number.isInteger(memberId) || memberId <= 0) {
+        return res.status(400).json({ success: false, message: 'Guru yang dipilih tidak valid.' });
+    }
+    if (username.length < 3 || username.length > 80) {
+        return res.status(400).json({ success: false, message: 'Username harus berisi 3–80 karakter.' });
+    }
+    if (password && (password.length < 8 || password.length > 200)) {
+        return res.status(400).json({ success: false, message: 'Kata sandi baru minimal 8 karakter.' });
+    }
+
+    try {
+        const memberResult = await pool.query(
+            'SELECT id, full_name, role FROM members WHERE id = $1 LIMIT 1',
+            [memberId]
+        );
+        const member = memberResult.rows[0];
+        if (!member || !['guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas'].includes(String(member.role || '').normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' '))) {
+            return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
+        }
+
+        const existingResult = await pool.query(
+            'SELECT id FROM teacher_accounts WHERE member_id = $1 LIMIT 1',
+            [memberId]
+        );
+        const existing = existingResult.rows[0];
+        if (!existing && !password) {
+            return res.status(400).json({ success: false, message: 'Kata sandi wajib diisi saat membuat akun pertama kali.' });
+        }
+
+        if (existing) {
+            if (password) {
+                const passwordHash = await bcrypt.hash(password, 12);
+                await pool.query(
+                    'UPDATE teacher_accounts SET username = $1, password_hash = $2, is_active = 1 WHERE member_id = $3',
+                    [username, passwordHash, memberId]
+                );
+            } else {
+                await pool.query(
+                    'UPDATE teacher_accounts SET username = $1, is_active = 1 WHERE member_id = $2',
+                    [username, memberId]
+                );
+            }
+        } else {
+            const passwordHash = await bcrypt.hash(password, 12);
+            await pool.query(
+                'INSERT INTO teacher_accounts (member_id, username, password_hash) VALUES ($1, $2, $3)',
+                [memberId, username, passwordHash]
+            );
+        }
+
+        // Tandai anggota agar username/hash akun terbaru dikirim pada sinkronisasi berikutnya.
+        await pool.query('UPDATE members SET is_synced = 0 WHERE id = $1', [memberId]);
+        try {
+            await addAuditLog(req.user?.nama_admin || 'Admin', 'Perbarui Akun Login Guru', member.full_name);
+        } catch (_) {}
+
+        res.json({ success: true, message: 'Akun guru tersimpan. Sinkronkan ke portal untuk mengaktifkan login.' });
+    } catch (error) {
+        if (error.code === '23505') {
+            return res.status(409).json({ success: false, message: 'Username tersebut sudah digunakan.' });
+        }
+        console.error('[Teacher Accounts] Gagal menyimpan akun:', error);
+        res.status(500).json({ success: false, message: 'Gagal menyimpan akun login guru.' });
     }
 };

@@ -1,0 +1,36 @@
+name: Backend tests
+
+on:
+  push:
+    branches:
+      - main
+      - audit-and-fixes-2026-10
+      - audit-comprehensive-2026-10
+  pull_request:
+    branches:
+      - main
+      - audit-and-fixes-2026-10
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci
+      - name: Run backend tests
+        run: npm test

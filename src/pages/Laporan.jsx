@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
+import { toast } from 'react-toastify';
 import { FileText, Calendar, Filter, ChevronDown, Printer, Search, Building2, Download, FileDown } from 'lucide-react';
 
 
@@ -70,8 +71,9 @@ const Laporan = () => {
                     });
                     setReportData(Array.isArray(res.data) ? res.data : []);
                 } catch (err) {
-                    console.error("Gagal tarik laporan default");
+                    console.error("Gagal tarik laporan default:", err);
                     setReportData([]);
+                    toast.error(err.response?.data?.message || "Gagal memuat laporan harian.");
                 } finally {
                     setLoading(false);
                 }
@@ -89,11 +91,13 @@ const Laporan = () => {
                 params: { start_date: startDate, end_date: endDate, kelas: selectedClass }
             });
             setReportData(Array.isArray(res.data) ? res.data : []);
-        } catch {
-            console.error("Gagal tarik laporan");
+        } catch (error) {
+            console.error("Gagal tarik laporan:", error);
             setReportData([]);
+            toast.error(error.response?.data?.message || "Gagal memuat laporan. Periksa koneksi server.");
+        } finally {
+            setLoading(false);
         }
-        finally { setLoading(false); }
     };
 
     // 2. Perbaiki fungsi format jam agar lebih rapi (Surgical Fix)
@@ -118,20 +122,28 @@ const Laporan = () => {
     };
 
     const handleExportExcel = async () => {
-        if (reportData.length === 0) {
-            showToast('error', "Tidak ada data untuk diexport!");
+        if (loading) {
+            toast.info("Tunggu proses pemuatan laporan selesai.");
             return;
         }
 
+        const exportToast = toast.loading("Menyiapkan file Excel...");
         try {
             const res = await api.get(`/attendance/report`, {
                 params: { start_date: startDate, end_date: endDate, kelas: selectedClass }
             });
 
-            const fullMonthData = res.data || [];
+            const fullMonthData = Array.isArray(res.data)
+                ? res.data
+                : (Array.isArray(res.data?.data) ? res.data.data : []);
 
             if (fullMonthData.length === 0) {
-                showToast('error', "Tidak ada data pada periode ini!");
+                toast.update(exportToast, {
+                    render: "Tidak ada data pada periode yang dipilih.",
+                    type: "error",
+                    isLoading: false,
+                    autoClose: 3500
+                });
                 return;
             }
 
@@ -148,7 +160,7 @@ const Laporan = () => {
                 [`Periode: ${formatTgl(startDate)} - ${formatTgl(endDate)}`],
                 [`${labelKelompok}: ${selectedClass || 'SEMUA'}`],
                 [],
-                ["NO", "ID", "NAMA LENGKAP", "MASUK", "PULANG", "STATUS"]
+                ["NO", "TANGGAL", "ID", "NAMA LENGKAP", "MASUK", "PULANG", "STATUS"]
             ];
 
             const sortedData = [...fullMonthData].sort((a, b) => {
@@ -161,8 +173,9 @@ const Laporan = () => {
             sortedData.forEach((row, idx) => {
                 excelData.push([
                     idx + 1,
+                    formatTgl(row.tanggal),
                     row.id_anggota || row.identity_number || row.nipd || row.nisn || '-',
-                    row.nama_lengkap || '-',
+                    row.nama_lengkap || row.full_name || '-',
                     formatTime(row.scan_in),
                     formatTime(row.scan_out),
                     row.status || 'BELUM ABSEN'
@@ -173,18 +186,18 @@ const Laporan = () => {
             const wb = XLSX.utils.book_new();
 
             ws['!cols'] = [
-                { wch: 5 }, { wch: 15 }, { wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+                { wch: 5 }, { wch: 18 }, { wch: 15 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
             ];
 
             ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } }
             ];
 
             for (let r = 0; r < excelData.length; r++) {
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 7; c++) {
                     const cellRef = XLSX.utils.encode_cell({ c, r });
                     if (!ws[cellRef]) continue;
 
@@ -208,11 +221,36 @@ const Laporan = () => {
             }
 
             XLSX.utils.book_append_sheet(wb, ws, "Rekap_Kehadiran");
-            XLSX.writeFile(wb, `Rekap_Absensi_${startDate}_to_${endDate}.xlsx`);
-            showToast('success', "Data kehadiran berhasil diexport!");
+
+            // Buat Blob secara eksplisit agar unduhan bekerja konsisten di browser desktop.
+            const fileArray = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            const fileBlob = new Blob([fileArray], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            });
+            const fileUrl = URL.createObjectURL(fileBlob);
+            const downloadLink = document.createElement("a");
+            downloadLink.href = fileUrl;
+            downloadLink.download = `Rekap_Absensi_${startDate}_to_${endDate}.xlsx`;
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            window.setTimeout(() => URL.revokeObjectURL(fileUrl), 10000);
+
+            toast.update(exportToast, {
+                render: "File Excel berhasil dibuat.",
+                type: "success",
+                isLoading: false,
+                autoClose: 3000
+            });
         } catch (error) {
             console.error("Export error:", error);
-            showToast('error', "Terjadi kesalahan saat export data");
+            toast.update(exportToast, {
+                render: error?.response?.data?.message || error?.message || "Gagal membuat file Excel.",
+                type: "error",
+                isLoading: false,
+                autoClose: 5000
+            });
         }
     };
 

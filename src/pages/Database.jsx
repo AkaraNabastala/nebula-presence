@@ -1,117 +1,39 @@
-import React, { useState } from 'react';
-import { Database as DatabaseIcon, DownloadCloud, UploadCloud, CheckCircle, AlertCircle, X } from 'lucide-react';
-import api from '../api/axios';
+import React from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Database, DownloadCloud, UploadCloud, ShieldCheck } from 'lucide-react';
+import BackupPage from './BackupPage';
+import RestorePage from './RestorePage';
 
-const Database = () => {
-  const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState({ show: false, type: '', message: '' });
+const tabs = [
+  { id: 'overview', label: 'Ringkasan', icon: Database },
+  { id: 'backup', label: 'Backup', icon: DownloadCloud },
+  { id: 'restore', label: 'Pulihkan', icon: UploadCloud }
+];
 
-  const showToast = (type, message) => {
-    setNotification({ show: true, type, message });
-    setTimeout(() => setNotification({ show: false, type: '', message: '' }), 3000);
-  };
+export default function DatabasePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = ['overview', 'backup', 'restore'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
+  const chooseTab = tab => setSearchParams(tab === 'overview' ? {} : { tab });
 
-  const handleBackup = async () => {
-      try {
-          const response = await api.get('/backup', { responseType: 'blob' });
-          const url = window.URL.createObjectURL(new Blob([response.data]));
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', `backup_database_${new Date().toISOString().slice(0,10)}.sqlite`);
-          document.body.appendChild(link);
-          link.click();
-          link.parentNode.removeChild(link);
-          showToast('success', "Backup berhasil diunduh!");
-      } catch {
-          showToast('error', "Gagal mengunduh backup database.");
-      }
-  };
-
-  const handleRestore = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append('backup_file', file);
-
-      setLoading(true);
-      try {
-          await api.post('/restore', formData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          showToast('success', "Database berhasil direstore! Memuat ulang...");
-          setTimeout(() => {
-              window.location.reload();
-          }, 1500);
-      } catch {
-          showToast('error', "Gagal melakukan restore database.");
-      }
-      setLoading(false);
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-24 md:pb-10 font-sans">
-      {notification.show && (
-        <div className={`fixed top-4 right-4 z-[99] flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl animate-in slide-in-from-right border bg-white ${notification.type === 'success' ? 'border-green-200 text-green-700' : 'border-red-200 text-red-700'}`}>
-            {notification.type === 'success' ? <CheckCircle size={22} className="text-green-500"/> : <AlertCircle size={22} className="text-red-500"/>}
-            <div><h4 className="font-bold text-sm">{notification.type === 'success' ? 'Berhasil' : 'Gagal'}</h4><p className="text-xs text-gray-500">{notification.message}</p></div>
-            <button onClick={() => setNotification({ show: false })}><X size={18} className="text-gray-400"/></button>
-        </div>
-      )}
-      
-      {/* HEADER */}
-      <div className="flex items-center gap-4 mb-8">
-          <div className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm text-purple-600">
-              <DatabaseIcon size={28}/>
-          </div>
-          <div>
-              <h2 className="text-2xl font-bold text-gray-800">Manajemen Database</h2>
-              <p className="text-sm text-gray-500">Amankan data presensi secara rutin. Cadangkan atau pulihkan data Anda.</p>
-          </div>
+  return <div className="mx-auto max-w-5xl space-y-5 pb-10">
+    <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+      <div className="relative flex items-start gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg"><Database size={22} /></span>
+        <div><span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">Pusat Pemeliharaan</span><h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Manajemen Database</h1><p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Backup, pemulihan, dan perlindungan database disatukan dalam satu halaman. Pilih tab tanpa berpindah menu.</p></div>
       </div>
+    </section>
 
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8">
-            <div className="w-full md:w-1/3">
-                <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center mb-4 border border-purple-100">
-                    <DatabaseIcon size={24} className="text-purple-500" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-800 mb-2">Pusat Data</h2>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                    Fitur ini memungkinkan Anda untuk mencadangkan (Backup) atau memulihkan (Restore) seluruh konfigurasi dan riwayat absen dalam satu file.
-                </p>
-            </div>
-            <div className="w-full md:w-2/3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                <div className="border border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center">
-                    <DownloadCloud size={32} className="text-blue-500 mb-3" />
-                    <h3 className="font-bold text-gray-800 mb-1">Backup Data</h3>
-                    <p className="text-xs text-gray-500 mb-4">Unduh semua data ke format .sql</p>
-                    <button onClick={handleBackup} className="px-6 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 transition-colors w-full">
-                        Download Backup
-                    </button>
-                </div>
-
-                <div className="border border-gray-200 p-6 rounded-2xl flex flex-col items-center justify-center text-center relative">
-                    {loading && (
-                        <div className="absolute inset-0 bg-white/80 rounded-2xl flex items-center justify-center z-10 backdrop-blur-sm">
-                            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                    )}
-                    <UploadCloud size={32} className="text-orange-500 mb-3" />
-                    <h3 className="font-bold text-gray-800 mb-1">Restore Data</h3>
-                    <p className="text-xs text-gray-500 mb-4">Pulihkan dari file .sql / .sqlite</p>
-                    <label htmlFor="restore-file-input" className="px-6 py-2 bg-orange-50 text-orange-600 font-bold rounded-xl hover:bg-orange-100 transition-colors w-full cursor-pointer relative z-0">
-                        Upload & Restore
-                        <input id="restore-file-input" name="restore_file" type="file" accept=".sql,.sqlite" onChange={handleRestore} disabled={loading} className="hidden" />
-                    </label>
-                </div>
-                
-            </div>
-        </div>
-      </div>
+    <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900" role="tablist" aria-label="Manajemen database">
+      {tabs.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} type="button" role="tab" aria-selected={active} onClick={() => chooseTab(tab.id)} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${active ? 'bg-blue-950 text-white shadow-sm dark:bg-sky-700' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}`}><Icon size={16} />{tab.label}</button>; })}
     </div>
-  );
-};
 
-export default Database;
+    {activeTab === 'overview' && <section className="grid gap-4 md:grid-cols-2">
+      <button type="button" onClick={() => chooseTab('backup')} className="group rounded-2xl border border-sky-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"><span className="inline-flex rounded-xl bg-sky-100 p-3 text-blue-800 dark:bg-blue-950/60 dark:text-sky-300"><DownloadCloud size={22} /></span><h2 className="mt-4 font-extrabold text-slate-900 dark:text-white">Backup Database</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Buat dan unduh snapshot SQLite yang konsisten.</p><span className="mt-4 inline-block text-sm font-bold text-sky-800 dark:text-sky-300">Buka backup →</span></button>
+      <button type="button" onClick={() => chooseTab('restore')} className="group rounded-2xl border border-orange-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"><span className="inline-flex rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"><UploadCloud size={22} /></span><h2 className="mt-4 font-extrabold text-slate-900 dark:text-white">Pulihkan Database</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Validasi file backup dan konfirmasi sebelum mengganti database aktif.</p><span className="mt-4 inline-block text-sm font-bold text-orange-800 dark:text-orange-300">Buka pemulihan →</span></button>
+      <aside className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100 md:col-span-2"><ShieldCheck size={18} className="mt-0.5 shrink-0" /><p className="text-xs leading-relaxed"><strong>Lindungi data:</strong> file backup dapat memuat data pribadi. Simpan di lokasi tepercaya dan buat backup terbaru sebelum pemulihan.</p></aside>
+    </section>}
+    {activeTab === 'backup' && <BackupPage compact />}
+    {activeTab === 'restore' && <RestorePage compact />}
+  </div>;
+}

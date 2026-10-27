@@ -1,20 +1,25 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+    Award,
     CalendarDays,
     ClipboardList,
     Users,
     Plus,
     BookOpen,
-    RefreshCw,
     Download,
-    Filter
+    Filter,
+    X,
+    CheckCircle2,
+    Pencil,
+    Trash2,
+    Clock
 } from 'lucide-react';
 import api from '../api/axios';
-import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
 
-const inputClass = "w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400 dark:bg-slate-700 dark:border-slate-600 dark:text-white";
-const cardClass = "bg-white rounded-2xl border border-slate-100 shadow-sm p-5 dark:bg-slate-800 dark:border-slate-700";
+const inputClass = "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:focus:ring-blue-950";
+const cardClass = "bg-white rounded-2xl border border-blue-100/80 shadow-sm p-5 sm:p-6 dark:bg-slate-900 dark:border-slate-800";
 const currentMonth = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -31,17 +36,26 @@ const today = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+const weekDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 export default function Extracurricular() {
     const [tab, setTab] = useState('ekskul');
     const [items, setItems] = useState([]);
     const [members, setMembers] = useState([]);
+    const [membersLoading, setMembersLoading] = useState(true);
     const [attendance, setAttendance] = useState([]);
     const [journals, setJournals] = useState([]);
     const [selected, setSelected] = useState('');
     const [date, setDate] = useState(today());
     const [month, setMonth] = useState(currentMonth());
     const [loading, setLoading] = useState(false);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [savingEkskul, setSavingEkskul] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deletingEkskul, setDeletingEkskul] = useState(false);
+    const [showJournalModal, setShowJournalModal] = useState(false);
+    const [savingJournal, setSavingJournal] = useState(false);
 
     const [name, setName] = useState('');
     const [supervisorId, setSupervisorId] = useState('');
@@ -79,11 +93,7 @@ export default function Extracurricular() {
 
     const downloadMonthlyJournal = async () => {
         if (!filteredJournals.length) {
-            return Swal.fire(
-                'Tidak ada data',
-                'Tidak ada jurnal pada filter bulan dan ekskul yang dipilih.',
-                'info'
-            );
+            return toast.info('Tidak ada jurnal pada filter bulan dan ekskul yang dipilih.');
         }
 
         const XLSX = await import("xlsx-js-style");
@@ -135,26 +145,37 @@ export default function Extracurricular() {
             || 'Semua-Ekskul';
 
         XLSX.writeFile(wb, `Jurnal-${selectedName.replace(/[^a-z0-9-_]/gi, '-')}-${journalMonth || 'Semua-Bulan'}.xlsx`);
+        toast.success('File jurnal ekstrakurikuler berhasil disiapkan.');
     };
     const loadExtracurriculars = async () => {
         try {
             const res = await api.get('/extracurriculars');
             const data = res.data?.data || [];
             setItems(data);
-            if (!selected && data.length) setSelected(String(data[0].id));
+            if (!selected || !data.some(item => String(item.id) === String(selected))) {
+                setSelected(data.length ? String(data[0].id) : '');
+            }
         } catch (err) {
-            Swal.fire('Gagal', err.response?.data?.message || 'Gagal memuat data ekskul.', 'error');
+            toast.error(err.response?.data?.message || 'Gagal memuat data ekskul.');
         }
     };
 
     
     const loadMembers = async () => {
+        setMembersLoading(true);
         try {
             const res = await api.get('/members');
             const data = res.data?.data || res.data;
-            setMembers(Array.isArray(data) ? data : []);
+            if (!Array.isArray(data)) {
+                throw new Error('Format respons data anggota tidak sesuai.');
+            }
+            setMembers(data);
         } catch (err) {
-            console.error('Gagal memuat peserta', err);
+            console.error('Gagal memuat data guru dan siswa untuk ekskul:', err);
+            setMembers([]);
+            toast.error(err.response?.data?.message || 'Data guru/siswa gagal dimuat. Periksa koneksi API dan log server.');
+        } finally {
+            setMembersLoading(false);
         }
     };
     
@@ -177,17 +198,13 @@ export default function Extracurricular() {
                     .map(student => String(student.id))
             );
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal memuat anggota ekskul.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal memuat anggota ekskul.');
         }
     };
 
     const saveExtracurricularMembers = async () => {
         if (!selected) {
-            return Swal.fire('Perhatian', 'Pilih ekskul terlebih dahulu.', 'warning');
+            return toast.warning('Pilih ekskul terlebih dahulu.');
         }
 
         setSavingMembers(true);
@@ -197,23 +214,21 @@ export default function Extracurricular() {
                 member_ids: selectedStudentIds.map(Number)
             });
 
-            Swal.fire('Berhasil', 'Pendaftaran siswa berhasil disimpan.', 'success');
+            toast.success('Pendaftaran siswa berhasil disimpan.');
             await loadExtracurricularMembers();
             await loadExtracurriculars();
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menyimpan anggota ekskul.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan anggota ekskul.');
         } finally {
             setSavingMembers(false);
         }
     };
 
-    const supervisors = members.filter(member =>
-        String(member.role || '').toLowerCase() === 'guru'
-    );
+    const normalizeRole = value => String(value || '').normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+    const supervisors = members.filter(member => {
+        const role = normalizeRole(member.role);
+        return role === 'guru' || role.startsWith('guru ') || role === 'teacher' || role === 'pengajar' || role === 'wali kelas';
+    });
 
     const students = members.filter(member =>
         String(member.role || '').toLowerCase() === 'siswa'
@@ -253,11 +268,7 @@ export default function Extracurricular() {
 
             setAttendanceDrafts(drafts);
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal memuat absensi.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal memuat absensi.');
         }
     };
 
@@ -289,11 +300,7 @@ export default function Extracurricular() {
 
             setJournals(res.data?.data || []);
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal memuat jurnal.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal memuat jurnal.');
         }
     };
 
@@ -325,46 +332,98 @@ export default function Extracurricular() {
     }, [selected]);
 
     
-    const addExtracurricular = async (e) => {
+    const openAddModal = () => {
+        setEditingId(null);
+        setName('');
+        setSupervisorId('');
+        setScheduleDays([]);
+        setScheduleStart('15:00');
+        setScheduleEnd('16:30');
+        setShowAddModal(true);
+    };
+
+    const openEditModal = (item) => {
+        setEditingId(String(item.id));
+        setName(item.name || '');
+        setSupervisorId(String(item.supervisor_id || ''));
+        const scheduleMatch = String(item.schedule || '').match(/^(.*?)\s*[·•]\s*(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})$/);
+        if (scheduleMatch) {
+            setScheduleDays(scheduleMatch[1].split(',').map(day => day.trim()).filter(day => weekDays.includes(day)));
+            setScheduleStart(scheduleMatch[2]);
+            setScheduleEnd(scheduleMatch[3]);
+        } else {
+            setScheduleDays([]);
+            setScheduleStart('15:00');
+            setScheduleEnd('16:30');
+        }
+        setShowAddModal(true);
+    };
+
+    const saveExtracurricular = async (e) => {
         e.preventDefault();
 
         if (!name.trim()) {
-            return Swal.fire('Perhatian', 'Nama ekskul wajib diisi.', 'warning');
+            return toast.warning('Nama ekskul wajib diisi.');
+        }
+        if (!supervisorId) {
+            return toast.warning('Pilih guru pembina.');
+        }
+        if (scheduleDays.length === 0) {
+            return toast.warning('Pilih minimal satu hari kegiatan.');
+        }
+        if (!scheduleStart || !scheduleEnd || scheduleEnd <= scheduleStart) {
+            return toast.warning('Waktu selesai harus setelah waktu mulai.');
         }
 
-        if (!supervisorId) {
-            return Swal.fire('Perhatian', 'Pilih guru Pembina.', 'warning');
-        }
+        setSavingEkskul(true);
+        const payload = {
+            name: name.trim(),
+            supervisor_id: Number(supervisorId),
+            schedule: `${scheduleDays.join(', ')} · ${scheduleStart}–${scheduleEnd}`
+        };
 
         try {
-            await api.post('/extracurriculars', {
-                name: name.trim(),
-                supervisor_id: Number(supervisorId)
-            });
-
-            Swal.fire('Berhasil', 'Ekskul berhasil ditambahkan.', 'success');
+            if (editingId) {
+                await api.put(`/extracurriculars/${editingId}`, payload);
+                toast.success('Data ekskul berhasil diperbarui.');
+            } else {
+                await api.post('/extracurriculars', payload);
+                toast.success('Ekskul berhasil ditambahkan.');
+            }
+            setShowAddModal(false);
+            setEditingId(null);
             setName('');
             setSupervisorId('');
+            setScheduleDays([]);
             await loadExtracurriculars();
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menambahkan ekskul.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan data ekskul.');
+        } finally {
+            setSavingEkskul(false);
         }
     };
 
-    
+    const deleteExtracurricular = async () => {
+        if (!deleteTarget) return;
+        setDeletingEkskul(true);
+        try {
+            await api.delete(`/extracurriculars/${deleteTarget.id}`);
+            toast.success('Data ekskul berhasil dihapus.');
+            setDeleteTarget(null);
+            if (String(selected) === String(deleteTarget.id)) setSelected('');
+            await loadExtracurriculars();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Gagal menghapus data ekskul.');
+        } finally {
+            setDeletingEkskul(false);
+        }
+    };
+
     const saveAttendance = async (e) => {
         e.preventDefault();
 
         if (!selected || !memberId) {
-            return Swal.fire(
-                'Perhatian',
-                'Pilih ekskul dan peserta terlebih dahulu.',
-                'warning'
-            );
+            return toast.warning('Pilih ekskul dan peserta terlebih dahulu.');
         }
 
         try {
@@ -376,21 +435,17 @@ export default function Extracurricular() {
                 notes: attendanceNotes
             });
 
-            Swal.fire('Berhasil', 'Absensi berhasil disimpan.', 'success');
+            toast.success('Absensi berhasil disimpan.');
             setAttendanceNotes('');
             await loadAttendance();
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menyimpan absensi.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan absensi.');
         }
     };
 
     const saveAttendanceBulk = async () => {
         if (!selected) {
-            return Swal.fire('Perhatian', 'Pilih ekskul terlebih dahulu.', 'warning');
+            return toast.warning('Pilih ekskul terlebih dahulu.');
         }
 
         const studentsToSave = registeredStudents.filter(
@@ -398,11 +453,7 @@ export default function Extracurricular() {
         );
 
         if (studentsToSave.length === 0) {
-            return Swal.fire(
-                'Perhatian',
-                'Belum ada siswa yang terdaftar pada ekskul ini.',
-                'warning'
-            );
+            return toast.warning('Belum ada siswa yang terdaftar pada ekskul ini.');
         }
 
         const records = studentsToSave.map(student => {
@@ -426,17 +477,9 @@ export default function Extracurricular() {
 
             await loadAttendance();
 
-            await Swal.fire(
-                'Berhasil',
-                res.data?.message || 'Semua absensi berhasil disimpan.',
-                'success'
-            );
+            await toast.success(res.data?.message || 'Semua absensi berhasil disimpan.');
         } catch (err) {
-            Swal.fire(
-                'Gagal',
-                err.response?.data?.message || 'Gagal menyimpan absensi massal.',
-                'error'
-            );
+            toast.error(err.response?.data?.message || 'Gagal menyimpan absensi massal.');
         } finally {
             setSavingAttendance(false);
         }
@@ -446,29 +489,33 @@ export default function Extracurricular() {
     const saveJournal = async (e) => {
         e.preventDefault();
         if (!selected || !topic.trim()) {
-            return Swal.fire('Perhatian', 'Pilih ekskul dan isi topik kegiatan.', 'warning');
+            return toast.warning('Pilih ekskul dan isi topik kegiatan.');
         }
+        setSavingJournal(true);
         try {
             await api.post('/extracurriculars/journals', {
                 extracurricular_id: Number(selected),
                 activity_date: date,
                 start_time: startTime || null,
                 end_time: endTime || null,
-                topic,
+                topic: topic.trim(),
                 activity_description: activityDescription,
                 attendance_count: Number(attendanceCount) || 0,
                 notes: journalNotes
             });
-            Swal.fire('Berhasil', 'Jurnal kegiatan berhasil disimpan.', 'success');
+            toast.success('Jurnal kegiatan berhasil disimpan.');
             setTopic('');
             setStartTime('');
             setEndTime('');
             setActivityDescription('');
             setAttendanceCount('0');
             setJournalNotes('');
+            setShowJournalModal(false);
             await loadJournals();
         } catch (err) {
-            Swal.fire('Gagal', err.response?.data?.message || 'Gagal menyimpan jurnal.', 'error');
+            toast.error(err.response?.data?.message || 'Gagal menyimpan jurnal.');
+        } finally {
+            setSavingJournal(false);
         }
     };
 
@@ -479,27 +526,27 @@ export default function Extracurricular() {
     ];
 
     return (
-        <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-            <div className={`${cardClass} flex flex-wrap items-center justify-between gap-4`}>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-                        Monitoring Ekstrakurikuler
-                    </h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        Pantau data ekskul, rekap absensi peserta, dan riwayat jurnal tanpa mengubah data.
-                    </p>
-                </div>
-                <button onClick={refresh} disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50">
-                    <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                    Muat Ulang
-                </button>
-            </div>
+        <div className="mx-auto max-w-7xl space-y-6 pb-8">
+            <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.09)] dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 sm:p-7">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+                <div className="pointer-events-none absolute -right-10 -top-12 h-48 w-48 rounded-full bg-sky-300/30 blur-3xl dark:bg-blue-500/15" />
+                <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-4">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg"><Award size={22} /></span>
+                        <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-800 dark:text-sky-300">KEGIATAN SISWA · RUANG MONITORING</span>
+                            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">Monitoring Ekstrakurikuler</h1>
+                            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">Kelola data pembina, pantau kehadiran peserta, dan telusuri jurnal kegiatan melalui panel yang terpisah.</p>
+                        </div>
+                    </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                </div>
+            </section>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className={cardClass}>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Total Ekskul</p>
-                    <p className="text-3xl font-bold mt-2 text-indigo-600">{items.length}</p>
+                    <p className="text-3xl font-bold mt-2 text-blue-600">{items.length}</p>
                 </div>
                 <div className={cardClass}>
                     <p className="text-sm text-slate-500 dark:text-slate-400">Catatan Absensi Bulan {month}</p>
@@ -511,72 +558,27 @@ export default function Extracurricular() {
                 </div>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="grid grid-cols-3 gap-2 rounded-2xl border border-sky-100 bg-white p-2 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 {tabs.map(({ id, label, icon: Icon }) => (
-                    <button key={id} onClick={() => setTab(id)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium whitespace-nowrap ${
+                    <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id}
+                        className={`flex min-w-0 items-center justify-center gap-2 rounded-xl px-2 py-3 text-[11px] font-bold transition sm:px-4 sm:text-xs ${
                             tab === id
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-white text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                ? 'bg-gradient-to-r from-blue-950 via-blue-800 to-blue-600 text-white shadow-md shadow-blue-900/15'
+                                : 'text-slate-600 hover:bg-sky-50 dark:text-slate-300 dark:hover:bg-slate-800'
                         }`}>
-                        <Icon size={18} /> {label}
+                        <Icon size={16} /> <span className="truncate">{label}</span>
                     </button>
                 ))}
             </div>
 
             {tab === 'ekskul' && (
-                <div className={cardClass + ' mb-5'}>
-                    <h2 className="font-bold text-slate-800 dark:text-white mb-4">
-                        Tambah Ekskul
-                    </h2>
-                    <form onSubmit={addExtracurricular} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <label className="block text-sm text-slate-600 dark:text-slate-300">
-                            Nama ekstrakurikuler
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                maxLength={100}
-                                required
-                                placeholder="Contoh: Pramuka"
-                                className={inputClass + ' mt-1'}
-                            />
-                        </label>
-                        <label className="block text-sm text-slate-600 dark:text-slate-300">
-                            Guru Pembina
-                            <select
-                                value={supervisorId}
-                                onChange={e => setSupervisorId(e.target.value)}
-                                required
-                                className={inputClass + ' mt-1'}
-                            >
-                                <option value="">Pilih guru Pembina</option>
-                                {supervisors.map(teacher => (
-                                    <option key={teacher.id} value={teacher.id}>
-                                        {teacher.full_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-                            <button
-                                type="submit"
-                                disabled={!supervisors.length}
-                                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <Plus size={16} /> Tambah Ekskul
-                            </button>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                                Jadwal latihan dan anggota dikelola Pembina melalui portal online.
-                            </p>
-                        </div>
-                        {!supervisors.length && (
-                            <p className="md:col-span-2 text-sm text-amber-600 dark:text-amber-400">
-                                Belum ada data guru untuk dipilih sebagai Pembina.
-                            </p>
-                        )}
-                    </form>
-                </div>
+                <section className={cardClass + ' flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'}>
+                    <div className="flex items-start gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-blue-800 dark:bg-blue-950 dark:text-sky-300"><Plus size={20} /></span>
+                        <div><h2 className="font-extrabold text-slate-900 dark:text-white">Direktori Ekstrakurikuler</h2><p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">Tambah unit kegiatan melalui formulir terfokus agar daftar tetap ringkas.</p></div>
+                    </div>
+                    <button type="button" onClick={openAddModal} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-xs font-bold text-white shadow-md shadow-blue-900/15"><Plus size={15} /> Tambah Ekskul</button>
+                </section>
             )}
 
             {tab === 'ekskul' && (
@@ -585,26 +587,37 @@ export default function Extracurricular() {
                         Daftar Ekskul
                     </h2>
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
+                        <table className="w-full min-w-[640px] text-sm text-left">
                             <thead className="bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300">
                                 <tr>
                                     <th className="p-3">Nama</th>
                                     <th className="p-3">Pembina</th>
                                     <th className="p-3">Jadwal</th>
                                     <th className="p-3">Peserta Tercatat</th>
+                                    <th className="p-3 text-right">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                 {items.map(item => (
-                                    <tr key={item.id}>
+                                    <tr key={item.id} className="transition hover:bg-blue-50/60 dark:hover:bg-slate-800/60">
                                         <td className="p-3 font-medium text-slate-800 dark:text-white">{item.name}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.assigned_supervisor_name || item.supervisor_name || '-'}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.schedule || '-'}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.total_peserta ?? 0}</td>
+                                        <td className="p-3">
+                                            <div className="flex justify-end gap-2">
+                                                <button type="button" onClick={() => openEditModal(item)} aria-label={`Ubah ${item.name}`} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-blue-900 transition hover:bg-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700">
+                                                    <Pencil size={14} /> Ubah
+                                                </button>
+                                                <button type="button" onClick={() => setDeleteTarget(item)} aria-label={`Hapus ${item.name}`} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/60">
+                                                    <Trash2 size={14} /> Hapus
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                                 {!items.length && (
-                                    <tr><td colSpan="4" className="p-6 text-center text-slate-400">Belum ada data ekskul.</td></tr>
+                                    <tr><td colSpan="5" className="p-6 text-center text-slate-400">Belum ada data ekskul.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -706,14 +719,10 @@ export default function Extracurricular() {
                                 </p>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={downloadMonthlyJournal}
-                                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                            >
-                                <Download size={16} />
-                                Download Excel (.xlsx)
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                                <button type="button" onClick={() => setShowJournalModal(true)} disabled={!selected} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50"><Plus size={15} /> Tambah Jurnal</button>
+                                <button type="button" onClick={downloadMonthlyJournal} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-xs font-bold text-blue-900 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700"><Download size={15} /> Download Excel</button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -758,7 +767,7 @@ export default function Extracurricular() {
                                         <h3 className="font-bold text-slate-800 dark:text-white">
                                             {j.topic}
                                         </h3>
-                                        <span className="text-sm text-indigo-600 dark:text-indigo-400">
+                                        <span className="text-sm text-blue-600 dark:text-blue-400">
                                             {j.activity_date
                                                 ? String(j.activity_date).slice(0, 10)
                                                 : '-'}
@@ -799,6 +808,87 @@ export default function Extracurricular() {
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+            {showJournalModal && tab === 'jurnal' && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="journal-modal-title">
+                    <form onSubmit={saveJournal} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[1.75rem] border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400" />
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-orange-50/60 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
+                            <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-sky-300">Dokumentasi Kegiatan</span><h2 id="journal-modal-title" className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">Tambah Jurnal Ekskul</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Catat topik, waktu, dan ringkasan aktivitas yang telah dilaksanakan.</p></div>
+                            <button type="button" onClick={() => !savingJournal && setShowJournalModal(false)} disabled={savingJournal} className="rounded-xl p-2 text-slate-500 hover:bg-white dark:hover:bg-slate-800" aria-label="Tutup modal"><X size={18} /></button>
+                        </div>
+                        <div className="grid gap-4 p-5 sm:grid-cols-2">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Ekstrakurikuler<select value={selected} onChange={e => setSelected(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih ekskul</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Tanggal kegiatan<input type="date" value={date} onChange={e => setDate(e.target.value)} required className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Topik kegiatan<input value={topic} onChange={e => setTopic(e.target.value)} maxLength={160} required placeholder="Contoh: Latihan dasar dan kerja sama tim" className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu mulai<input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu selesai<input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Jumlah peserta<input type="number" min="0" value={attendanceCount} onChange={e => setAttendanceCount(e.target.value)} className={inputClass + ' mt-1.5'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Deskripsi kegiatan<textarea value={activityDescription} onChange={e => setActivityDescription(e.target.value)} rows={3} maxLength={2000} placeholder="Ringkasan kegiatan yang dilaksanakan…" className={inputClass + ' mt-1.5 resize-y'} /></label>
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-200 sm:col-span-2">Catatan tambahan<textarea value={journalNotes} onChange={e => setJournalNotes(e.target.value)} rows={2} maxLength={1000} placeholder="Catatan jika ada…" className={inputClass + ' mt-1.5 resize-y'} /></label>
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
+                            <button type="button" onClick={() => setShowJournalModal(false)} disabled={savingJournal} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                            <button type="submit" disabled={savingJournal} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><CheckCircle2 size={14} />{savingJournal ? 'Menyimpan…' : 'Simpan Jurnal'}</button>
+                        </div>
+                    </form>
+                </div>
+            )}
+            {showAddModal && tab === 'ekskul' && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="add-ekskul-title">
+                    <form onSubmit={saveExtracurricular} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[1.75rem] border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400" />
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-orange-50/60 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
+                            <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-sky-300">Data Kegiatan</span><h2 id="add-ekskul-title" className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">{editingId ? 'Ubah Ekstrakurikuler' : 'Tambah Ekstrakurikuler'}</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Atur nama, guru pembina, dan jadwal kegiatan.</p></div>
+                            <button type="button" onClick={() => !savingEkskul && setShowAddModal(false)} disabled={savingEkskul} className="rounded-xl p-2 text-slate-500 hover:bg-white dark:hover:bg-slate-800" aria-label="Tutup modal"><X size={18} /></button>
+                        </div>
+                        <div className="grid gap-4 p-5">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Nama ekstrakurikuler<input type="text" value={name} onChange={e => setName(e.target.value)} maxLength={100} required placeholder="Contoh: Pramuka" className={inputClass + ' mt-1.5'} /></label>
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Guru pembina<select value={supervisorId} onChange={e => setSupervisorId(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih guru pembina</option>{supervisors.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.full_name || teacher.nama_lengkap || `Guru #${teacher.id}`}</option>)}</select></label>
+                            {membersLoading
+                                ? <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">Memuat daftar guru…</p>
+                                : !supervisors.length
+                                    ? <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">Data guru belum ditemukan pada daftar anggota. Pastikan profil guru tersimpan dengan peran Guru di menu Siswa & Guru, lalu muat ulang halaman.</p>
+                                    : null}
+                            <fieldset className="rounded-2xl border border-sky-100 p-4 dark:border-slate-700">
+                                <legend className="px-2 text-xs font-extrabold text-slate-700 dark:text-slate-200">Hari kegiatan</legend>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                    {weekDays.map(day => (
+                                        <label key={day} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${scheduleDays.includes(day) ? 'border-blue-300 bg-sky-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-sky-200' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'}`}>
+                                            <input type="checkbox" checked={scheduleDays.includes(day)} onChange={e => setScheduleDays(prev => e.target.checked ? [...prev, day] : prev.filter(value => value !== day))} className="accent-blue-700" />
+                                            {day}
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu mulai<input type="time" value={scheduleStart} onChange={e => setScheduleStart(e.target.value)} required className={inputClass + ' mt-1.5'} /></label>
+                                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu selesai<input type="time" value={scheduleEnd} onChange={e => setScheduleEnd(e.target.value)} required className={inputClass + ' mt-1.5'} /></label>
+                                </div>
+                                <p className="mt-3 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400"><Clock size={14} /> Jadwal disimpan bersama data ekskul dan ditampilkan pada daftar.</p>
+                            </fieldset>
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
+                            <button type="button" disabled={savingEkskul} onClick={() => setShowAddModal(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                            <button type="submit" disabled={savingEkskul || membersLoading || !supervisors.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{editingId ? <Pencil size={14} /> : <Plus size={14} />}{savingEkskul ? 'Menyimpan…' : editingId ? 'Simpan Perubahan' : 'Simpan Ekskul'}</button>
+                        </div>
+                    </form>
+                </div>
+            )}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="delete-ekskul-title">
+                    <section className="w-full max-w-md overflow-hidden rounded-[1.75rem] border border-rose-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-rose-700 via-rose-500 to-orange-400" />
+                        <div className="p-6">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"><Trash2 size={22} /></span>
+                            <h2 id="delete-ekskul-title" className="mt-4 text-lg font-extrabold text-slate-950 dark:text-white">Hapus ekstrakurikuler?</h2>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Anda akan menghapus <strong>{deleteTarget.name}</strong>. Data yang sudah memiliki anggota atau riwayat absensi/jurnal akan ditolak oleh sistem agar riwayat tidak hilang.</p>
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
+                            <button type="button" disabled={deletingEkskul} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                            <button type="button" disabled={deletingEkskul} onClick={deleteExtracurricular} className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"><Trash2 size={14} />{deletingEkskul ? 'Menghapus…' : 'Ya, Hapus'}</button>
+                        </div>
+                    </section>
                 </div>
             )}
         </div>

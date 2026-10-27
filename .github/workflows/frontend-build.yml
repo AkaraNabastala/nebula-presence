@@ -1,0 +1,32 @@
+name: Frontend build
+
+on:
+  push:
+    branches:
+      - main
+      - audit-and-fixes-2026-10
+      - audit-comprehensive-2026-10
+  pull_request:
+    branches:
+      - main
+      - audit-and-fixes-2026-10
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
