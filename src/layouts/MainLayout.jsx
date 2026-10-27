@@ -285,8 +285,6 @@ const MainLayout = () => {
         { name: 'Sistem Aplikasi', path: '/admin/settings', icon: Settings },
         { name: 'Perangkat Kehadiran', path: '/admin/devices', icon: Laptop },
         { name: 'Manajemen Database', path: '/admin/database', icon: HardDrive },
-        { name: 'Backup Database', path: '/admin/backup', icon: HardDrive },
-        { name: 'Pulihkan Database', path: '/admin/restore', icon: Database },
         { name: 'Log Aktivitas', path: '/admin/audit-logs', icon: Activity },
         { name: 'Profil Akun', path: '/admin/profile', icon: User },
         { name: 'Lisensi & Aktivasi', path: '/admin/license', icon: Key },
