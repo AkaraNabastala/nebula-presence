@@ -224,10 +224,10 @@ export default function Extracurricular() {
         }
     };
 
-    const normalizeRole = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+    const normalizeRole = value => String(value || '').normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
     const supervisors = members.filter(member => {
         const role = normalizeRole(member.role);
-        return role === 'guru' || role.startsWith('guru ') || role === 'teacher' || role === 'pengajar';
+        return role === 'guru' || role.startsWith('guru ') || role === 'teacher' || role === 'pengajar' || role === 'wali kelas';
     });
 
     const students = members.filter(member =>
@@ -845,7 +845,7 @@ export default function Extracurricular() {
                         </div>
                         <div className="grid gap-4 p-5">
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Nama ekstrakurikuler<input type="text" value={name} onChange={e => setName(e.target.value)} maxLength={100} required placeholder="Contoh: Pramuka" className={inputClass + ' mt-1.5'} /></label>
-                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Guru pembina<select value={supervisorId} onChange={e => setSupervisorId(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih guru pembina</option>{supervisors.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.full_name}</option>)}</select></label>
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Guru pembina<select value={supervisorId} onChange={e => setSupervisorId(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih guru pembina</option>{supervisors.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.full_name || teacher.nama_lengkap || `Guru #${teacher.id}`}</option>)}</select></label>
                             {membersLoading
                                 ? <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">Memuat daftar guru…</p>
                                 : !supervisors.length
