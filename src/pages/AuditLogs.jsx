@@ -75,12 +75,14 @@ const AuditLogs = () => {
                             <div className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-100"><ListChecks size={15} className="text-sky-600 dark:text-sky-300" /> Data pada sinkronisasi terakhir</div>
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                 {[
+                                    ['Identitas sekolah', syncStatus.lastSummary.schoolInfo],
+                                    ['Akun admin', syncStatus.lastSummary.adminAccounts],
                                     ['Kelas', syncStatus.lastSummary.classesSent],
-                                    ['Siswa/guru dikonfirmasi', syncStatus.lastSummary.membersConfirmed],
+                                    ['Siswa/guru', syncStatus.lastSummary.membersConfirmed],
                                     ['Jadwal', syncStatus.lastSummary.schedulesConfirmed],
                                     ['Log presensi', syncStatus.lastSummary.attendanceConfirmed],
-                                    ['Izin dari portal diterapkan', syncStatus.lastSummary.remoteUpdatesApplied],
-                                    ['Data dilewati', Number(syncStatus.lastSummary.membersSkipped || 0) + Number(syncStatus.lastSummary.schedulesSkipped || 0)]
+                                    ['Izin diterapkan', syncStatus.lastSummary.remoteUpdatesApplied],
+                                    ['Dilewati', Number(syncStatus.lastSummary.membersSkipped || 0) + Number(syncStatus.lastSummary.schedulesSkipped || 0)]
                                 ].map(([label, value]) => (
                                     <div key={label} className="rounded-lg border border-white/80 bg-white/80 px-2.5 py-2 dark:border-slate-800 dark:bg-slate-900">
                                         <div className="text-lg font-extrabold text-slate-900 dark:text-white">{Number(value || 0).toLocaleString('id-ID')}</div>
