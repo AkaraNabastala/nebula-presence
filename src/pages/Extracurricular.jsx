@@ -335,7 +335,7 @@ export default function Extracurricular() {
         setEditingId(String(item.id));
         setName(item.name || '');
         setSupervisorId(String(item.supervisor_id || ''));
-        const scheduleMatch = String(item.schedule || '').match(/^(.*?)\\s*[·•]\\s*(\\d{2}:\\d{2})\\s*[–-]\\s*(\\d{2}:\\d{2})$/);
+        const scheduleMatch = String(item.schedule || '').match(/^(.*?)\s*[·•]\s*(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})$/);
         if (scheduleMatch) {
             setScheduleDays(scheduleMatch[1].split(',').map(day => day.trim()).filter(day => weekDays.includes(day)));
             setScheduleStart(scheduleMatch[2]);
