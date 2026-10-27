@@ -159,7 +159,7 @@ const Laporan = () => {
                 [`Periode: ${formatTgl(startDate)} - ${formatTgl(endDate)}`],
                 [`${labelKelompok}: ${selectedClass || 'SEMUA'}`],
                 [],
-                ["NO", "ID", "NAMA LENGKAP", "MASUK", "PULANG", "STATUS"]
+                ["NO", "TANGGAL", "ID", "NAMA LENGKAP", "MASUK", "PULANG", "STATUS"]
             ];
 
             const sortedData = [...fullMonthData].sort((a, b) => {
@@ -172,8 +172,9 @@ const Laporan = () => {
             sortedData.forEach((row, idx) => {
                 excelData.push([
                     idx + 1,
+                    formatTgl(row.tanggal),
                     row.id_anggota || row.identity_number || row.nipd || row.nisn || '-',
-                    row.nama_lengkap || '-',
+                    row.nama_lengkap || row.full_name || '-',
                     formatTime(row.scan_in),
                     formatTime(row.scan_out),
                     row.status || 'BELUM ABSEN'
@@ -184,18 +185,18 @@ const Laporan = () => {
             const wb = XLSX.utils.book_new();
 
             ws['!cols'] = [
-                { wch: 5 }, { wch: 15 }, { wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+                { wch: 5 }, { wch: 18 }, { wch: 15 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
             ];
 
             ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } }
             ];
 
             for (let r = 0; r < excelData.length; r++) {
-                for (let c = 0; c < 6; c++) {
+                for (let c = 0; c < 7; c++) {
                     const cellRef = XLSX.utils.encode_cell({ c, r });
                     if (!ws[cellRef]) continue;
 
