@@ -382,6 +382,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
         // 1.5. PUSH TEACHING SCHEDULES: snapshot penuh agar Portal tidak menyimpan jadwal usang.
         emitStage('schedules', 'Mengirim dan mencocokkan jadwal pelajaran...', { progress: 55 });
         try {
+            const scheduleSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_schedules');
+            const assignmentSourceCount = await pool.query('SELECT COUNT(*)::int AS count FROM teaching_assignments');
             const scheduleRes = await pool.query(`
                 SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
                        teacher.identity_number AS teacher_identity_number,
@@ -395,6 +397,16 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 JOIN subjects s ON s.id = ta.subject_id
                 ORDER BY ts.id ASC
             `);
+            if (scheduleRes.rows.length === 0) {
+                const sourceSchedules = Number(scheduleSourceCount.rows[0]?.count || 0);
+                const sourceAssignments = Number(assignmentSourceCount.rows[0]?.count || 0);
+                if (sourceSchedules > 0) {
+                    syncErrors.push(`Jadwal tersimpan (${sourceSchedules}) tetapi tidak ada yang lolos relasi sinkronisasi; periksa assignment, guru, kelas, dan mata pelajaran.`);
+                    console.warn(`[Cloud Sync Schedules] Source schedules=${sourceSchedules}, assignments=${sourceAssignments}, query result=0; periksa relasi yang hilang.`);
+                } else {
+                    console.info(`[Cloud Sync Schedules] Belum ada jadwal sumber. teaching_assignments=${sourceAssignments}.`);
+                }
+            }
             const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
             if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
                 const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
