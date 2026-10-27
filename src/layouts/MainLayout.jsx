@@ -162,6 +162,44 @@ const MainLayout = () => {
     return () => document.removeEventListener('fullscreenchange', syncFullscreen);
   }, []);
 
+  // Warna langit bergerak kontinu mengikuti jam lokal perangkat, bukan berganti mendadak per fase.
+  useEffect(() => {
+    const root = document.documentElement;
+    const stops = [
+      { minute: 0, canvas: '#101a2c', accent: '#536b91', warm: '#1b273d' },
+      { minute: 300, canvas: '#182a42', accent: '#7194b7', warm: '#463c4b' },
+      { minute: 420, canvas: '#b7d9f2', accent: '#438fbd', warm: '#e7c9a5' },
+      { minute: 600, canvas: '#e0f2fc', accent: '#1689bd', warm: '#d7effb' },
+      { minute: 900, canvas: '#c9e4f5', accent: '#367eac', warm: '#c6e4f4' },
+      { minute: 1020, canvas: '#f1b99d', accent: '#d87955', warm: '#e9a17e' },
+      { minute: 1140, canvas: '#52495f', accent: '#a8757d', warm: '#3a3045' },
+      { minute: 1260, canvas: '#1d2b43', accent: '#627ca9', warm: '#18243a' },
+      { minute: 1440, canvas: '#101a2c', accent: '#536b91', warm: '#1b273d' }
+    ];
+    const rgb = hex => hex.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
+    const hex = values => '#' + values.map(value => Math.round(value).toString(16).padStart(2, '0')).join('');
+    const blend = (a, b, t) => {
+      const first = rgb(a), second = rgb(b);
+      return hex(first.map((value, index) => value + (second[index] - value) * t));
+    };
+    const updateSky = () => {
+      const now = new Date();
+      const minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      const hour = minute / 60;
+      root.dataset.skyPhase = hour >= 5 && hour < 10 ? 'morning' : hour >= 10 && hour < 16 ? 'day' : hour >= 16 && hour < 19 ? 'sunset' : 'night';
+      let index = stops.findIndex((stop, i) => i < stops.length - 1 && minute >= stop.minute && minute <= stops[i + 1].minute);
+      if (index < 0) index = stops.length - 2;
+      const from = stops[index], to = stops[index + 1];
+      const progress = Math.max(0, Math.min(1, (minute - from.minute) / (to.minute - from.minute)));
+      root.style.setProperty('--nebula-sky-canvas', blend(from.canvas, to.canvas, progress));
+      root.style.setProperty('--nebula-sky-accent', blend(from.accent, to.accent, progress));
+      root.style.setProperty('--nebula-sky-warm', blend(from.warm, to.warm, progress));
+    };
+    updateSky();
+    const timer = window.setInterval(updateSky, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const toggleFullscreen = async () => {
     try {
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
