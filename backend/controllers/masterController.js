@@ -384,7 +384,7 @@ exports.getTeacherAccounts = async (req, res) => {
             FROM members m
             LEFT JOIN divisions d ON d.id = m.division_id
             LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
-            WHERE LOWER(TRIM(m.role)) IN ('guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar')
+            WHERE LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')
             ORDER BY m.full_name ASC
         `);
         res.json({ success: true, data: result.rows });
@@ -415,7 +415,7 @@ exports.upsertTeacherAccount = async (req, res) => {
             [memberId]
         );
         const member = memberResult.rows[0];
-        if (!member || !['guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar'].includes(String(member.role || '').trim().toLowerCase())) {
+        if (!member || !['guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas'].includes(String(member.role || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' '))) {
             return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
         }
 
