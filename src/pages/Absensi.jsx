@@ -5,7 +5,7 @@ import attendanceService from '../services/attendanceService';
 import {
   Clock, Scan, CheckCircle2,
   AlertCircle, Sparkles, UserCheck, ShieldCheck,
-  Radio, LogIn, Calendar, Eye, ArrowRight
+  Radio, LogIn, Calendar, Eye, ArrowRight, Sun, Moon
 } from 'lucide-react';
 import logoDefault from '../assets/logo-nabastala.png';
 import bgDefault from '../assets/gedung.jpg';
@@ -204,6 +204,12 @@ const Absensi = () => {
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-amber-300/20 rounded-full blur-[140px]" />
         <div className="absolute top-1/2 -left-40 w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-[140px]" />
         <div className="absolute -bottom-40 right-1/3 w-[500px] h-[500px] bg-amber-400/15 rounded-full blur-[140px]" />
+      </div>
+
+      <div className="nebula-kiosk-sky" aria-hidden="true">
+        <Sun className="nebula-kiosk-sun" strokeWidth={1} />
+        <Moon className="nebula-kiosk-moon" strokeWidth={1} />
+        <div className="nebula-kiosk-stars" />
       </div>
 
       {/* 2. TOP BRANDING SECTION */}
