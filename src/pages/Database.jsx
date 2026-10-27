@@ -33,7 +33,7 @@ export default function DatabasePage() {
       <button type="button" onClick={() => chooseTab('restore')} className="group rounded-2xl border border-orange-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"><span className="inline-flex rounded-xl bg-orange-50 p-3 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"><UploadCloud size={22} /></span><h2 className="mt-4 font-extrabold text-slate-900 dark:text-white">Pulihkan Database</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Validasi file backup dan konfirmasi sebelum mengganti database aktif.</p><span className="mt-4 inline-block text-sm font-bold text-orange-800 dark:text-orange-300">Buka pemulihan →</span></button>
       <aside className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100 md:col-span-2"><ShieldCheck size={18} className="mt-0.5 shrink-0" /><p className="text-xs leading-relaxed"><strong>Lindungi data:</strong> file backup dapat memuat data pribadi. Simpan di lokasi tepercaya dan buat backup terbaru sebelum pemulihan.</p></aside>
     </section>}
-    {activeTab === 'backup' && <BackupPage />}
-    {activeTab === 'restore' && <RestorePage />}
+    {activeTab === 'backup' && <BackupPage compact />}
+    {activeTab === 'restore' && <RestorePage compact />}
   </div>;
 }
