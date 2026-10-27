@@ -5,23 +5,53 @@ const extracurricularController = {
     // Daftar ekskul beserta jumlah peserta
     async getAll(req, res) {
         try {
-            const result = await pool.query(`
-                SELECT e.*,
-                    COALESCE(m.full_name, e.supervisor_name) AS assigned_supervisor_name,
-                    (
-                        SELECT COUNT(*)
-                        FROM extracurricular_members em
-                        WHERE em.extracurricular_id = e.id
-                    ) AS total_peserta
-                FROM extracurriculars e
-                LEFT JOIN members m ON m.id = e.supervisor_id
-                ORDER BY e.name
-            `);
+            // Query lengkap untuk database yang sudah memakai relasi pembina dan peserta.
+            try {
+                const result = await pool.query(`
+                    SELECT e.*,
+                        COALESCE(m.full_name, e.supervisor_name) AS assigned_supervisor_name,
+                        (
+                            SELECT COUNT(*)
+                            FROM extracurricular_members em
+                            WHERE em.extracurricular_id = e.id
+                        ) AS total_peserta
+                    FROM extracurriculars e
+                    LEFT JOIN members m ON m.id = e.supervisor_id
+                    ORDER BY e.name
+                `);
+                return res.json({ success: true, data: result.rows || [] });
+            } catch (schemaError) {
+                // Database lama mungkin belum memiliki kolom/tabel relasi terbaru.
+                // Jangan gagalkan seluruh halaman: tampilkan data ekskul yang tersedia.
+                console.warn('[GET /api/extracurriculars] Query relasi lengkap gagal; mencoba kompatibilitas database lama:', schemaError.message);
+            }
 
-            res.json({ success: true, data: result.rows });
+            try {
+                const result = await pool.query(`
+                    SELECT e.*, e.supervisor_name AS assigned_supervisor_name,
+                        0 AS total_peserta
+                    FROM extracurriculars e
+                    ORDER BY e.name
+                `);
+                return res.json({
+                    success: true,
+                    data: result.rows || [],
+                    warning: 'Database belum memiliki seluruh relasi ekskul terbaru.'
+                });
+            } catch (legacyError) {
+                console.error('[GET /api/extracurriculars] Query kompatibilitas juga gagal:', {
+                    message: legacyError.message,
+                    code: legacyError.code || null
+                });
+                return res.status(500).json({
+                    success: false,
+                    message: 'Gagal mengambil data ekskul. Periksa log backend dan struktur database.',
+                    detail: process.env.NODE_ENV === 'production' ? undefined : legacyError.message
+                });
+            }
         } catch (err) {
-            console.error('getAll extracurricular:', err);
-            res.status(500).json({ success: false, message: 'Gagal mengambil data ekskul.' });
+            console.error('[GET /api/extracurriculars] Error:', err);
+            return res.status(500).json({ success: false, message: 'Gagal mengambil data ekskul.' });
         }
     },
 
