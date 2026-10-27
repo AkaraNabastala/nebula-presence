@@ -69,7 +69,7 @@ const extracurricularController = {
             }
 
             const teacherResult = await pool.query(
-                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(TRIM(role)) IN ('guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar')",
+                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')",
                 [teacherId]
             );
             const teacher = teacherResult.rows[0];
@@ -129,7 +129,7 @@ const extracurricularController = {
             }
 
             const teacherResult = await pool.query(
-                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(TRIM(role)) IN ('guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar')",
+                "SELECT id, full_name FROM members WHERE id = $1 AND LOWER(REPLACE(REPLACE(TRIM(role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')",
                 [teacherId]
             );
             const teacher = teacherResult.rows[0];
