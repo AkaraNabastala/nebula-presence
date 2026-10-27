@@ -342,7 +342,7 @@ const Dashboard = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#1b233a] dark:bg-slate-600" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#64748b] dark:bg-slate-400" />
                       <span className="font-extrabold text-[#0b1730] dark:text-white">%{absentPercent}</span>
                       <span className="text-stone-500 dark:text-slate-400 font-medium text-[11px]">Belum Hadir</span>
                     </div>
@@ -387,13 +387,13 @@ const Dashboard = () => {
                       cx="50"
                       cy="50"
                       r="18"
-                      stroke="#1b233a"
+                      stroke="#64748b"
                       strokeWidth="6"
                       fill="none"
                       strokeDasharray="113.1"
                       strokeDashoffset={113.1 - (113.1 * absentPercent) / 100}
                       strokeLinecap="round"
-                      className="dark:stroke-slate-400"
+                      className="dark:stroke-slate-300"
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
