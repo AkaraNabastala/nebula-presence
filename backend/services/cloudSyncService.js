@@ -71,7 +71,7 @@ const getSyncStatus = async (pool) => {
     configRes.rows.forEach(r => settings[r.setting_key] = r.setting_value);
 
     const pendingCountRes = await pool.query(
-        "SELECT COUNT(*) as count FROM attendance_logs WHERE is_synced = 0"
+        "SELECT COUNT(*) as count FROM attendance_logs WHERE is_synced = 0 OR is_synced IS NULL"
     );
 
     let lastErrors = [];
