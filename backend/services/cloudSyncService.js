@@ -283,7 +283,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
                    LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
-                        AND LOWER(TRIM(m.role)) IN ('guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar')
+                        AND LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')
                    ORDER BY m.id ASC`
                  : `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
@@ -291,7 +291,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
                    LEFT JOIN teacher_accounts ta ON ta.member_id = m.id
-                        AND LOWER(TRIM(m.role)) IN ('guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar')
+                        AND LOWER(REPLACE(REPLACE(TRIM(m.role), '_', ' '), '-', ' ')) IN ('guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas')
                    WHERE (m.is_synced = 0 OR m.is_synced IS NULL)
                    ORDER BY m.id ASC
                    LIMIT 100`;
