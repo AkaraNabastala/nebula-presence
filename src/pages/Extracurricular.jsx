@@ -42,6 +42,7 @@ export default function Extracurricular() {
     const [tab, setTab] = useState('ekskul');
     const [items, setItems] = useState([]);
     const [members, setMembers] = useState([]);
+    const [membersLoading, setMembersLoading] = useState(true);
     const [attendance, setAttendance] = useState([]);
     const [journals, setJournals] = useState([]);
     const [selected, setSelected] = useState('');
@@ -161,12 +162,20 @@ export default function Extracurricular() {
 
     
     const loadMembers = async () => {
+        setMembersLoading(true);
         try {
             const res = await api.get('/members');
             const data = res.data?.data || res.data;
-            setMembers(Array.isArray(data) ? data : []);
+            if (!Array.isArray(data)) {
+                throw new Error('Format respons data anggota tidak sesuai.');
+            }
+            setMembers(data);
         } catch (err) {
-            console.error('Gagal memuat peserta', err);
+            console.error('Gagal memuat data guru dan siswa untuk ekskul:', err);
+            setMembers([]);
+            toast.error(err.response?.data?.message || 'Data guru/siswa gagal dimuat. Periksa koneksi API dan log server.');
+        } finally {
+            setMembersLoading(false);
         }
     };
     
@@ -215,9 +224,11 @@ export default function Extracurricular() {
         }
     };
 
-    const supervisors = members.filter(member =>
-        String(member.role || '').toLowerCase() === 'guru'
-    );
+    const normalizeRole = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+    const supervisors = members.filter(member => {
+        const role = normalizeRole(member.role);
+        return role === 'guru' || role.startsWith('guru ') || role === 'teacher' || role === 'pengajar';
+    });
 
     const students = members.filter(member =>
         String(member.role || '').toLowerCase() === 'siswa'
@@ -835,7 +846,11 @@ export default function Extracurricular() {
                         <div className="grid gap-4 p-5">
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Nama ekstrakurikuler<input type="text" value={name} onChange={e => setName(e.target.value)} maxLength={100} required placeholder="Contoh: Pramuka" className={inputClass + ' mt-1.5'} /></label>
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Guru pembina<select value={supervisorId} onChange={e => setSupervisorId(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih guru pembina</option>{supervisors.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.full_name}</option>)}</select></label>
-                            {!supervisors.length && <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">Belum ada data guru untuk dipilih sebagai pembina.</p>}
+                            {membersLoading
+                                ? <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-200">Memuat daftar guru…</p>
+                                : !supervisors.length
+                                    ? <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">Data guru belum ditemukan pada daftar anggota. Pastikan profil guru tersimpan dengan peran Guru di menu Siswa & Guru, lalu muat ulang halaman.</p>
+                                    : null}
                             <fieldset className="rounded-2xl border border-sky-100 p-4 dark:border-slate-700">
                                 <legend className="px-2 text-xs font-extrabold text-slate-700 dark:text-slate-200">Hari kegiatan</legend>
                                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -855,7 +870,7 @@ export default function Extracurricular() {
                         </div>
                         <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
                             <button type="button" disabled={savingEkskul} onClick={() => setShowAddModal(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
-                            <button type="submit" disabled={savingEkskul || !supervisors.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{editingId ? <Pencil size={14} /> : <Plus size={14} />}{savingEkskul ? 'Menyimpan…' : editingId ? 'Simpan Perubahan' : 'Simpan Ekskul'}</button>
+                            <button type="submit" disabled={savingEkskul || membersLoading || !supervisors.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{editingId ? <Pencil size={14} /> : <Plus size={14} />}{savingEkskul ? 'Menyimpan…' : editingId ? 'Simpan Perubahan' : 'Simpan Ekskul'}</button>
                         </div>
                     </form>
                 </div>
