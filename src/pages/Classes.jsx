@@ -416,7 +416,7 @@ const Classes = () => {
         // ==============================================
         <>
           {/* HEADER CARD */}
-          <div className="relative bg-gradient-to-br from-sky-50 via-white to-orange-50 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/50 p-6 rounded-[2rem] shadow-sm border border-sky-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
+          <div className="relative schedule-hero bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-sky-100 dark:border-slate-700 overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-32 h-32 bg-orange-200/20 dark:bg-orange-900/10 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
