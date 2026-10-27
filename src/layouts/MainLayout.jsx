@@ -207,6 +207,15 @@ const MainLayout = () => {
       root.style.setProperty('--nebula-sky-canvas', blend(from.canvas, to.canvas, progress));
       root.style.setProperty('--nebula-sky-accent', blend(from.accent, to.accent, progress));
       root.style.setProperty('--nebula-sky-warm', blend(from.warm, to.warm, progress));
+      // Gerakkan matahari/bulan mengikuti busur langit sesuai jam lokal.
+      const daylight = Math.max(0, Math.min(1, (hour - 5.5) / 12.5));
+      const arcY = 9 + Math.sin(daylight * Math.PI) * 30;
+      const arcX = 7 + daylight * 78;
+      root.style.setProperty('--nebula-sky-object-x', `${arcX}%`);
+      root.style.setProperty('--nebula-sky-object-y', `${arcY}%`);
+      const moonProgress = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12;
+      root.style.setProperty('--nebula-sky-moon-x', `${85 - Math.max(0, Math.min(1, moonProgress)) * 78}%`);
+      root.style.setProperty('--nebula-sky-moon-y', `${9 + Math.sin(Math.max(0, Math.min(1, moonProgress)) * Math.PI) * 30}%`);
     };
     updateSky();
     const timer = window.setInterval(updateSky, 15_000);
