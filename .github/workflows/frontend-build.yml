@@ -3,9 +3,12 @@ name: Frontend build
 on:
   push:
     branches:
+      - main
       - audit-and-fixes-2026-10
+      - audit-comprehensive-2026-10
   pull_request:
     branches:
+      - main
       - audit-and-fixes-2026-10
   workflow_dispatch:
 
