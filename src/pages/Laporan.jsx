@@ -71,8 +71,9 @@ const Laporan = () => {
                     });
                     setReportData(Array.isArray(res.data) ? res.data : []);
                 } catch (err) {
-                    console.error("Gagal tarik laporan default");
+                    console.error("Gagal tarik laporan default:", err);
                     setReportData([]);
+                    toast.error(err.response?.data?.message || "Gagal memuat laporan harian.");
                 } finally {
                     setLoading(false);
                 }
