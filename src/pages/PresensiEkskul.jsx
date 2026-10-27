@@ -118,7 +118,7 @@ const PresensiEkskul = () => {
     ]);
 
     if (!attendanceRows.length && !journalRows.length) {
-      window.alert('Tidak ada data kehadiran maupun jurnal pada bulan ini.');
+      setError('Tidak ada data kehadiran maupun jurnal pada bulan ini.');
       return;
     }
 
