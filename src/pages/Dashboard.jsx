@@ -180,9 +180,12 @@ const Dashboard = () => {
   const absentPercent = Math.max(0, 100 - (hadirPercent + latePercent));
   const lastSuccessfulSync = cloudSyncStatus?.lastTime ? new Date(cloudSyncStatus.lastTime).getTime() : 0;
   const recentPortalConnection = Number.isFinite(lastSuccessfulSync) && lastSuccessfulSync > 0 && (Date.now() - lastSuccessfulSync) < 90000;
+  const portalHandshakeFailed = Array.isArray(cloudSyncStatus?.lastErrors)
+    && cloudSyncStatus.lastErrors.some(error => /handshake portal/i.test(String(error)));
+  const portalSyncAvailable = ['synced', 'partial'].includes(cloudSyncStatus?.lastStatus) && !portalHandshakeFailed;
   const canSendToPortal = String(appConfig.cloud_sync_active) === '1'
     && cloudSyncStatus?.enabled === true
-    && cloudSyncStatus?.lastStatus === 'synced'
+    && portalSyncAvailable
     && Boolean(cloudSyncStatus?.url)
     && recentPortalConnection;
 
