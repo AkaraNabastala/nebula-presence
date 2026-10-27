@@ -10,7 +10,10 @@ import {
     Download,
     Filter,
     X,
-    CheckCircle2
+    CheckCircle2,
+    Pencil,
+    Trash2,
+    Clock
 } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
@@ -33,6 +36,7 @@ const today = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+const weekDays = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 export default function Extracurricular() {
     const [tab, setTab] = useState('ekskul');
@@ -46,6 +50,9 @@ export default function Extracurricular() {
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [savingEkskul, setSavingEkskul] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deletingEkskul, setDeletingEkskul] = useState(false);
     const [showJournalModal, setShowJournalModal] = useState(false);
     const [savingJournal, setSavingJournal] = useState(false);
 
@@ -144,7 +151,9 @@ export default function Extracurricular() {
             const res = await api.get('/extracurriculars');
             const data = res.data?.data || [];
             setItems(data);
-            if (!selected && data.length) setSelected(String(data[0].id));
+            if (!selected || !data.some(item => String(item.id) === String(selected))) {
+                setSelected(data.length ? String(data[0].id) : '');
+            }
         } catch (err) {
             toast.error(err.response?.data?.message || 'Gagal memuat data ekskul.');
         }
@@ -312,37 +321,93 @@ export default function Extracurricular() {
     }, [selected]);
 
     
-    const addExtracurricular = async (e) => {
+    const openAddModal = () => {
+        setEditingId(null);
+        setName('');
+        setSupervisorId('');
+        setScheduleDays([]);
+        setScheduleStart('15:00');
+        setScheduleEnd('16:30');
+        setShowAddModal(true);
+    };
+
+    const openEditModal = (item) => {
+        setEditingId(String(item.id));
+        setName(item.name || '');
+        setSupervisorId(String(item.supervisor_id || ''));
+        const scheduleMatch = String(item.schedule || '').match(/^(.*?)\\s*[·•]\\s*(\\d{2}:\\d{2})\\s*[–-]\\s*(\\d{2}:\\d{2})$/);
+        if (scheduleMatch) {
+            setScheduleDays(scheduleMatch[1].split(',').map(day => day.trim()).filter(day => weekDays.includes(day)));
+            setScheduleStart(scheduleMatch[2]);
+            setScheduleEnd(scheduleMatch[3]);
+        } else {
+            setScheduleDays([]);
+            setScheduleStart('15:00');
+            setScheduleEnd('16:30');
+        }
+        setShowAddModal(true);
+    };
+
+    const saveExtracurricular = async (e) => {
         e.preventDefault();
 
         if (!name.trim()) {
             return toast.warning('Nama ekskul wajib diisi.');
         }
-
         if (!supervisorId) {
-            return toast.warning('Pilih guru Pembina.');
+            return toast.warning('Pilih guru pembina.');
+        }
+        if (scheduleDays.length === 0) {
+            return toast.warning('Pilih minimal satu hari kegiatan.');
+        }
+        if (!scheduleStart || !scheduleEnd || scheduleEnd <= scheduleStart) {
+            return toast.warning('Waktu selesai harus setelah waktu mulai.');
         }
 
         setSavingEkskul(true);
-        try {
-            await api.post('/extracurriculars', {
-                name: name.trim(),
-                supervisor_id: Number(supervisorId)
-            });
+        const payload = {
+            name: name.trim(),
+            supervisor_id: Number(supervisorId),
+            schedule: `${scheduleDays.join(', ')} · ${scheduleStart}–${scheduleEnd}`
+        };
 
-            toast.success('Ekskul berhasil ditambahkan.');
+        try {
+            if (editingId) {
+                await api.put(`/extracurriculars/${editingId}`, payload);
+                toast.success('Data ekskul berhasil diperbarui.');
+            } else {
+                await api.post('/extracurriculars', payload);
+                toast.success('Ekskul berhasil ditambahkan.');
+            }
+            setShowAddModal(false);
+            setEditingId(null);
             setName('');
             setSupervisorId('');
-            setShowAddModal(false);
+            setScheduleDays([]);
             await loadExtracurriculars();
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Gagal menambahkan ekskul.');
+            toast.error(err.response?.data?.message || 'Gagal menyimpan data ekskul.');
         } finally {
             setSavingEkskul(false);
         }
     };
 
-    
+    const deleteExtracurricular = async () => {
+        if (!deleteTarget) return;
+        setDeletingEkskul(true);
+        try {
+            await api.delete(`/extracurriculars/${deleteTarget.id}`);
+            toast.success('Data ekskul berhasil dihapus.');
+            setDeleteTarget(null);
+            if (String(selected) === String(deleteTarget.id)) setSelected('');
+            await loadExtracurriculars();
+        } catch (err) {
+            toast.error(err.response?.data?.message || 'Gagal menghapus data ekskul.');
+        } finally {
+            setDeletingEkskul(false);
+        }
+    };
+
     const saveAttendance = async (e) => {
         e.preventDefault();
 
@@ -501,7 +566,7 @@ export default function Extracurricular() {
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-blue-800 dark:bg-blue-950 dark:text-sky-300"><Plus size={20} /></span>
                         <div><h2 className="font-extrabold text-slate-900 dark:text-white">Direktori Ekstrakurikuler</h2><p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">Tambah unit kegiatan melalui formulir terfokus agar daftar tetap ringkas.</p></div>
                     </div>
-                    <button type="button" onClick={() => setShowAddModal(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-xs font-bold text-white shadow-md shadow-blue-900/15"><Plus size={15} /> Tambah Ekskul</button>
+                    <button type="button" onClick={openAddModal} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-3 text-xs font-bold text-white shadow-md shadow-blue-900/15"><Plus size={15} /> Tambah Ekskul</button>
                 </section>
             )}
 
@@ -518,6 +583,7 @@ export default function Extracurricular() {
                                     <th className="p-3">Pembina</th>
                                     <th className="p-3">Jadwal</th>
                                     <th className="p-3">Peserta Tercatat</th>
+                                    <th className="p-3 text-right">Tindakan</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -527,10 +593,20 @@ export default function Extracurricular() {
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.assigned_supervisor_name || item.supervisor_name || '-'}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.schedule || '-'}</td>
                                         <td className="p-3 text-slate-600 dark:text-slate-300">{item.total_peserta ?? 0}</td>
+                                        <td className="p-3">
+                                            <div className="flex justify-end gap-2">
+                                                <button type="button" onClick={() => openEditModal(item)} aria-label={`Ubah ${item.name}`} className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-blue-900 transition hover:bg-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-sky-300 dark:hover:bg-slate-700">
+                                                    <Pencil size={14} /> Ubah
+                                                </button>
+                                                <button type="button" onClick={() => setDeleteTarget(item)} aria-label={`Hapus ${item.name}`} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/60">
+                                                    <Trash2 size={14} /> Hapus
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                                 {!items.length && (
-                                    <tr><td colSpan="4" className="p-6 text-center text-slate-400">Belum ada data ekskul.</td></tr>
+                                    <tr><td colSpan="5" className="p-6 text-center text-slate-400">Belum ada data ekskul.</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -750,22 +826,54 @@ export default function Extracurricular() {
             )}
             {showAddModal && tab === 'ekskul' && (
                 <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="add-ekskul-title">
-                    <form onSubmit={addExtracurricular} className="w-full max-w-lg overflow-hidden rounded-[1.75rem] border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                    <form onSubmit={saveExtracurricular} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[1.75rem] border border-sky-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
                         <div className="h-1.5 bg-gradient-to-r from-blue-950 via-sky-500 to-orange-400" />
                         <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-orange-50/60 p-5 dark:border-slate-800 dark:from-slate-900 dark:to-slate-800">
-                            <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-sky-300">Data Kegiatan</span><h2 id="add-ekskul-title" className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">Tambah Ekstrakurikuler</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Tentukan nama kegiatan dan guru pembina.</p></div>
+                            <div><span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700 dark:text-sky-300">Data Kegiatan</span><h2 id="add-ekskul-title" className="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">{editingId ? 'Ubah Ekstrakurikuler' : 'Tambah Ekstrakurikuler'}</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Atur nama, guru pembina, dan jadwal kegiatan.</p></div>
                             <button type="button" onClick={() => !savingEkskul && setShowAddModal(false)} disabled={savingEkskul} className="rounded-xl p-2 text-slate-500 hover:bg-white dark:hover:bg-slate-800" aria-label="Tutup modal"><X size={18} /></button>
                         </div>
                         <div className="grid gap-4 p-5">
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Nama ekstrakurikuler<input type="text" value={name} onChange={e => setName(e.target.value)} maxLength={100} required placeholder="Contoh: Pramuka" className={inputClass + ' mt-1.5'} /></label>
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">Guru pembina<select value={supervisorId} onChange={e => setSupervisorId(e.target.value)} required className={inputClass + ' mt-1.5'}><option value="">Pilih guru pembina</option>{supervisors.map(teacher => <option key={teacher.id} value={teacher.id}>{teacher.full_name}</option>)}</select></label>
                             {!supervisors.length && <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">Belum ada data guru untuk dipilih sebagai pembina.</p>}
+                            <fieldset className="rounded-2xl border border-sky-100 p-4 dark:border-slate-700">
+                                <legend className="px-2 text-xs font-extrabold text-slate-700 dark:text-slate-200">Hari kegiatan</legend>
+                                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                    {weekDays.map(day => (
+                                        <label key={day} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition ${scheduleDays.includes(day) ? 'border-blue-300 bg-sky-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-sky-200' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'}`}>
+                                            <input type="checkbox" checked={scheduleDays.includes(day)} onChange={e => setScheduleDays(prev => e.target.checked ? [...prev, day] : prev.filter(value => value !== day))} className="accent-blue-700" />
+                                            {day}
+                                        </label>
+                                    ))}
+                                </div>
+                                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu mulai<input type="time" value={scheduleStart} onChange={e => setScheduleStart(e.target.value)} required className={inputClass + ' mt-1.5'} /></label>
+                                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Waktu selesai<input type="time" value={scheduleEnd} onChange={e => setScheduleEnd(e.target.value)} required className={inputClass + ' mt-1.5'} /></label>
+                                </div>
+                                <p className="mt-3 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400"><Clock size={14} /> Jadwal disimpan bersama data ekskul dan ditampilkan pada daftar.</p>
+                            </fieldset>
                         </div>
                         <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
                             <button type="button" disabled={savingEkskul} onClick={() => setShowAddModal(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
-                            <button type="submit" disabled={savingEkskul || !supervisors.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Plus size={14} />{savingEkskul ? 'Menyimpan…' : 'Simpan Ekskul'}</button>
+                            <button type="submit" disabled={savingEkskul || !supervisors.length} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-950 to-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">{editingId ? <Pencil size={14} /> : <Plus size={14} />}{savingEkskul ? 'Menyimpan…' : editingId ? 'Simpan Perubahan' : 'Simpan Ekskul'}</button>
                         </div>
                     </form>
+                </div>
+            )}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-labelledby="delete-ekskul-title">
+                    <section className="w-full max-w-md overflow-hidden rounded-[1.75rem] border border-rose-100 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                        <div className="h-1.5 bg-gradient-to-r from-rose-700 via-rose-500 to-orange-400" />
+                        <div className="p-6">
+                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"><Trash2 size={22} /></span>
+                            <h2 id="delete-ekskul-title" className="mt-4 text-lg font-extrabold text-slate-950 dark:text-white">Hapus ekstrakurikuler?</h2>
+                            <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">Anda akan menghapus <strong>{deleteTarget.name}</strong>. Data yang sudah memiliki anggota atau riwayat absensi/jurnal akan ditolak oleh sistem agar riwayat tidak hilang.</p>
+                        </div>
+                        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:justify-end">
+                            <button type="button" disabled={deletingEkskul} onClick={() => setDeleteTarget(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Batal</button>
+                            <button type="button" disabled={deletingEkskul} onClick={deleteExtracurricular} className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"><Trash2 size={14} />{deletingEkskul ? 'Menghapus…' : 'Ya, Hapus'}</button>
+                        </div>
+                    </section>
                 </div>
             )}
         </div>
