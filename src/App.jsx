@@ -247,7 +247,6 @@ function App() {
             />
             <Route path="jadwal-pembelajaran" element={<JadwalPembelajaran />} />
             <Route path="mata-pelajaran" element={<Subjects />} />
-            <Route path="monitoring-akademik" element={<MonitoringAkademik />} />
           
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
