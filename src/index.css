@@ -427,3 +427,6 @@ html[data-sky-phase="day"] .nebula-sky-sun { opacity: .2; }
 html[data-sky-phase="sunset"] .nebula-sky-sun { opacity: .15; }
 html[data-sky-phase="night"] .nebula-sky-moon { opacity: .24; }
 .nebula-sky-stars { background-size: 100% 100%; }
+
+.nebula-sky-orb { transition: left 15s linear, top 15s ease-in-out, opacity 1.2s ease, transform 1.8s ease, color 1.8s ease; }
+.nebula-sky-moon { left: var(--nebula-sky-moon-x, 85%); top: var(--nebula-sky-moon-y, 9%); }
