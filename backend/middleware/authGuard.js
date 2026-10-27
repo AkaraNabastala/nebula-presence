@@ -14,7 +14,11 @@ const authGuard = (req, res, next) => {
     }
 
     try {
-        const secret = process.env.JWT_SECRET || 'Nabastala_Secret_Key_2026_XYZ!';
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            console.error('[Auth Guard] JWT_SECRET belum dikonfigurasi.');
+            return res.status(503).json({ message: 'Autentikasi belum dikonfigurasi oleh administrator.' });
+        }
         const decoded = jwt.verify(token, secret);
         // Semua API terproteksi di Nebula Presence khusus admin.
         if (decoded.role !== 'SuperAdmin' || decoded.type === 'teacher') {
