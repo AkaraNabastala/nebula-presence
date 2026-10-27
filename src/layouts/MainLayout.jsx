@@ -448,15 +448,30 @@ const MainLayout = () => {
                     <RefreshCw size={13} className="text-blue-500 animate-spin" />
                     <span className="text-blue-600 dark:text-blue-400 font-medium">Sinkronisasi...</span>
                   </>
+                ) : cloudSyncStatus.lastStatus === 'offline' ? (
+                  <>
+                    <CloudOff size={13} className="text-rose-500" />
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">Portal offline</span>
+                  </>
+                ) : cloudSyncStatus.lastStatus === 'partial' ? (
+                  <>
+                    <CloudOff size={13} className="text-amber-500" />
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">Sinkron parsial</span>
+                  </>
                 ) : cloudSyncStatus.pendingCount > 0 ? (
                   <>
                     <CloudOff size={13} className="text-amber-500" />
                     <span className="text-amber-600 dark:text-amber-400 font-medium">{cloudSyncStatus.pendingCount} antrean</span>
                   </>
-                ) : (
+                ) : cloudSyncStatus.lastStatus === 'synced' ? (
                   <>
                     <Cloud size={13} className="text-emerald-500" />
                     <span className="text-emerald-600 dark:text-emerald-400 font-medium">Cloud Sinkron</span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud size={13} className="text-slate-400" />
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">Belum tersinkron</span>
                   </>
                 )}
               </div>
