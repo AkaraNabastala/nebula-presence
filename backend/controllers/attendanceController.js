@@ -475,7 +475,11 @@ exports.getReport = async (req, res) => {
         res.json([]);
     } catch (e) {
         console.error("Error getReport:", e);
-        res.status(500).json([]);
+        res.status(500).json({
+            success: false,
+            message: "Gagal memuat laporan kehadiran. Periksa log backend.",
+            detail: process.env.NODE_ENV === 'production' ? undefined : e.message
+        });
     }
 };
 
