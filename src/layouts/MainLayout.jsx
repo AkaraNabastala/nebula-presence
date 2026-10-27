@@ -165,17 +165,30 @@ const MainLayout = () => {
   // Warna langit bergerak kontinu mengikuti jam lokal perangkat, bukan berganti mendadak per fase.
   useEffect(() => {
     const root = document.documentElement;
-    const stops = [
-      { minute: 0, canvas: '#101a2c', accent: '#536b91', warm: '#1b273d' },
-      { minute: 300, canvas: '#182a42', accent: '#7194b7', warm: '#463c4b' },
-      { minute: 420, canvas: '#b7d9f2', accent: '#438fbd', warm: '#e7c9a5' },
-      { minute: 600, canvas: '#e0f2fc', accent: '#1689bd', warm: '#d7effb' },
-      { minute: 900, canvas: '#c9e4f5', accent: '#367eac', warm: '#c6e4f4' },
-      { minute: 1020, canvas: '#f1b99d', accent: '#d87955', warm: '#e9a17e' },
-      { minute: 1140, canvas: '#52495f', accent: '#a8757d', warm: '#3a3045' },
-      { minute: 1260, canvas: '#1d2b43', accent: '#627ca9', warm: '#18243a' },
-      { minute: 1440, canvas: '#101a2c', accent: '#536b91', warm: '#1b273d' }
+    root.classList.toggle('dark', isDarkMode);
+    const lightStops = [
+      { minute: 0, canvas: '#18243b', accent: '#607da8', warm: '#25324a' },
+      { minute: 300, canvas: '#263b58', accent: '#83aaca', warm: '#bd9b8f' },
+      { minute: 420, canvas: '#c8e7fb', accent: '#55a9df', warm: '#ffe0b0' },
+      { minute: 600, canvas: '#e6f6ff', accent: '#269bd3', warm: '#f8fcff' },
+      { minute: 900, canvas: '#d7edfb', accent: '#318fc4', warm: '#d7f0ff' },
+      { minute: 1020, canvas: '#ffd0b2', accent: '#e47d57', warm: '#ffc18f' },
+      { minute: 1140, canvas: '#6a6077', accent: '#ba8a8c', warm: '#514359' },
+      { minute: 1260, canvas: '#263650', accent: '#708bb8', warm: '#2a354e' },
+      { minute: 1440, canvas: '#18243b', accent: '#607da8', warm: '#25324a' }
     ];
+    const darkStops = [
+      { minute: 0, canvas: '#090f1e', accent: '#526b9d', warm: '#151d30' },
+      { minute: 300, canvas: '#101827', accent: '#58799f', warm: '#202a3d' },
+      { minute: 420, canvas: '#101f33', accent: '#4c83a8', warm: '#243447' },
+      { minute: 600, canvas: '#0e2233', accent: '#3d8cb9', warm: '#1a3040' },
+      { minute: 900, canvas: '#112438', accent: '#397ba2', warm: '#192c3d' },
+      { minute: 1020, canvas: '#281c25', accent: '#bb755b', warm: '#3c2b32' },
+      { minute: 1140, canvas: '#1b1727', accent: '#8e667c', warm: '#2a2130' },
+      { minute: 1260, canvas: '#090f1e', accent: '#526b9d', warm: '#151d30' },
+      { minute: 1440, canvas: '#090f1e', accent: '#526b9d', warm: '#151d30' }
+    ];
+    const stops = isDarkMode ? darkStops : lightStops;
     const rgb = hex => hex.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
     const hex = values => '#' + values.map(value => Math.round(value).toString(16).padStart(2, '0')).join('');
     const blend = (a, b, t) => {
@@ -198,7 +211,7 @@ const MainLayout = () => {
     updateSky();
     const timer = window.setInterval(updateSky, 15_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [isDarkMode]);
 
   const toggleFullscreen = async () => {
     try {
