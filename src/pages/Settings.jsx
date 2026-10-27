@@ -697,10 +697,11 @@ const Settings = () => {
                                                 name="cloud_sync_url"
                                                 value={config.cloud_sync_url || ''}
                                                 onChange={handleConfigChange}
-                                                placeholder="https://presensi.sekolah.sch.id/api/sync"
+                                                placeholder="http://localhost:5000"
                                                 className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-mono text-gray-800 dark:text-white outline-none focus:border-sky-500"
                                             />
                                         </div>
+                                        <p className="mt-1.5 text-[11px] leading-relaxed text-gray-500 dark:text-slate-400">Untuk pengembangan lokal gunakan http://localhost:5000 (backend Portal). Jangan gunakan port Vite 5173/5174 karena itu server frontend, bukan API sinkronisasi.</p>
                                     </div>
 
                                     <div>
