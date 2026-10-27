@@ -75,6 +75,13 @@ const getSyncStatus = async (pool) => {
     );
 
     let lastErrors = [];
+    let lastSummary = null;
+    try {
+        const parsedSummary = JSON.parse(settings['cloud_sync_last_summary'] || 'null');
+        if (parsedSummary && typeof parsedSummary === 'object') lastSummary = parsedSummary;
+    } catch {
+        lastSummary = null;
+    }
     try {
         const parsedErrors = JSON.parse(settings['cloud_sync_last_errors'] || '[]');
         if (Array.isArray(parsedErrors)) lastErrors = parsedErrors;
@@ -88,7 +95,8 @@ const getSyncStatus = async (pool) => {
         pendingCount: parseInt(pendingCountRes.rows[0]?.count || 0, 10),
         lastStatus: settings['cloud_sync_last_status'] || 'idle',
         lastTime: settings['cloud_sync_last_time'] || '',
-        lastErrors
+        lastErrors,
+        lastSummary
     };
 };
 
@@ -152,6 +160,21 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
         isSyncing = true;
         const syncErrors = [];
+        const syncSummary = {
+            schoolInfo: 0,
+            adminAccounts: 0,
+            classesSent: 0,
+            membersSent: 0,
+            membersConfirmed: 0,
+            membersSkipped: 0,
+            schedulesSent: 0,
+            schedulesConfirmed: 0,
+            schedulesSkipped: 0,
+            attendanceSent: 0,
+            attendanceConfirmed: 0,
+            remoteUpdatesReceived: 0,
+            remoteUpdatesApplied: 0
+        };
         const emitStage = (stage, message, details = {}) => {
             if (io) io.emit('cloud_sync_status', { state: 'syncing', stage, message, ...details });
         };
@@ -189,7 +212,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     school_logo: schoolData.logo_sekolah || ''
                 });
                 if (infoPush.status !== 200 || !infoPush.data?.success) syncErrors.push(`Identitas sekolah gagal dikirim (POST ${infoEndpoint}, HTTP ${infoPush.status}${responseHint(infoPush)}).`);
-                else console.info('[Cloud Sync Portal] Identitas sekolah dan branding berhasil dikirim.');
+                else {
+                    syncSummary.schoolInfo = 1;
+                    console.info('[Cloud Sync Portal] Identitas sekolah dan branding berhasil dikirim.');
+                }
             }
         } catch (infoErr) {
             syncErrors.push(`Identitas sekolah: ${infoErr.message}`);
@@ -208,7 +234,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     if (accountRes.status !== 200 || !accountRes.data?.success) {
                         syncErrors.push(`Akun administrator gagal dikirim (POST ${syncBaseUrl}/push-admin-account, HTTP ${accountRes.status}${responseHint(accountRes)}).`);
                         console.warn('[Cloud Sync Admin Error]:', accountRes.data?.message || `HTTP ${accountRes.status}`);
-                    } else console.info('[Cloud Sync Portal] Kredensial administrator berhasil dikirim melalui koneksi aman.');
+                    } else {
+                        syncSummary.adminAccounts = 1;
+                        console.info('[Cloud Sync Portal] Kredensial administrator berhasil dikirim melalui koneksi aman.');
+                    }
                 }
             } else {
                 syncErrors.push('Akun administrator tidak dikirim: gunakan HTTPS untuk server Portal jarak jauh. HTTP hanya diizinkan untuk localhost.');
@@ -231,7 +260,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 headers: { 'Authorization': `Bearer ${syncToken}` }
             }, { divisions: divRes.rows });
             if (divPush.status !== 200 || !divPush.data?.success) syncErrors.push(`Data kelas gagal dikirim (POST ${divEndpoint}, HTTP ${divPush.status}${responseHint(divPush)}).`);
-            else console.info(`[Cloud Sync Portal] Data kelas terkirim: ${divRes.rows.length} kelas.`);
+            else {
+                syncSummary.classesSent = divRes.rows.length;
+                console.info(`[Cloud Sync Portal] Data kelas terkirim: ${divRes.rows.length} kelas.`);
+            }
         } catch (divErr) {
             syncErrors.push(`Data kelas: ${divErr.message}`);
             console.warn("[Cloud Sync Divisions Error]:", divErr.message);
@@ -262,6 +294,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                    LIMIT 100`;
 
             const pendingMembers = await pool.query(memberQuery);
+            syncSummary.membersSent = pendingMembers.rows.length;
             console.info(`[Cloud Sync Portal] Data anggota disiapkan untuk dikirim: ${pendingMembers.rows.length} siswa/guru.`);
 
             if (pendingMembers.rows.length > 0 || isManual || portalNeedsBootstrap) {
@@ -272,6 +305,8 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 }, { members: pendingMembers.rows });
 
                 if (memRes.status === 200 && Array.isArray(memRes.data?.synced_ids)) {
+                    syncSummary.membersConfirmed = memRes.data.synced_ids.length;
+                    syncSummary.membersSkipped = Number(memRes.data.skipped || 0);
                     console.info(`[Cloud Sync Portal] Data anggota diterima: ${memRes.data.synced_ids.length} anggota; dilewati=${memRes.data.skipped || 0}.`);
                     const acknowledgedIds = new Set(memRes.data.synced_ids.map(id => String(id)));
                     for (const row of pendingMembers.rows) {
@@ -313,6 +348,9 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 syncErrors.push(`Jadwal tidak tersinkron sempurna: ${detail}`);
                 console.warn('[Cloud Sync Schedules Error]:', detail);
             }
+            syncSummary.schedulesSent = scheduleRes.rows.length;
+            syncSummary.schedulesConfirmed = Number(schedulePush.data?.synced || 0);
+            syncSummary.schedulesSkipped = Number(schedulePush.data?.skipped || 0);
             emitStage('schedules', schedulePush.data?.message || 'Jadwal selesai diproses.', {
                 progress: 65, total: scheduleRes.rows.length,
                 processed: Number(schedulePush.data?.synced || 0),
@@ -345,6 +383,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                LIMIT 100`;
 
         const pendingLogs = await pool.query(logQuery);
+        syncSummary.attendanceSent = pendingLogs.rows.length;
         console.info(`[Cloud Sync Portal] Log presensi disiapkan untuk dikirim: ${pendingLogs.rows.length} baris.`);
         const attendanceBatchSize = 200;
         let pushSuccessCount = 0;
@@ -408,6 +447,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
 
             if (pullRes.status === 200 && Array.isArray(pullRes.data?.updates)) {
                 pullSucceeded = true;
+                syncSummary.remoteUpdatesReceived = pullRes.data.updates.length;
                 console.info(`[Cloud Sync Portal] Pembaruan dari Portal diterima: ${pullRes.data.updates.length} item.`);
                 for (const update of pullRes.data.updates) {
                     // Jika anggota belum dikenal, jangan majukan cursor agar update dicoba lagi.
@@ -438,6 +478,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                             [mId, update.status, update.date_log, `${update.date_log} 07:00:00`, update.sync_id || require('crypto').randomUUID()]
                         );
                     }
+                    syncSummary.remoteUpdatesApplied += 1;
                 }
             } else {
                 pullSucceeded = false;
@@ -454,12 +495,13 @@ const performCloudSync = async (pool, io, isManual = false) => {
         const nowStr = now.toISOString();
         const nowSql = nowStr.slice(0, 19).replace('T', ' ');
         const syncStatus = pullSucceeded && syncErrors.length === 0 ? 'synced' : 'partial';
+        syncSummary.attendanceConfirmed = pushSuccessCount;
         const safeSyncErrors = syncErrors.slice(0, 20).map(message =>
             String(message).replace(/(password|token|secret|authorization)\s*[:=]\s*[^,\s]+/gi, '$1=[REDACTED]').slice(0, 500)
         );
         await pool.query(
-            "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', $1), ('cloud_sync_last_time', $2), ('cloud_sync_last_errors', $3) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
-            [syncStatus, nowStr, JSON.stringify(safeSyncErrors)]
+            "INSERT INTO app_settings (setting_key, setting_value) VALUES ('cloud_sync_last_status', $1), ('cloud_sync_last_time', $2), ('cloud_sync_last_errors', $3), ('cloud_sync_last_summary', $4) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value",
+            [syncStatus, nowStr, JSON.stringify(safeSyncErrors), JSON.stringify(syncSummary)]
         );
 
         if (pullSucceeded) {
@@ -472,7 +514,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
         if (io) io.emit('cloud_sync_status', {
             state: syncStatus, stage: 'complete', progress: 100,
             message: syncStatus === 'synced' ? 'Semua tahap sinkronisasi berhasil.' : 'Sinkronisasi selesai dengan sebagian data gagal.',
-            errors: syncErrors, lastTime: nowStr, pushed: pushSuccessCount, pullSucceeded
+            errors: syncErrors, lastTime: nowStr, pushed: pushSuccessCount, pullSucceeded, summary: syncSummary
         });
 
         return {
@@ -480,7 +522,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
             message: syncStatus === 'synced'
                 ? `Sinkronisasi selesai: ${pushSuccessCount} log presensi terkirim dan semua tahap berhasil.`
                 : `Sinkronisasi parsial: ${syncErrors.length} masalah terdeteksi. ${syncErrors.slice(0, 3).join(' ')}`,
-            pushed: pushSuccessCount, pullSucceeded, errors: syncErrors
+            pushed: pushSuccessCount, pullSucceeded, errors: syncErrors, summary: syncSummary
         };
     } catch (err) {
         console.warn("[Cloud Sync Offline/Error]:", err.message);
