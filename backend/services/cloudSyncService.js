@@ -483,7 +483,11 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     console.info(`[Cloud Sync Schedules] Belum ada jadwal sumber. teaching_assignments=${sourceAssignments}.`);
                 }
             }
-            const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
+            const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, {
+                schedules: scheduleRes.rows,
+                source_count: scheduleRows.length,
+                invalid_count: scheduleRelationErrors.length
+            });
             if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
                 const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
                 syncErrors.push(`Jadwal tidak tersinkron sempurna: ${detail}`);
