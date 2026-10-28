@@ -441,7 +441,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                 syncErrors.push(`Sebagian jadwal tidak dapat disinkronkan: ${scheduleRelationErrors.join(' | ').slice(0, 700)}`);
             }
             const scheduleRes = { rows: validScheduleRows };
-            if (scheduleRes.rows.length === 0) {
+            if (scheduleRes.rows.length === 0 && scheduleRelationErrors.length === 0) {
                 const sourceSchedules = Number(scheduleSourceCount.rows[0]?.count || 0);
                 const sourceAssignments = Number(assignmentSourceCount.rows[0]?.count || 0);
                 if (sourceSchedules > 0) {
