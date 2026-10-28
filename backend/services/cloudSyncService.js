@@ -287,6 +287,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
             const memberQuery = (isManual || portalNeedsBootstrap)
                 ? `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
+                          m.gender, m.birth_place, m.birth_date, m.religion, m.address, m.email,
+                          m.nationality, m.child_order, m.siblings_count, m.previous_school, m.admission_date,
+                          m.parent_name, m.parent_phone, m.guardian_name, m.guardian_relation, m.guardian_phone,
+                          m.nuptk, m.nik, m.education, m.employment_status, m.rank_grade, m.tmt,
                           d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
@@ -295,6 +299,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                    ORDER BY m.id ASC`
                  : `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
+                          m.gender, m.birth_place, m.birth_date, m.religion, m.address, m.email,
+                          m.nationality, m.child_order, m.siblings_count, m.previous_school, m.admission_date,
+                          m.parent_name, m.parent_phone, m.guardian_name, m.guardian_relation, m.guardian_phone,
+                          m.nuptk, m.nik, m.education, m.employment_status, m.rank_grade, m.tmt,
                           d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
