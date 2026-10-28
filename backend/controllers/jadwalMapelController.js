@@ -160,12 +160,19 @@ exports.getSchedules = async (req, res) => {
                 ta.teacher_id, teacher.full_name AS teacher_name,
                 ta.division_id, d.name AS division_name,
                 ta.subject_id, s.name AS subject_name, s.code AS subject_code,
-                ta.academic_year, ta.semester
+                ta.academic_year, ta.semester,
+                CASE
+                    WHEN ta.id IS NULL THEN 'ASSIGNMENT_MISSING'
+                    WHEN teacher.id IS NULL THEN 'TEACHER_MISSING'
+                    WHEN d.id IS NULL THEN 'DIVISION_MISSING'
+                    WHEN s.id IS NULL THEN 'SUBJECT_MISSING'
+                    ELSE 'OK'
+                END AS relation_status
             FROM teaching_schedules ts
-            JOIN teaching_assignments ta ON ta.id = ts.assignment_id
-            JOIN members teacher ON teacher.id = ta.teacher_id
-            JOIN divisions d ON d.id = ta.division_id
-            JOIN subjects s ON s.id = ta.subject_id
+            LEFT JOIN teaching_assignments ta ON ta.id = ts.assignment_id
+            LEFT JOIN members teacher ON teacher.id = ta.teacher_id
+            LEFT JOIN divisions d ON d.id = ta.division_id
+            LEFT JOIN subjects s ON s.id = ta.subject_id
             ORDER BY
                 CASE ts.day_of_week
                     WHEN 'Senin' THEN 1 WHEN 'Selasa' THEN 2
