@@ -414,8 +414,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                         const diagnosticRes = await pool.query(`
                             SELECT ts.id AS schedule_id, ts.assignment_id,
                                    ta.id AS matched_assignment_id, ta.teacher_id, teacher.id AS matched_teacher_id,
-                                   ta.division_id, d.id AS matched_division_id,
-                                   ta.subject_id, s.id AS matched_subject_id
+                                   teacher.identity_number AS teacher_identity_number,
+                                   teacher.identity_reference AS teacher_identity_reference,
+                                   ta.division_id, d.id AS matched_division_id, d.name AS division_name,
+                                   ta.subject_id, s.id AS matched_subject_id, s.name AS subject_name
                             FROM teaching_schedules ts
                             LEFT JOIN teaching_assignments ta ON ta.id = ts.assignment_id
                             LEFT JOIN members teacher ON teacher.id = ta.teacher_id
@@ -423,6 +425,7 @@ const performCloudSync = async (pool, io, isManual = false) => {
                             LEFT JOIN subjects s ON s.id = ta.subject_id
                             ORDER BY ts.id ASC
                         `);
+                        const relationAudit = [];
                         for (const row of diagnosticRes.rows || []) {
                             const missing = [];
                             if (!row.matched_assignment_id) missing.push(`assignment_id=${row.assignment_id} tidak ditemukan`);
@@ -431,8 +434,11 @@ const performCloudSync = async (pool, io, isManual = false) => {
                                 if (!row.matched_division_id) missing.push(`division_id=${row.division_id} tidak ditemukan di divisions`);
                                 if (!row.matched_subject_id) missing.push(`subject_id=${row.subject_id} tidak ditemukan di subjects`);
                             }
-                            console.warn(`[Cloud Sync Schedules Audit] schedule_id=${row.schedule_id}; ${missing.length ? missing.join('; ') : 'relasi dasar ada; periksa nilai identitas/format data'}`);
+                            const detail = missing.length ? missing.join('; ') : `relasi ID ditemukan tetapi join jadwal kosong; guru identity_number=${row.teacher_identity_number || '-'}, identity_reference=${row.teacher_identity_reference || '-'}, kelas=${row.division_name || '-'}, mapel=${row.subject_name || '-'}`;
+                            relationAudit.push(`jadwal ${row.schedule_id}: ${detail}`);
+                            console.warn(`[Cloud Sync Schedules Audit] schedule_id=${row.schedule_id}; ${detail}`);
                         }
+                        if (relationAudit.length) syncErrors.push(`Rincian relasi jadwal: ${relationAudit.join(' | ').slice(0, 700)}`);
                     } catch (diagnosticError) {
                         console.warn('[Cloud Sync Schedules Audit] Diagnosis relasi gagal:', diagnosticError.message);
                     }
