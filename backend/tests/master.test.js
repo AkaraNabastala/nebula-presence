@@ -8,6 +8,7 @@ describe('Master Data (Anggota & Divisi) Tests', () => {
     let token = '';
     let memberId = '';
     let divisionId = '';
+    const testIdentity = `TEST-${Date.now()}`;
 
     beforeAll(async () => {
         await initSystem();
@@ -64,7 +65,7 @@ describe('Master Data (Anggota & Divisi) Tests', () => {
             .post('/api/members')
             .set('Cookie', [`auth_token=${token}`])
             .send({
-                identity_number: '123456',
+                identity_number: testIdentity,
                 full_name: 'Budi Santoso',
                 role: 'member',
                 rfid_code: 'AABBCCDD',
@@ -80,7 +81,7 @@ describe('Master Data (Anggota & Divisi) Tests', () => {
             .post('/api/members')
             .set('Cookie', [`auth_token=${token}`])
             .send({
-                identity_number: '123456', // Sama dengan sebelumnya
+                identity_number: testIdentity, // Sama dengan sebelumnya
                 full_name: 'Andi Mawar',
                 role: 'member'
             });
@@ -98,7 +99,7 @@ describe('Master Data (Anggota & Divisi) Tests', () => {
         expect(res.body.data.length).toBeGreaterThan(0);
         
         // Simpan ID member untuk update/delete
-        const member = res.body.data.find(m => m.identity_number === '123456');
+        const member = res.body.data.find(m => m.identity_number === testIdentity);
         expect(member).toBeDefined();
         memberId = member.id;
         expect(member.full_name).toBe('Budi Santoso');
@@ -109,7 +110,7 @@ describe('Master Data (Anggota & Divisi) Tests', () => {
             .put(`/api/members/${memberId}`)
             .set('Cookie', [`auth_token=${token}`])
             .send({
-                identity_number: '123456',
+                identity_number: testIdentity,
                 full_name: 'Budi Santoso Update',
                 role: 'member',
                 rfid_code: 'NEW_RFID',

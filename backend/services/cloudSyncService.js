@@ -287,6 +287,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
             const memberQuery = (isManual || portalNeedsBootstrap)
                 ? `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
+                          m.gender, m.birth_place, m.birth_date, m.religion, m.address, m.email,
+                          m.nationality, m.child_order, m.siblings_count, m.previous_school, m.admission_date,
+                          m.parent_name, m.parent_phone, m.guardian_name, m.guardian_relation, m.guardian_phone,
+                          m.nuptk, m.nik, m.education, m.employment_status, m.rank_grade, m.tmt,
                           d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
@@ -295,6 +299,10 @@ const performCloudSync = async (pool, io, isManual = false) => {
                    ORDER BY m.id ASC`
                  : `SELECT m.id, m.sync_id, m.identity_number as nipd, m.identity_reference as nisn,
                           m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, m.telegram_chat_id,
+                          m.gender, m.birth_place, m.birth_date, m.religion, m.address, m.email,
+                          m.nationality, m.child_order, m.siblings_count, m.previous_school, m.admission_date,
+                          m.parent_name, m.parent_phone, m.guardian_name, m.guardian_relation, m.guardian_phone,
+                          m.nuptk, m.nik, m.education, m.employment_status, m.rank_grade, m.tmt,
                           d.name as division_name, d.supervisor_name, ${credentialFields}
                    FROM members m
                    LEFT JOIN divisions d ON m.division_id = d.id
@@ -391,20 +399,49 @@ const performCloudSync = async (pool, io, isManual = false) => {
             // COUNT(*) AS count is portable across SQLite and PostgreSQL adapters.
             const scheduleSourceCount = await pool.query('SELECT COUNT(*) AS count FROM teaching_schedules');
             const assignmentSourceCount = await pool.query('SELECT COUNT(*) AS count FROM teaching_assignments');
-            const scheduleRes = await pool.query(`
+            const scheduleQuery = await pool.query(`
                 SELECT ts.id, ts.assignment_id, ts.day_of_week, ts.start_time, ts.end_time, ts.is_active,
+                       ta.id AS matched_assignment_id, ta.teacher_id, teacher.id AS matched_teacher_id,
                        teacher.identity_number AS teacher_identity_number,
                        teacher.identity_reference AS teacher_identity_reference,
-                       d.name AS division_name, s.name AS subject_name, s.code AS subject_code,
+                       ta.division_id, d.id AS matched_division_id, d.name AS division_name,
+                       ta.subject_id, s.id AS matched_subject_id, s.name AS subject_name, s.code AS subject_code,
                        ta.academic_year, ta.semester
                 FROM teaching_schedules ts
-                JOIN teaching_assignments ta ON ta.id = ts.assignment_id
-                JOIN members teacher ON teacher.id = ta.teacher_id
-                JOIN divisions d ON d.id = ta.division_id
-                JOIN subjects s ON s.id = ta.subject_id
+                LEFT JOIN teaching_assignments ta ON ta.id = ts.assignment_id
+                LEFT JOIN members teacher ON teacher.id = ta.teacher_id
+                LEFT JOIN divisions d ON d.id = ta.division_id
+                LEFT JOIN subjects s ON s.id = ta.subject_id
                 ORDER BY ts.id ASC
             `);
-            if (scheduleRes.rows.length === 0) {
+            const scheduleRelationErrors = [];
+            const scheduleRows = scheduleQuery.rows || [];
+            const validScheduleRows = scheduleRows.filter((row) => {
+                const missing = [];
+                if (!row.matched_assignment_id) missing.push(`assignment_id=${row.assignment_id} tidak ditemukan`);
+                else {
+                    if (!row.matched_teacher_id) missing.push(`teacher_id=${row.teacher_id} tidak ditemukan di members`);
+                    if (!row.matched_division_id) missing.push(`division_id=${row.division_id} tidak ditemukan di divisions`);
+                    if (!row.matched_subject_id) missing.push(`subject_id=${row.subject_id} tidak ditemukan di subjects`);
+                    if (!String(row.teacher_identity_number || '').trim() && !String(row.teacher_identity_reference || '').trim()) {
+                        missing.push('guru tidak memiliki NIP/NISN/NIK identitas untuk dipetakan ke Portal');
+                    }
+                }
+                if (!String(row.division_name || '').trim()) missing.push('nama kelas kosong');
+                if (!String(row.subject_name || '').trim()) missing.push('nama mata pelajaran kosong');
+                if (missing.length) {
+                    const detail = `jadwal ${row.id}: ${missing.join('; ')}`;
+                    scheduleRelationErrors.push(detail);
+                    console.warn(`[Cloud Sync Schedules Audit] ${detail}`);
+                    return false;
+                }
+                return true;
+            });
+            if (scheduleRelationErrors.length) {
+                syncErrors.push(`Sebagian jadwal tidak dapat disinkronkan: ${scheduleRelationErrors.join(' | ').slice(0, 700)}`);
+            }
+            const scheduleRes = { rows: validScheduleRows };
+            if (scheduleRes.rows.length === 0 && scheduleRelationErrors.length === 0) {
                 const sourceSchedules = Number(scheduleSourceCount.rows[0]?.count || 0);
                 const sourceAssignments = Number(assignmentSourceCount.rows[0]?.count || 0);
                 if (sourceSchedules > 0) {
@@ -446,7 +483,11 @@ const performCloudSync = async (pool, io, isManual = false) => {
                     console.info(`[Cloud Sync Schedules] Belum ada jadwal sumber. teaching_assignments=${sourceAssignments}.`);
                 }
             }
-            const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, { schedules: scheduleRes.rows });
+            const schedulePush = await makeSyncRequest(`${syncBaseUrl}/push-teaching-schedules`, { method: 'POST', headers: { 'Authorization': `Bearer ${syncToken}` } }, {
+                schedules: scheduleRes.rows,
+                source_count: scheduleRows.length,
+                invalid_count: scheduleRelationErrors.length
+            });
             if (schedulePush.status !== 200 || !schedulePush.data?.success || Number(schedulePush.data?.skipped || 0) > 0) {
                 const detail = schedulePush.data?.message || `HTTP ${schedulePush.status}`;
                 syncErrors.push(`Jadwal tidak tersinkron sempurna: ${detail}`);

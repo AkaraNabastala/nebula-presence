@@ -66,7 +66,11 @@ exports.getAllMembers = async (req, res) => {
                    m.rfid_code, m.rfid_code AS kode_rfid,
                    m.photo, m.photo AS foto,
                    m.phone_number, m.phone_number AS nomor_telepon,
-                   m.telegram_chat_id,
+                   m.telegram_chat_id, m.gender, m.birth_place, m.birth_date, m.religion,
+                   m.address, m.email, m.nationality, m.child_order, m.siblings_count,
+                   m.previous_school, m.admission_date, m.parent_name, m.parent_phone,
+                   m.guardian_name, m.guardian_relation, m.guardian_phone,
+                   m.nuptk, m.nik, m.education, m.employment_status, m.rank_grade, m.tmt,
                    m.face_descriptor,
                    d.name AS division_name, d.name AS kelas 
             FROM members m 
@@ -130,8 +134,27 @@ exports.createMember = async (req, res) => {
         }
 
         await client.query(
-            'INSERT INTO members (identity_number, identity_reference, full_name, role, division_id, rfid_code, photo, face_descriptor, phone_number, telegram_chat_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-            [String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''), role, division_id, String(rfid_code || '').trim(), photo, face_descriptor, String(phone_number || '').trim(), String(telegram_chat_id || '').trim()]
+            `INSERT INTO members (
+                identity_number, identity_reference, full_name, role, division_id, rfid_code, photo, face_descriptor,
+                phone_number, telegram_chat_id, gender, birth_place, birth_date, religion, address, email,
+                nationality, child_order, siblings_count, previous_school, admission_date,
+                parent_name, parent_phone, guardian_name, guardian_relation, guardian_phone,
+                nuptk, nik, education, employment_status, rank_grade, tmt
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)`,
+            [
+                String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''), role,
+                division_id, String(rfid_code || '').trim(), photo, face_descriptor,
+                String(phone_number || '').trim(), String(telegram_chat_id || '').trim(),
+                req.body.gender || null, req.body.birth_place || null, req.body.birth_date || null,
+                req.body.religion || null, req.body.address || null, req.body.email || null,
+                req.body.nationality || null, req.body.child_order === '' || req.body.child_order == null ? null : Number(req.body.child_order),
+                req.body.siblings_count === '' || req.body.siblings_count == null ? null : Number(req.body.siblings_count),
+                req.body.previous_school || null, req.body.admission_date || null,
+                req.body.parent_name || null, req.body.parent_phone || null, req.body.guardian_name || null,
+                req.body.guardian_relation || null, req.body.guardian_phone || null,
+                req.body.nuptk || null, req.body.nik || null, req.body.education || null,
+                req.body.employment_status || null, req.body.rank_grade || null, req.body.tmt || null
+            ]
         );
 
         await client.query('COMMIT');
@@ -174,9 +197,35 @@ exports.updateMember = async (req, res) => {
             }
         }
 
+        const biodataValues = [
+            req.body.gender, req.body.birth_place, req.body.birth_date === '' ? null : req.body.birth_date, req.body.religion, req.body.address,
+            req.body.email, req.body.nationality, req.body.child_order === '' ? null : req.body.child_order,
+            req.body.siblings_count === '' ? null : req.body.siblings_count, req.body.previous_school,
+            req.body.admission_date === '' ? null : req.body.admission_date, req.body.parent_name, req.body.parent_phone, req.body.guardian_name,
+            req.body.guardian_relation, req.body.guardian_phone, req.body.nuptk, req.body.nik,
+            req.body.education, req.body.employment_status, req.body.rank_grade, req.body.tmt === '' ? null : req.body.tmt
+        ];
         await pool.query(
-            'UPDATE members SET identity_number=$1, identity_reference=$2, full_name=$3, role=$4, division_id=$5, rfid_code=$6, photo=$7, face_descriptor=COALESCE($8, face_descriptor), phone_number=COALESCE($9, phone_number), telegram_chat_id=COALESCE($10, telegram_chat_id), is_synced=0 WHERE id=$11',
-            [String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''), role, division_id, String(rfid_code || '').trim(), photo, face_descriptor, phone_number, telegram_chat_id, req.params.id]
+            `UPDATE members SET
+                identity_number=$1, identity_reference=$2, full_name=$3, role=$4, division_id=$5,
+                rfid_code=$6, photo=$7, face_descriptor=COALESCE($8, face_descriptor),
+                phone_number=COALESCE($9, phone_number), telegram_chat_id=COALESCE($10, telegram_chat_id),
+                gender=COALESCE($11, gender), birth_place=COALESCE($12, birth_place),
+                birth_date=COALESCE($13, birth_date), religion=COALESCE($14, religion),
+                address=COALESCE($15, address), email=COALESCE($16, email),
+                nationality=COALESCE($17, nationality), child_order=COALESCE($18, child_order),
+                siblings_count=COALESCE($19, siblings_count), previous_school=COALESCE($20, previous_school),
+                admission_date=COALESCE($21, admission_date), parent_name=COALESCE($22, parent_name),
+                parent_phone=COALESCE($23, parent_phone), guardian_name=COALESCE($24, guardian_name),
+                guardian_relation=COALESCE($25, guardian_relation), guardian_phone=COALESCE($26, guardian_phone),
+                nuptk=COALESCE($27, nuptk), nik=COALESCE($28, nik), education=COALESCE($29, education),
+                employment_status=COALESCE($30, employment_status), rank_grade=COALESCE($31, rank_grade),
+                tmt=COALESCE($32, tmt), is_synced=0 WHERE id=$33`,
+            [
+                String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''),
+                role, division_id, String(rfid_code || '').trim(), photo, face_descriptor, phone_number,
+                telegram_chat_id, ...biodataValues, req.params.id
+            ]
         );
         res.json({ success: true });
     } catch (e) {

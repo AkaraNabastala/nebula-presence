@@ -50,7 +50,11 @@ const Students = () => {
 
     const [formData, setFormData] = useState({
         nipd: '', nisn: '', nama_lengkap: '', role: 'siswa', kelas: '', kode_rfid: '', foto: '', face_descriptor: '',
-        nomor_telepon: '', telegram_chat_id: ''
+        nomor_telepon: '', telegram_chat_id: '', gender: '', birth_place: '', birth_date: '',
+        religion: '', address: '', email: '', nationality: '', child_order: '', siblings_count: '',
+        previous_school: '', admission_date: '', parent_name: '', parent_phone: '',
+        guardian_name: '', guardian_relation: '', guardian_phone: '', nuptk: '', nik: '',
+        education: '', employment_status: '', rank_grade: '', tmt: ''
     });
 
     const fileInputExcelRef = useRef(null);
@@ -343,7 +347,16 @@ const Students = () => {
                 foto: student.foto || student.photo || '',
                 face_descriptor: student.face_descriptor || '',
                 nomor_telepon: student.nomor_telepon || student.phone_number || '',
-                telegram_chat_id: student.telegram_chat_id || ''
+                telegram_chat_id: student.telegram_chat_id || '',
+                gender: student.gender || '', birth_place: student.birth_place || '', birth_date: student.birth_date ? String(student.birth_date).slice(0, 10) : '',
+                religion: student.religion || '', address: student.address || '', email: student.email || '',
+                nationality: student.nationality || '', child_order: student.child_order ?? '', siblings_count: student.siblings_count ?? '',
+                previous_school: student.previous_school || '', admission_date: student.admission_date ? String(student.admission_date).slice(0, 10) : '',
+                parent_name: student.parent_name || '', parent_phone: student.parent_phone || '',
+                guardian_name: student.guardian_name || '', guardian_relation: student.guardian_relation || '',
+                guardian_phone: student.guardian_phone || '', nuptk: student.nuptk || '', nik: student.nik || '',
+                education: student.education || '', employment_status: student.employment_status || '',
+                rank_grade: student.rank_grade || '', tmt: student.tmt ? String(student.tmt).slice(0, 10) : ''
             });
             setEditId(student.id);
             setIsEditMode(true);
@@ -351,7 +364,11 @@ const Students = () => {
         } else {
             setFormData({
                 nipd: '', nisn: '', nama_lengkap: '', role: isEdu ? 'siswa' : 'karyawan', kelas: '', kode_rfid: '', foto: '', face_descriptor: '',
-                nomor_telepon: '', telegram_chat_id: ''
+                nomor_telepon: '', telegram_chat_id: '', gender: '', birth_place: '', birth_date: '',
+                religion: '', address: '', email: '', nationality: '', child_order: '', siblings_count: '',
+                previous_school: '', admission_date: '', parent_name: '', parent_phone: '',
+                guardian_name: '', guardian_relation: '', guardian_phone: '', nuptk: '', nik: '',
+                education: '', employment_status: '', rank_grade: '', tmt: ''
             });
             setIsEditMode(false);
             setIsManualClass(false);
@@ -364,6 +381,13 @@ const Students = () => {
         setBtnLoading(true);
         try {
             const payload = { ...formData };
+            ['birth_date', 'admission_date', 'tmt'].forEach((key) => {
+                if (!payload[key]) payload[key] = null;
+            });
+            ['child_order', 'siblings_count'].forEach((key) => {
+                if (payload[key] === '') payload[key] = null;
+                else if (payload[key] != null) payload[key] = Number(payload[key]);
+            });
             if (['QR_CODE', 'BARCODE', 'WAJAH', 'MANUAL'].includes(appConfig.metode_absensi)) {
                 if (!payload.kode_rfid) {
                     payload.kode_rfid = formData.nisn ? `${formData.nipd}${formData.nisn}` : formData.nipd;
@@ -844,6 +868,50 @@ const Students = () => {
                                             </label>
                                             <input id="student-telegram" name="telegram_chat_id" value={formData.telegram_chat_id || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl outline-none focus:border-indigo-500 transition-all bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-200" placeholder="Contoh: 123456789" />
                                         </div>
+                                    </div>
+
+                                    {/* BIODATA PRIBADI DAN KELUARGA */}
+                                    <div className="mt-2 border-t border-slate-200 dark:border-slate-700 pt-6 space-y-4">
+                                        <div>
+                                            <h4 className="text-sm font-black text-slate-800 dark:text-white">Biodata Lengkap</h4>
+                                            <p className="text-xs text-slate-500 mt-1">Data tambahan bersifat opsional dan dapat dilengkapi bertahap.</p>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Jenis Kelamin</label>
+                                                <select name="gender" value={formData.gender || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white">
+                                                    <option value="">Belum diisi</option><option value="L">Laki-laki</option><option value="P">Perempuan</option>
+                                                </select>
+                                            </div>
+                                            <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Agama</label><select name="religion" value={formData.religion || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white"><option value="">Belum diisi</option>{['Islam','Kristen','Katolik','Hindu','Buddha','Konghucu','Lainnya'].map(v => <option key={v} value={v}>{v}</option>)}</select></div>
+                                            <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Tempat Lahir</label><input name="birth_place" value={formData.birth_place || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white" placeholder="Kota/kabupaten kelahiran" /></div>
+                                            <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Tanggal Lahir</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                            <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Email</label><input type="email" name="email" value={formData.email || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white" placeholder="nama@sekolah.id" /></div>
+                                            <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Kewarganegaraan</label><input name="nationality" value={formData.nationality || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white" placeholder="Indonesia" /></div>
+                                            <div className="sm:col-span-2"><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Alamat Lengkap</label><textarea name="address" value={formData.address || ''} onChange={handleInputChange} rows={2} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm dark:text-white" placeholder="Jalan, RT/RW, desa/kelurahan, kecamatan, kabupaten/kota" /></div>
+                                        </div>
+                                        {formData.role === 'guru' ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">NUPTK</label><input name="nuptk" value={formData.nuptk || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">NIK</label><input name="nik" value={formData.nik || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Pendidikan Terakhir</label><input name="education" value={formData.education || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" placeholder="S1 Pendidikan ..." /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Status Kepegawaian</label><input name="employment_status" value={formData.employment_status || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" placeholder="PNS / PPPK / GTY / GTT" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Pangkat / Golongan</label><input name="rank_grade" value={formData.rank_grade || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">TMT / Mulai Bertugas</label><input type="date" name="tmt" value={formData.tmt || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Anak Ke-</label><input type="number" min="1" name="child_order" value={formData.child_order ?? ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Jumlah Saudara Kandung</label><input type="number" min="0" name="siblings_count" value={formData.siblings_count ?? ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Asal Sekolah</label><input name="previous_school" value={formData.previous_school || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Tanggal Masuk</label><input type="date" name="admission_date" value={formData.admission_date || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Nama Orang Tua</label><input name="parent_name" value={formData.parent_name || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">HP Orang Tua</label><input name="parent_phone" value={formData.parent_phone || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Nama Wali Alternatif</label><input name="guardian_name" value={formData.guardian_name || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">Hubungan Wali</label><input name="guardian_relation" value={formData.guardian_relation || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                                <div><label className="text-[11px] font-extrabold text-slate-500 mb-1.5 block uppercase tracking-widest">HP Wali Alternatif</label><input name="guardian_phone" value={formData.guardian_phone || ''} onChange={handleInputChange} className="w-full border-2 border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-800 text-sm dark:text-white" /></div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* PILIHAN KELAS */}

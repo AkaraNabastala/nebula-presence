@@ -121,8 +121,10 @@ export default function TeachingSchedules() {
     item => String(item.id) === String(selectedClass)
   );
 
+  const orphanedSchedules = schedules.filter(item => item.relation_status && item.relation_status !== 'OK');
   const visibleSchedules = schedules
     .filter(item =>
+      (!item.relation_status || item.relation_status === 'OK') &&
       String(item.division_id) === String(selectedClass) &&
       item.day_of_week === selectedDay
     )
@@ -194,7 +196,7 @@ export default function TeachingSchedules() {
   };
 
   const edit = item => {
-    setSelectedClass(String(item.division_id));
+    setSelectedClass(String(item.division_id ?? selectedClass ?? ''));
     setSelectedDay(DAYS.includes(item.day_of_week) ? item.day_of_week : 'Senin');
 
     setForm({
@@ -528,6 +530,29 @@ export default function TeachingSchedules() {
           </div>
         </div>
       </section>
+
+      {orphanedSchedules.length > 0 && (
+        <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-extrabold text-amber-950 dark:text-amber-200">Jadwal dengan relasi bermasalah ({orphanedSchedules.length})</h2>
+              <p className="mt-1 text-xs leading-relaxed text-amber-900/80 dark:text-amber-200/80">Jadwal ini sebelumnya tersembunyi karena assignment, guru, kelas, atau mata pelajaran tidak ditemukan. Gunakan tombol Perbaiki untuk memilih ulang kelas, guru, dan mata pelajaran. Jadwal lama tidak dihapus.</p>
+              <div className="mt-3 space-y-2">
+                {orphanedSchedules.map(item => (
+                  <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-white p-3 dark:border-amber-900/50 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">Jadwal #{item.id} · {item.start_time || '--:--'}–{item.end_time || '--:--'}</p>
+                      <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">{item.relation_status.replaceAll('_', ' ')} · {item.subject_name || 'Mata pelajaran tidak ditemukan'} · {item.teacher_name || 'Guru tidak ditemukan'}</p>
+                    </div>
+                    <button type="button" onClick={() => edit(item)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-700"><Pencil size={14} /> Perbaiki Relasi</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
