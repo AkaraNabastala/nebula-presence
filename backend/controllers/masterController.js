@@ -198,12 +198,12 @@ exports.updateMember = async (req, res) => {
         }
 
         const biodataValues = [
-            req.body.gender, req.body.birth_place, req.body.birth_date, req.body.religion, req.body.address,
+            req.body.gender, req.body.birth_place, req.body.birth_date === '' ? null : req.body.birth_date, req.body.religion, req.body.address,
             req.body.email, req.body.nationality, req.body.child_order === '' ? null : req.body.child_order,
             req.body.siblings_count === '' ? null : req.body.siblings_count, req.body.previous_school,
-            req.body.admission_date, req.body.parent_name, req.body.parent_phone, req.body.guardian_name,
+            req.body.admission_date === '' ? null : req.body.admission_date, req.body.parent_name, req.body.parent_phone, req.body.guardian_name,
             req.body.guardian_relation, req.body.guardian_phone, req.body.nuptk, req.body.nik,
-            req.body.education, req.body.employment_status, req.body.rank_grade, req.body.tmt
+            req.body.education, req.body.employment_status, req.body.rank_grade, req.body.tmt === '' ? null : req.body.tmt
         ];
         await pool.query(
             `UPDATE members SET
