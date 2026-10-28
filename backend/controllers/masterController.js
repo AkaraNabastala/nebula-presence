@@ -140,7 +140,7 @@ exports.createMember = async (req, res) => {
                 nationality, child_order, siblings_count, previous_school, admission_date,
                 parent_name, parent_phone, guardian_name, guardian_relation, guardian_phone,
                 nuptk, nik, education, employment_status, rank_grade, tmt
-            ) VALUES (${Array.from({ length: 32 }, (_, i) => `${i + 1}`).join(', ')})`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)`,
             [
                 String(identity_number || '').trim(), String(identity_reference || '').trim(), String(full_name || ''), role,
                 division_id, String(rfid_code || '').trim(), photo, face_descriptor,
