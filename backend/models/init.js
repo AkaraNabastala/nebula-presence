@@ -26,6 +26,21 @@ const initSystem = async () => {
             try { await client.query(`ALTER TABLE members ADD COLUMN face_descriptor TEXT;`); } catch (e) { }
             try { await client.query(`ALTER TABLE members ADD COLUMN phone_number VARCHAR(50);`); } catch (e) { }
             try { await client.query(`ALTER TABLE members ADD COLUMN telegram_chat_id VARCHAR(50);`); } catch (e) { }
+
+            // Biodata siswa dan guru yang lebih lengkap; migrasi aman untuk database lama.
+            const biodataColumns = {
+                gender: 'VARCHAR(20)', birth_place: 'VARCHAR(120)', birth_date: 'DATE',
+                religion: 'VARCHAR(40)', address: 'TEXT', email: 'VARCHAR(180)',
+                nationality: 'VARCHAR(80)', child_order: 'INTEGER', siblings_count: 'INTEGER',
+                previous_school: 'VARCHAR(180)', admission_date: 'DATE',
+                parent_name: 'VARCHAR(150)', parent_phone: 'VARCHAR(50)',
+                guardian_name: 'VARCHAR(150)', guardian_relation: 'VARCHAR(80)', guardian_phone: 'VARCHAR(50)',
+                nuptk: 'VARCHAR(50)', nik: 'VARCHAR(50)', education: 'VARCHAR(120)',
+                employment_status: 'VARCHAR(80)', rank_grade: 'VARCHAR(80)', tmt: 'DATE'
+            };
+            for (const [column, type] of Object.entries(biodataColumns)) {
+                try { await client.query(`ALTER TABLE members ADD COLUMN ${column} ${type};`); } catch (e) { }
+            }
             try { await client.query(`ALTER TABLE members ADD COLUMN sync_id TEXT;`); } catch (e) { }
             try { await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_members_sync_id ON members (sync_id);`); } catch (e) { }
             try { await client.query(`ALTER TABLE members ADD COLUMN is_synced INTEGER DEFAULT 0;`); } catch (e) { }
